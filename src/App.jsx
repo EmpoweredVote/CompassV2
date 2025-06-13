@@ -7,12 +7,14 @@ import Home from "./pages/Home";
 import Library from "./pages/Library";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Unauthorized from "./pages/Unauthorized";
+import { Quiz } from "./pages/Quiz";
 
 function App() {
   return (
     <>
       <Routes>
         <Route path="/" element={<Login />} />
+        <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route
           path="/home"
@@ -27,6 +29,14 @@ function App() {
           element={
             <ProtectedRoute>
               <Library />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/quiz"
+          element={
+            <ProtectedRoute>
+              <Quiz />
             </ProtectedRoute>
           }
         />

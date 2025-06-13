@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
+import { useCompass } from "../components/CompassContext";
+import { useNavigate } from "react-router";
 
-function Library({ onContinue }) {
-  const [topics, setTopics] = useState([]);
-  const [selectedTopics, setSelectedTopics] = useState([]);
+function Library() {
+  const { topics, setTopics, selectedTopics, setSelectedTopics } = useCompass();
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetch("http://localhost:5050/compass/topics", {
@@ -51,7 +53,7 @@ function Library({ onContinue }) {
           </button>
         ))}
       </div>
-      <button onClick={onContinue}>Continue</button>
+      <button onClick={() => navigate("/quiz")}>Continue</button>
     </>
   );
 }
