@@ -68,34 +68,60 @@ export function Quiz() {
   };
 
   return (
-    <div>
-      <div>
-        <h1>{currentTopic.Title}</h1>
+    <div className="min-h-screen flex flex-col justify-between px-4 py-8 sm:px-8 md:px-16 lg:px-32">
+      {/* Header */}
+      <div className="mb-6">
+        <h1 className="text-2xl md:text-3xl font-semibold mb-2 text-center">
+          {currentTopic.Title}
+        </h1>
+        <p className="text-lg md:text-lg font-semibold mb-2 text-center text-gray-600">
+          {currentIndex + 1} / {selectedTopics.length}
+        </p>
       </div>
-      <div>
-        {currentTopic.stances.map((stance) => {
-          return (
-            <button
-              key={stance.ID}
-              onClick={() => selectAnswer(stance.Value)}
-              style={{
-                backgroundColor:
-                  selectedAnswer == stance.Value ? "#32d15d" : "#f9f9f9",
-              }}
-            >
-              {stance.Value}. {stance.Text}
-            </button>
-          );
-        })}
+
+      {/* Stances */}
+      <div className="flex flex-col gap-3">
+        {currentTopic.stances.map((stance) => (
+          <button
+            key={stance.ID}
+            onClick={() => selectAnswer(stance.Value)}
+            className={`text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm sm:text-base font-medium
+              ${
+                selectedAnswer === stance.Value
+                  ? "border-green-600 border-2"
+                  : "bg-white text-black border-2 border-gray-300 hover:bg-gray-50"
+              }`}
+          >
+            {stance.Value}. {stance.Text}
+          </button>
+        ))}
       </div>
-      <div>
+
+      {/* Navigation Buttons */}
+      <div className="flex justify-between items-center mt-10">
         <button
           onClick={handleBack}
-          disabled={currentIndex == 0 ? true : false}
+          disabled={currentIndex === 0}
+          className={`px-6 py-2 rounded-full border text-sm font-medium transition-colors duration-200
+            ${
+              currentIndex === 0
+                ? "bg-gray-200 text-gray-400 border-gray-200 cursor-not-allowed"
+                : "bg-white text-black border-black hover:bg-gray-100"
+            }`}
         >
           Back
         </button>
-        <button onClick={handleNext} disabled={selectedAnswer ? false : true}>
+
+        <button
+          onClick={handleNext}
+          disabled={!selectedAnswer}
+          className={`px-6 py-2 rounded-full border text-sm font-medium transition-colors duration-200
+            ${
+              selectedAnswer
+                ? "bg-black text-white border-black hover:opacity-90"
+                : "bg-gray-200 text-gray-400 border-gray-200 cursor-not-allowed"
+            }`}
+        >
           {isLastQuestion ? "Finish" : "Next"}
         </button>
       </div>

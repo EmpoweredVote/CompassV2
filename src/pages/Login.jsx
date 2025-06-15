@@ -29,7 +29,7 @@ function Login() {
           throw new Error("HTTP error " + response.status);
         }
       })
-      .then(() => navigate("/home"))
+      .then(() => navigate("/library"))
       .catch((error) => {
         console.error("Error during HTTP request:", error);
       });
@@ -49,29 +49,46 @@ function Login() {
   };
 
   return (
-    <>
-      <form onSubmit={handleSubmit}>
-        <label>
-          Username:
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+      <form
+        onSubmit={handleSubmit}
+        className="bg-white p-8 rounded-xl shadow-md w-full max-w-sm"
+      >
+        <h2 className="text-2xl font-semibold mb-6 text-center">Login</h2>
+        <div className="mb-4">
+          <label className="block mb-1 text-sm font-medium text-gray-700">
+            Username
+          </label>
           <input
             type="text"
             name="username"
-            value={username || ""}
-            onChange={handleChange}
+            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            required
           />
-        </label>
-        <label>
-          Password:
+        </div>
+        <div className="mb-6">
+          <label className="block mb-1 text-sm font-medium text-gray-700">
+            Password
+          </label>
           <input
             type="password"
             name="password"
-            value={password || ""}
-            onChange={handleChange}
+            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
           />
-        </label>
-        <input type="submit" />
+        </div>
+        <button
+          type="submit"
+          className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-colors font-semibold"
+        >
+          Sign In
+        </button>
       </form>
-    </>
+    </div>
   );
 }
 
