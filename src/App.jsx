@@ -7,6 +7,7 @@ import Library from "./pages/Library";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Unauthorized from "./pages/Unauthorized";
 import { Quiz } from "./pages/Quiz";
+import Layout from "./components/Layout";
 
 function App() {
   return (
@@ -27,7 +28,9 @@ function App() {
           path="/library"
           element={
             <ProtectedRoute>
-              <Library />
+              <Layout>
+                <Library />
+              </Layout>
             </ProtectedRoute>
           }
         />
