@@ -7,6 +7,7 @@ import Library from "./pages/Library";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Unauthorized from "./pages/Unauthorized";
 import { Quiz } from "./pages/Quiz";
+import Compass from "./pages/Compass";
 import Layout from "./components/Layout";
 
 function App() {
@@ -39,6 +40,16 @@ function App() {
           element={
             <ProtectedRoute>
               <Quiz />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/results"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <Compass />
+              </Layout>
             </ProtectedRoute>
           }
         />

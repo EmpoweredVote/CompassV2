@@ -17,7 +17,6 @@ export function Quiz() {
   const currentTopic = topics.find(
     (topic) => topic.ID == selectedTopics[currentIndex]
   );
-  console.log(currentTopic);
 
   const handleNext = () => {
     fetch("http://localhost:5050/compass/answers", {

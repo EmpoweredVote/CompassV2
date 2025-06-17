@@ -1,0 +1,126 @@
+import { useCompass } from "./CompassContext";
+import { useState, useEffect } from "react";
+
+function AddTopicModal({
+  selectedTopics,
+  onAddTopics,
+  onRemoveTopic,
+  onClose,
+}) {
+  const { topics } = useCompass();
+  const [answeredTopicIDs, setAnsweredTopicIDs] = useState([]);
+  const [selected, setSelected] = useState([]);
+  const [hasChanges, setHasChanges] = useState(false);
+
+  useEffect(() => {
+    fetch("http://localhost:5050/compass/answers", {
+      credentials: "include",
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        const ids = data.map((a) => a.topic_id);
+        setAnsweredTopicIDs(ids);
+      });
+  }, []);
+
+  const availableTopics = topics.filter(
+    (t) => answeredTopicIDs.includes(t.ID) && !selectedTopics.includes(t.ID)
+  );
+
+  const selectedTopicObjects = topics.filter((t) =>
+    selectedTopics.includes(t.ID)
+  );
+
+  const toggleSelect = (id) => {
+    setSelected((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+    setHasChanges(true);
+  };
+
+  return (
+    <div className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center z-50">
+      <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
+        <h2 className="text-xl font-semibold mb-4">Manage Topics</h2>
+
+        <div className="space-y-4 max-h-80 overflow-y-auto">
+          {selectedTopicObjects.length > 0 && (
+            <div>
+              <h3 className="text-sm font-medium mb-1 text-gray-700">
+                Currently Selected
+              </h3>
+              {selectedTopicObjects.map((topic) => (
+                <div
+                  key={topic.ID}
+                  className="flex items-center justify-between border rounded px-3 py-2 mb-1 cursor-pointer"
+                >
+                  <span>{topic.ShortTitle}</span>
+                  <button
+                    onClick={() => {
+                      onRemoveTopic(topic.ID);
+                      setHasChanges(true);
+                    }}
+                    className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 cursor-pointer"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div>
+            <h3 className="text-sm font-medium mb-1 text-gray-700">
+              Available to Add
+            </h3>
+            {availableTopics.length > 0 ? (
+              availableTopics.map((topic) => (
+                <div
+                  key={topic.ID}
+                  className="flex items-center justify-between border rounded px-3 py-2 mb-1"
+                >
+                  <span>{topic.ShortTitle}</span>
+                  <button
+                    onClick={() => toggleSelect(topic.ID)}
+                    className={`px-3 py-1 rounded cursor-pointer ${
+                      selected.includes(topic.ID)
+                        ? "bg-black text-white"
+                        : "bg-gray-200"
+                    }`}
+                  >
+                    {selected.includes(topic.ID) ? "Remove" : "Add"}
+                  </button>
+                </div>
+              ))
+            ) : (
+              <p className="text-gray-500 text-sm">
+                No additional topics available.
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 mt-6">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => {
+              onAddTopics(selected);
+              onClose();
+            }}
+            className="px-4 py-2 bg-black text-white rounded hover:bg-opacity-80 cursor-pointer"
+            disabled={!hasChanges}
+          >
+            Done {selected.length ? `(+${selected.length})` : ""}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default AddTopicModal;
