@@ -9,6 +9,7 @@ import Unauthorized from "./pages/Unauthorized";
 import { Quiz } from "./pages/Quiz";
 import Compass from "./pages/Compass";
 import Layout from "./components/Layout";
+import { CompassProvider } from "./components/CompassContext";
 
 function App() {
   return (
@@ -39,7 +40,9 @@ function App() {
           path="/quiz"
           element={
             <ProtectedRoute>
-              <Quiz />
+              <Layout>
+                <Quiz />
+              </Layout>
             </ProtectedRoute>
           }
         />

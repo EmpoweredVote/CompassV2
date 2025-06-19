@@ -3,6 +3,7 @@ import { useRef, useEffect } from "react";
 
 function RadarChart({
   data,
+  compareData = {},
   invertedSpokes = {},
   onToggleInversion,
   onReplaceTopic,
@@ -27,7 +28,9 @@ function RadarChart({
 
   const pointsArr = topics.map(([topic, value], index) => {
     const angle = (2 * Math.PI * index) / numSpokes;
-    const adjusted = invertedSpokes[topic] ? 11 - value : value;
+    //If value === 0 keep it 0, otherwise invert when needed
+    const adjusted =
+      value === 0 ? 0 : invertedSpokes[topic] ? 11 - value : value;
     const r = (adjusted / 10) * radius;
     const x = centerX + r * Math.sin(angle);
     const y = centerY - r * Math.cos(angle);
@@ -37,9 +40,32 @@ function RadarChart({
   const targetPoints = pointsArr.map((p) => p.join(",")).join(" ");
 
   const spring = useSpring({
-    points: targetPoints,
+    to: { points: targetPoints },
+    config: { tension: 300, friction: 30 },
+    immediate: countChanged, // skip tween on add/remove
+    reset: countChanged, // *** ← clears stale interpolator (the fix)
+  });
+
+  let comparePoints = null;
+  if (Object.keys(compareData).length) {
+    const cmpArr = Object.entries(compareData).map(([topic, value], index) => {
+      const angle = (2 * Math.PI * index) / numSpokes;
+      const adjusted =
+        value === 0 ? 0 : invertedSpokes[topic] ? 11 - value : value;
+      const r = (adjusted / 10) * radius;
+      const x = centerX + r * Math.sin(angle);
+      const y = centerY - r * Math.cos(angle);
+      return [x, y];
+    });
+
+    comparePoints = cmpArr.map((p) => p.join(",")).join(" ");
+  }
+
+  const compareSpring = useSpring({
+    to: { points: comparePoints },
     config: { tension: 300, friction: 30 },
     immediate: countChanged,
+    reset: countChanged, // same fix here
   });
 
   const guidePolygons = [];
@@ -122,11 +148,33 @@ function RadarChart({
           points={spring.points}
           style={{
             fill: "rgba(245, 40, 145, 0.4)",
-            stroke: "black",
+            stroke: "rgb(245, 40, 145)",
             strokeWidth: 3,
           }}
         />
       )}
+
+      {comparePoints ? (
+        countChanged ? (
+          <polygon
+            points={comparePoints}
+            style={{
+              fill: "rgba(0,123,255,0.3)",
+              stroke: "rgb(0,123,255)",
+              strokeWidth: 2,
+            }}
+          />
+        ) : (
+          <animated.polygon
+            points={compareSpring.points}
+            style={{
+              fill: "rgba(0,123,255,0.3)",
+              stroke: "rgb(0,123,255)",
+              strokeWidth: 3,
+            }}
+          />
+        )
+      ) : null}
 
       {topics.map(([topic], i) => {
         const angle = (2 * Math.PI * i) / numSpokes;

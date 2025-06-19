@@ -1,23 +1,32 @@
 // CompassContext.jsx
 import { createContext, useContext, useState, useEffect } from "react";
 
+function safeParse(str, fallback) {
+  try {
+    return str ? JSON.parse(str) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 const CompassContext = createContext();
 
 export function CompassProvider({ children }) {
   const [topics, setTopics] = useState([]);
-  const [selectedTopics, setSelectedTopics] = useState([]);
+  const [selectedTopics, setSelected] = useState(
+    () => safeParse(localStorage.getItem("selectedTopics"), []) // <- load once
+  );
   const [categories, setCategories] = useState([]);
 
-  // ✅ Fetch topics on mount (e.g., from your backend)
   useEffect(() => {
-    fetch("http://localhost:5050/compass/topics", {
-      credentials: "include",
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        setTopics(data);
-      });
+    fetch("http://localhost:5050/compass/topics", { credentials: "include" })
+      .then((r) => r.json())
+      .then(setTopics);
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem("selectedTopics", JSON.stringify(selectedTopics));
+  }, [selectedTopics]);
 
   return (
     <CompassContext.Provider
@@ -25,7 +34,7 @@ export function CompassProvider({ children }) {
         topics,
         setTopics,
         selectedTopics,
-        setSelectedTopics,
+        setSelectedTopics: setSelected,
         categories,
         setCategories,
       }}

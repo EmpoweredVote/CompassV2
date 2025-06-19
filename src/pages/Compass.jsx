@@ -2,6 +2,7 @@ import { useCompass } from "../components/CompassContext";
 import RadarChart from "../components/RadarChart";
 import AddTopicModal from "../components/AddTopicModal";
 import ReplaceTopicModal from "../components/ReplaceTopicModal";
+import CompareModal from "../components/CompareModal";
 import { useState, useEffect } from "react";
 
 function Compass() {
@@ -12,29 +13,36 @@ function Compass() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showReplaceModal, setShowReplaceModal] = useState(false);
   const [replacingTopic, setReplacingTopic] = useState(null);
+  const [isCompareModal, setIsCompareModal] = useState(false);
+  const [compareUser, setCompareUser] = useState(null); // {user_id, username}
+  const [compareAnswers, setCompareAnswers] = useState({}); // shortTitle -> value
 
   // Load localStorage on first mount
   useEffect(() => {
-    const savedTopics = localStorage.getItem("selectedTopics");
     const savedInversions = localStorage.getItem("invertedSpokes");
+    const savedUser = localStorage.getItem("compareUser");
 
-    if (savedTopics) setSelectedTopics(JSON.parse(savedTopics));
     if (savedInversions) setInvertedSpokes(JSON.parse(savedInversions));
+    if (savedUser) setCompareUser(JSON.parse(savedUser));
 
     setHasLoadedFromStorage(true);
   }, []);
-
-  // Sync selectedTopics -> localStorage
-  useEffect(() => {
-    if (!hasLoadedFromStorage) return;
-    localStorage.setItem("selectedTopics", JSON.stringify(selectedTopics));
-  }, [selectedTopics, hasLoadedFromStorage]);
 
   // Sync invertedSpokes -> localStorage
   useEffect(() => {
     if (!hasLoadedFromStorage) return;
     localStorage.setItem("invertedSpokes", JSON.stringify(invertedSpokes));
   }, [invertedSpokes, hasLoadedFromStorage]);
+
+  // Sync compare user -> localStorage
+  useEffect(() => {
+    if (!hasLoadedFromStorage) return;
+    if (compareUser) {
+      localStorage.setItem("compareUser", JSON.stringify(compareUser));
+    } else {
+      localStorage.removeItem("compareUser");
+    }
+  }, [compareUser, hasLoadedFromStorage]);
 
   // Keep answers up to date when selectedTopics change
   useEffect(() => {
@@ -97,13 +105,57 @@ function Compass() {
     setReplacingTopic(null);
   };
 
+  useEffect(() => {
+    if (!compareUser || !selectedTopics.length) {
+      setCompareAnswers({});
+      return;
+    }
+
+    fetch("http://localhost:5050/compass/compare", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_id: compareUser.user_id,
+        ids: selectedTopics,
+      }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        const mapped = selectedTopics
+          .map((id) => {
+            const a = data.find((d) => d.topic_id === id);
+            const topic = topics.find((t) => t.ID === id);
+            if (!topic) return null; // skip if topic missing
+            return [topic.ShortTitle, a ? a.value : 0];
+          })
+          .filter(Boolean);
+        setCompareAnswers(Object.fromEntries(mapped));
+      });
+  }, [compareUser, selectedTopics, topics]);
+
   const shouldRenderChart = topics.length && Object.keys(answers).length;
 
   return (
     <div className="flex flex-col items-center gap-6 py-6">
+      {compareUser && (
+        <div className="flex gap-4 items-center">
+          <span className="inline-block w-4 h-4 bg-pink-500/40 border border-pink-500 rounded-sm" />
+          You
+          <span
+            className="inline-block w-4 h-4 bg-blue-500/20 border border-blue-500 rounded-sm"
+            onClick={() => {
+              setCompareUser(null);
+              setCompareAnswers({});
+            }}
+          />
+          {compareUser.username}
+        </div>
+      )}
       {shouldRenderChart ? (
         <RadarChart
           data={answers}
+          compareData={compareAnswers}
           invertedSpokes={invertedSpokes}
           onToggleInversion={(topic) =>
             setInvertedSpokes((prev) => ({
@@ -124,8 +176,25 @@ function Compass() {
         onClick={() => setIsModalOpen(true)}
         className="mt-4 px-6 py-2 bg-black text-white rounded-full hover:bg-opacity-80 transition-all cursor-pointer"
       >
-        Add Topics
+        Edit Topics
       </button>
+
+      <button
+        onClick={() => setIsCompareModal(true)}
+        className="mt-4 px-6 py-2 bg-black text-white rounded-full hover:bg-opacity-80 transition-all cursor-pointer"
+      >
+        Compare
+      </button>
+
+      {isCompareModal && (
+        <CompareModal
+          selectedTopics={selectedTopics}
+          onCompare={(u) => {
+            setCompareUser(u);
+          }}
+          onClose={() => setIsCompareModal(false)}
+        />
+      )}
 
       {isModalOpen && (
         <AddTopicModal

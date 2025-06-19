@@ -62,6 +62,7 @@ function Login() {
           <input
             type="text"
             name="username"
+            autoComplete="off"
             className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
@@ -83,9 +84,15 @@ function Login() {
         </div>
         <button
           type="submit"
-          className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-colors font-semibold"
+          className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-colors font-semibold cursor-pointer"
         >
           Sign In
+        </button>
+        <button
+          onClick={() => navigate("/register")}
+          className="w-full mt-4 px-6 py-2 bg-black text-white rounded-md opacity-70 transition-colors cursor-pointer"
+        >
+          Register
         </button>
       </form>
     </div>

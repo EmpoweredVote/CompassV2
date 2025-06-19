@@ -1,7 +1,9 @@
 import { useNavigate, useLocation } from "react-router";
-import Logo from "../assets/EVLogo.png"; // update this path if needed
+import Logo from "../assets/EVLogo.png";
+import { useCompass } from "../components/CompassContext";
 
 function Sidebar() {
+  const { setSelectedTopics } = useCompass();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -107,7 +109,13 @@ function Sidebar() {
         if (!res.ok) throw new Error("Logout failed");
         return res.text();
       })
-      .then(() => navigate("/"))
+      .then(() => {
+        localStorage.removeItem("compareUser");
+        localStorage.removeItem("invertedSpokes");
+        localStorage.removeItem("selectedTopics");
+        setSelectedTopics([]);
+        navigate("/");
+      })
       .catch((err) => {
         console.error(err);
         navigate("/");
@@ -132,7 +140,7 @@ function Sidebar() {
             <button
               key={item.route}
               onClick={() => navigate(item.route)}
-              className={`p-2 rounded-lg transition-colors ${
+              className={`p-2 rounded-lg transition-colors cursor-pointer ${
                 isActive ? "bg-gray-100" : "hover:bg-gray-100"
               }`}
               title={item.label}
@@ -146,7 +154,7 @@ function Sidebar() {
       <div className="mb-4">
         <button
           onClick={logout}
-          className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+          className="p-2 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
           title="Logout"
         >
           <svg
