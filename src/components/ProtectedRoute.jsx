@@ -7,7 +7,7 @@ function ProtectedRoute(props) {
 
   useEffect(() => {
     console.log("Fetching auth status");
-    fetch("http://localhost:5050/auth/me", {
+    fetch(`${import.meta.env.VITE_API_URL}/auth/me`, {
       credentials: "include", // REQUIRED to send session cookie
     })
       .then((response) => {

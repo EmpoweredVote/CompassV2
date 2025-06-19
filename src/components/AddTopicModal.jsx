@@ -13,7 +13,7 @@ function AddTopicModal({
   const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
-    fetch("http://localhost:5050/compass/answers", {
+    fetch(`${import.meta.env.VITE_API_URL}/compass/answers`, {
       credentials: "include",
     })
       .then((res) => res.json())

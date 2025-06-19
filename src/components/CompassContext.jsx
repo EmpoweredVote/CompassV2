@@ -19,7 +19,9 @@ export function CompassProvider({ children }) {
   const [categories, setCategories] = useState([]);
 
   useEffect(() => {
-    fetch("http://localhost:5050/compass/topics", { credentials: "include" })
+    fetch(`${import.meta.env.VITE_API_URL}/compass/topics`, {
+      credentials: "include",
+    })
       .then((r) => r.json())
       .then(setTopics);
   }, []);

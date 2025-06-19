@@ -5,7 +5,7 @@ function Home() {
   const [user, setUser] = useState();
   const navigate = useNavigate();
 
-  fetch("http://localhost:5050/auth/me", {
+  fetch(`${import.meta.env.VITE_API_URL}/auth/me`, {
     credentials: "include", // REQUIRED to send session cookie
   })
     .then((response) => {
@@ -25,7 +25,7 @@ function Home() {
     });
 
   const logout = () => {
-    fetch("http://localhost:5050/auth/logout", {
+    fetch(`${import.meta.env.VITE_API_URL}/auth/logout`, {
       method: "POST",
       credentials: "include",
     })

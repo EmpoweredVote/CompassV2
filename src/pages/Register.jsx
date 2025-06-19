@@ -14,7 +14,7 @@ function Register() {
     event.preventDefault();
 
     if (validatePassword(password, confirmPassword)) {
-      fetch("http://localhost:5050/auth/register", {
+      fetch(`${import.meta.env.VITE_API_URL}/auth/register`, {
         method: "POST",
         credentials: "include", // REQUIRED for cookie auth
         headers: {

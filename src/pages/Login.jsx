@@ -11,7 +11,7 @@ function Login() {
 
   const handleSubmit = (event) => {
     event.preventDefault();
-    fetch("http://localhost:5050/auth/login", {
+    fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
       method: "POST",
       credentials: "include", // REQUIRED for cookie auth
       headers: {

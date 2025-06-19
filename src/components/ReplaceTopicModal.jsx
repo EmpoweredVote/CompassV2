@@ -12,7 +12,7 @@ function ReplaceTopicModal({
   const [replacementID, setReplacementID] = useState(null);
 
   useEffect(() => {
-    fetch("http://localhost:5050/compass/answers", {
+    fetch(`${import.meta.env.VITE_API_URL}/compass/answers`, {
       credentials: "include",
     })
       .then((res) => res.json())

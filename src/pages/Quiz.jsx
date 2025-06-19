@@ -19,7 +19,7 @@ export function Quiz() {
   );
 
   const handleNext = () => {
-    fetch("http://localhost:5050/compass/answers", {
+    fetch(`${import.meta.env.VITE_API_URL}/compass/answers`, {
       method: "POST",
       credentials: "include", // REQUIRED for cookie auth
       headers: {

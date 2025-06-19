@@ -49,7 +49,7 @@ function Compass() {
     if (!hasLoadedFromStorage || !topics.length || !selectedTopics.length)
       return;
 
-    fetch("http://localhost:5050/compass/answers/batch", {
+    fetch(`${import.meta.env.VITE_API_URL}/compass/answers/batch`, {
       method: "POST",
       credentials: "include",
       headers: {
@@ -111,7 +111,7 @@ function Compass() {
       return;
     }
 
-    fetch("http://localhost:5050/compass/compare", {
+    fetch(`${import.meta.env.VITE_API_URL}/compass/compare`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },

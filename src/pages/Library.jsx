@@ -21,7 +21,7 @@ function Library() {
   };
 
   useEffect(() => {
-    fetch("http://localhost:5050/compass/topics", {
+    fetch(`${import.meta.env.VITE_API_URL}/compass/topics`, {
       credentials: "include",
     })
       .then((response) => {
@@ -38,7 +38,7 @@ function Library() {
         console.error("Error during HTTP request:", error);
       });
 
-    fetch("http://localhost:5050/compass/categories", {
+    fetch(`${import.meta.env.VITE_API_URL}/compass/categories`, {
       credentials: "include",
     })
       .then((response) => {
@@ -57,7 +57,7 @@ function Library() {
   }, []);
 
   useEffect(() => {
-    fetch("http://localhost:5050/compass/answers", {
+    fetch(`${import.meta.env.VITE_API_URL}/compass/answers`, {
       credentials: "include",
     })
       .then((res) => res.json())

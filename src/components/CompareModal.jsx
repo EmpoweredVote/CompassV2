@@ -10,7 +10,7 @@ function CompareModal({ onCompare, onClose }) {
   const [selected, setSelected] = useState(null); // single selected user object
 
   useEffect(() => {
-    fetch("http://localhost:5050/auth/empowered-accounts", {
+    fetch(`${import.meta.env.VITE_API_URL}/auth/empowered-accounts`, {
       credentials: "include",
     })
       .then((res) => res.json())
