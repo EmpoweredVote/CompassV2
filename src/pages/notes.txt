@@ -1,0 +1,31 @@
+              {showPrevAnswers
+                ? category.Topics.filter((t) =>
+                    answeredTopicIDs.includes(t.ID)
+                  ).map((topic) => (
+                    <button
+                      key={topic.ID}
+                      onClick={() => toggleTopic(topic.ID)}
+                      className={`px-3 py-1.5 md:px-4 md:py-2 rounded-full border text-sm md:text-base font-medium transition-colors duration-200 cursor-pointer ${
+                        selectedTopics.includes(topic.ID)
+                          ? "bg-green-600 text-white border-green-600"
+                          : "bg-white text-black border-black hover:bg-gray-100"
+                      }`}
+                    >
+                      Star {topic.ShortTitle}
+                    </button>
+                  ))
+                : category.Topics.filter(
+                    (t) => !answeredTopicIDs.includes(t.ID)
+                  ).map((topic) => (
+                    <button
+                      key={topic.ID}
+                      onClick={() => toggleTopic(topic.ID)}
+                      className={`px-3 py-1.5 md:px-4 md:py-2 rounded-full border text-sm md:text-base font-medium transition-colors duration-200 cursor-pointer ${
+                        selectedTopics.includes(topic.ID)
+                          ? "bg-green-600 text-white border-green-600"
+                          : "bg-white text-black border-black hover:bg-gray-100"
+                      }`}
+                    >
+                      {topic.ShortTitle}
+                    </button>
+                  ))}
