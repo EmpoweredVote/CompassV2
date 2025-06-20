@@ -43,7 +43,7 @@ function RadarChart({
     to: { points: targetPoints },
     config: { tension: 300, friction: 30 },
     immediate: countChanged, // skip tween on add/remove
-    reset: countChanged, // *** ← clears stale interpolator (the fix)
+    reset: countChanged, // <- clears stale interpolator
   });
 
   let comparePoints = null;
