@@ -139,7 +139,7 @@ function RadarChart({
           points={targetPoints}
           style={{
             fill: "rgba(245, 40, 145, 0.4)",
-            stroke: "black",
+            stroke: "rgb(245, 40, 145)",
             strokeWidth: 3,
           }}
         />
