@@ -13,10 +13,14 @@ const CompassContext = createContext();
 
 export function CompassProvider({ children }) {
   const [topics, setTopics] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [catLoaded, setCatLoaded] = useState(false);
+  const [showPrevAnswers, setShowPrevAnswers] = useState();
   const [selectedTopics, setSelected] = useState(
     () => safeParse(localStorage.getItem("selectedTopics"), []) // <- load once
   );
-  const [categories, setCategories] = useState([]);
+  const [answers, setAnswers] = useState({});
+  const [compareAnswers, setCompareAnswers] = useState({});
 
   useEffect(() => {
     fetch(`${import.meta.env.VITE_API_URL}/compass/topics`, {
@@ -24,6 +28,15 @@ export function CompassProvider({ children }) {
     })
       .then((r) => r.json())
       .then(setTopics);
+
+    fetch(`${import.meta.env.VITE_API_URL}/compass/categories`, {
+      credentials: "include",
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        setCategories(data);
+        setCatLoaded(true);
+      });
   }, []);
 
   useEffect(() => {
@@ -35,10 +48,16 @@ export function CompassProvider({ children }) {
       value={{
         topics,
         setTopics,
-        selectedTopics,
-        setSelectedTopics: setSelected,
         categories,
         setCategories,
+        selectedTopics,
+        setSelectedTopics: setSelected,
+        answers,
+        setAnswers,
+        compareAnswers,
+        setCompareAnswers,
+        showPrevAnswers,
+        setShowPrevAnswers,
       }}
     >
       {children}

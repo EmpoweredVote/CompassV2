@@ -6,8 +6,15 @@ import CompareModal from "../components/CompareModal";
 import { useState, useEffect } from "react";
 
 function Compass() {
-  const { topics, selectedTopics, setSelectedTopics } = useCompass();
-  const [answers, setAnswers] = useState({});
+  const {
+    topics,
+    selectedTopics,
+    setSelectedTopics,
+    answers,
+    setAnswers,
+    compareAnswers,
+    setCompareAnswers,
+  } = useCompass();
   const [invertedSpokes, setInvertedSpokes] = useState({});
   const [hasLoadedFromStorage, setHasLoadedFromStorage] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -15,7 +22,6 @@ function Compass() {
   const [replacingTopic, setReplacingTopic] = useState(null);
   const [isCompareModal, setIsCompareModal] = useState(false);
   const [compareUser, setCompareUser] = useState(null); // {user_id, username}
-  const [compareAnswers, setCompareAnswers] = useState({}); // shortTitle -> value
 
   // Load localStorage on first mount
   useEffect(() => {
@@ -49,6 +55,12 @@ function Compass() {
     if (!hasLoadedFromStorage || !topics.length || !selectedTopics.length)
       return;
 
+    if (
+      Object.keys(answers).length &&
+      Object.keys(answers).length === selectedTopics.length
+    ) {
+      return;
+    }
     fetch(`${import.meta.env.VITE_API_URL}/compass/answers/batch`, {
       method: "POST",
       credentials: "include",

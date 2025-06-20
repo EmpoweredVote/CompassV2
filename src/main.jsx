@@ -6,7 +6,7 @@ import "./index.css";
 import App from "./App.jsx";
 
 createRoot(document.getElementById("root")).render(
-  <BrowserRouter basename="/CompassV2">
+  <BrowserRouter basename={import.meta.env.VITE_BASENAME}>
     <CompassProvider>
       <StrictMode>
         <App />
