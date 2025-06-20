@@ -55,12 +55,6 @@ function Compass() {
     if (!hasLoadedFromStorage || !topics.length || !selectedTopics.length)
       return;
 
-    if (
-      Object.keys(answers).length &&
-      Object.keys(answers).length === selectedTopics.length
-    ) {
-      return;
-    }
     fetch(`${import.meta.env.VITE_API_URL}/compass/answers/batch`, {
       method: "POST",
       credentials: "include",
