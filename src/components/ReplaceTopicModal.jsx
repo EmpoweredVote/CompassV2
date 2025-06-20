@@ -72,7 +72,7 @@ function ReplaceTopicModal({
               onClose();
             }}
             disabled={!replacementID}
-            className="px-4 py-2 bg-black text-white rounded hover:bg-opacity-80 disabled:opacity-50 cursor-pointer"
+            className="px-4 py-2 bg-black text-white rounded hover:bg-opacity-80 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
           >
             Replace
           </button>

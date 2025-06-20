@@ -112,7 +112,7 @@ function AddTopicModal({
               onAddTopics(selected);
               onClose();
             }}
-            className="px-4 py-2 bg-black text-white rounded hover:bg-opacity-80 cursor-pointer"
+            className="px-4 py-2 bg-black text-white rounded hover:bg-opacity-80 cursor-pointer disabled:cursor-not-allowed"
             disabled={!hasChanges}
           >
             Done {selected.length ? `(+${selected.length})` : ""}

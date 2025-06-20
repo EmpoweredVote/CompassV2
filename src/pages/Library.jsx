@@ -160,7 +160,7 @@ function Library() {
         <button
           onClick={() => navigate("/quiz")}
           disabled={selectedTopics.length === 0}
-          className="px-4 py-2 rounded-full border text-sm font-medium transition-colors duration-200 cursor-pointer bg-white text-black border-black hover:bg-gray-100 disabled:border-gray-200 disabled:bg-gray-50 disabled:text-gray-500"
+          className="px-4 py-2 rounded-full border text-sm font-medium transition-colors duration-200 cursor-pointer bg-white text-black border-black hover:bg-gray-100 disabled:border-gray-200 disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed"
         >
           Continue
         </button>

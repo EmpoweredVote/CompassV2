@@ -47,7 +47,7 @@ function CompareModal({ onCompare, onClose }) {
         <div className="flex justify-end gap-2 mt-6">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+            className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 cursor-pointer"
           >
             Cancel
           </button>
@@ -57,7 +57,7 @@ function CompareModal({ onCompare, onClose }) {
               onCompare(selected);
               onClose();
             }}
-            className="px-4 py-2 bg-black text-white rounded disabled:opacity-50"
+            className="px-4 py-2 bg-black text-white rounded disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
           >
             Compare
           </button>
