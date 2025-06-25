@@ -8,6 +8,7 @@ function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPasswords, setShowPasswords] = useState(false);
+  const [showInvalid, setShowInvalid] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = (event) => {
@@ -27,6 +28,7 @@ function Login() {
         if (response.ok) {
           return response.text();
         } else {
+          setShowInvalid(true);
           throw new Error("HTTP error " + response.status);
         }
       })
@@ -127,6 +129,9 @@ function Login() {
               )}
             </div>
           </div>
+        </div>
+        <div className="mb-6">
+          {showInvalid && <p className="text-red-600">Invalid Credentials.</p>}
         </div>
         <button
           type="submit"

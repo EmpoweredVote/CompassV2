@@ -1,5 +1,6 @@
 import { animated, useSpring } from "@react-spring/web";
 import { useRef, useEffect } from "react";
+import { useCompass } from "../components/CompassContext";
 
 function RadarChart({
   data,
@@ -8,13 +9,14 @@ function RadarChart({
   onToggleInversion,
   onReplaceTopic,
 }) {
+  const { topics } = useCompass();
   const size = 400;
   const radius = size / 2 - 40;
   const centerX = size / 2;
   const centerY = size / 2;
 
-  const topics = Object.entries(data);
-  const numSpokes = topics.length;
+  const answers = Object.entries(data);
+  const numSpokes = answers.length;
 
   const prevCountRef = useRef(numSpokes);
   const prevCount = prevCountRef.current;
@@ -26,11 +28,17 @@ function RadarChart({
     prevCountRef.current = numSpokes;
   }, [numSpokes]);
 
-  const pointsArr = topics.map(([topic, value], index) => {
+  // topics.map((topic) => console.log(topic.stances.length));
+
+  const pointsArr = answers.map(([answer, value], index) => {
+    const currentTopic = topics.find((topic) => topic.ShortTitle == answer);
+    const maxLength = currentTopic.stances.length;
+    const percentage = (value / maxLength) * 10;
+
     const angle = (2 * Math.PI * index) / numSpokes;
     //If value === 0 keep it 0, otherwise invert when needed
     const adjusted =
-      value === 0 ? 0 : invertedSpokes[topic] ? 11 - value : value;
+      value === 0 ? 0 : invertedSpokes[answer] ? 11 - percentage : percentage;
     const r = (adjusted / 10) * radius;
     const x = centerX + r * Math.sin(angle);
     const y = centerY - r * Math.cos(angle);
@@ -48,10 +56,14 @@ function RadarChart({
 
   let comparePoints = null;
   if (Object.keys(compareData).length) {
-    const cmpArr = Object.entries(compareData).map(([topic, value], index) => {
+    const cmpArr = Object.entries(compareData).map(([answer, value], index) => {
+      const currentTopic = topics.find((topic) => topic.ShortTitle == answer);
+      const maxLength = currentTopic.stances.length;
+      const percentage = (value / maxLength) * 10;
+
       const angle = (2 * Math.PI * index) / numSpokes;
       const adjusted =
-        value === 0 ? 0 : invertedSpokes[topic] ? 11 - value : value;
+        value === 0 ? 0 : invertedSpokes[answer] ? 11 - percentage : percentage;
       const r = (adjusted / 10) * radius;
       const x = centerX + r * Math.sin(angle);
       const y = centerY - r * Math.cos(angle);
@@ -92,13 +104,13 @@ function RadarChart({
     <svg width={650} height={size} viewBox={`0 0 ${size} ${size}`}>
       {guidePolygons}
 
-      {topics.map(([topic], i) => {
+      {answers.map(([answer], i) => {
         const angle = (2 * Math.PI * i) / numSpokes;
         const x = centerX + radius * Math.sin(angle);
         const y = centerY - radius * Math.cos(angle);
         return (
           <line
-            key={`line-${topic}`}
+            key={`line-${answer}`}
             x1={centerX}
             y1={centerY}
             x2={x}
@@ -108,7 +120,7 @@ function RadarChart({
         );
       })}
 
-      {topics.map(([topic], i) => {
+      {answers.map(([answer], i) => {
         const angle = (2 * Math.PI * i) / numSpokes;
         const offset = radius + 20;
         const x = centerX + offset * Math.sin(angle);
@@ -122,14 +134,14 @@ function RadarChart({
 
         return (
           <text
-            key={`label-${topic}`}
+            key={`label-${answer}`}
             x={x}
             y={y}
             textAnchor={anchor}
-            onClick={() => onReplaceTopic(topic)}
+            onClick={() => onReplaceTopic(answer)}
             style={{ cursor: "pointer", userSelect: "none" }}
           >
-            {topic}
+            {answer}
           </text>
         );
       })}
@@ -176,21 +188,21 @@ function RadarChart({
         )
       ) : null}
 
-      {topics.map(([topic], i) => {
+      {answers.map(([answer], i) => {
         const angle = (2 * Math.PI * i) / numSpokes;
         const x = centerX + radius * Math.sin(angle);
         const y = centerY - radius * Math.cos(angle);
 
         return (
           <line
-            key={`hitbox-${topic}`}
+            key={`hitbox-${answer}`}
             x1={centerX}
             y1={centerY}
             x2={x}
             y2={y}
             stroke="transparent"
             strokeWidth={12}
-            onClick={() => onToggleInversion(topic)}
+            onClick={() => onToggleInversion(answer)}
             style={{ cursor: "pointer" }}
           />
         );

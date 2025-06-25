@@ -9,12 +9,15 @@ function Register() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPasswords, setShowPasswords] = useState(false);
+  const [isInvalidUsername, setIsInvalidUsername] = useState(false);
+  const [invalidPass, setInvalidPass] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = (event) => {
     event.preventDefault();
 
     if (validatePassword(password, confirmPassword)) {
+      setInvalidPass(false);
       fetch(`${import.meta.env.VITE_API_URL}/auth/register`, {
         method: "POST",
         credentials: "include", // REQUIRED for cookie auth
@@ -30,15 +33,18 @@ function Register() {
           if (response.ok) {
             return response.text();
           } else {
+            setIsInvalidUsername(true);
             throw new Error("HTTP error " + response.status);
           }
         })
-        .then(navigate("/"))
+        .then(() => {
+          navigate("/");
+        })
         .catch((error) => {
           console.error("Error during HTTP request:", error);
         });
     } else {
-      alert("Passwords do not match");
+      setInvalidPass(true);
     }
   };
 
@@ -194,6 +200,14 @@ function Register() {
               )}
             </div>
           </div>
+        </div>
+        <div className="mb-4">
+          {isInvalidUsername && <p className="text-red-600">Username Taken</p>}
+        </div>
+        <div className="mb-4">
+          {invalidPass && (
+            <p className="text-red-600">Passwords do not match</p>
+          )}
         </div>
         <button
           type="submit"

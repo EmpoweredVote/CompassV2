@@ -80,20 +80,23 @@ export function Quiz() {
 
       {/* Stances */}
       <div className="flex flex-col gap-3">
-        {currentTopic.stances.map((stance) => (
-          <button
-            key={stance.ID}
-            onClick={() => selectAnswer(stance.Value)}
-            className={`text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm sm:text-base font-medium
+        {currentTopic.stances
+          .slice()
+          .sort((a, b) => a.Value - b.Value)
+          .map((stance) => (
+            <button
+              key={stance.ID}
+              onClick={() => selectAnswer(stance.Value)}
+              className={`text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm sm:text-base font-medium
               ${
                 selectedAnswer === stance.Value
                   ? "border-green-600 border-2"
                   : "bg-white text-black border-2 border-gray-300 hover:bg-gray-50"
               }`}
-          >
-            {stance.Value}. {stance.Text}
-          </button>
-        ))}
+            >
+              {stance.Value}. {stance.Text}
+            </button>
+          ))}
       </div>
 
       {/* Navigation Buttons */}
