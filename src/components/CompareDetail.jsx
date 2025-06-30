@@ -41,7 +41,7 @@ function CompareDetail(user) {
 
   return (
     <div>
-      <div className="bg-[#FAFAFA] rounded-xl shadow-xl p-1 w-85 flex flex-col items-center justify-center">
+      <div className="bg-[#FAFAFA] rounded-lg shadow-xl py-2 px-1 w-85 flex flex-col items-center justify-center">
         {/* NAV HEADER */}
         <div className="relative flex flex-row w-full justify-between bg-gray-300/50 rounded-lg p-1">
           <div
@@ -256,8 +256,6 @@ function CompareDetail(user) {
 
         {selectedTab == 2 && (
           <div className="mt-6">
-            {/* Scrollable section with paragraphs of fact based stance summary */}
-            {/* Need a way to dynamically serve stance text based on selected stance */}
             <h1 className="p-4 text-center">Sources</h1>
           </div>
         )}

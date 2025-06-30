@@ -10,6 +10,7 @@ import { Quiz } from "./pages/Quiz";
 import Compass from "./pages/Compass";
 import Layout from "./components/Layout";
 import { CompassProvider } from "./components/CompassContext";
+import AdminDashboard from "./pages/AdminDashboard";
 
 function App() {
   return (
@@ -52,6 +53,17 @@ function App() {
             <ProtectedRoute>
               <Layout>
                 <Compass />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            // Create AdminRoute and update this to use it:
+            <ProtectedRoute>
+              <Layout>
+                <AdminDashboard />
               </Layout>
             </ProtectedRoute>
           }
