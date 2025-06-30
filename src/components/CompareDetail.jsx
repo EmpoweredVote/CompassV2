@@ -1,5 +1,5 @@
 import { useCompass } from "./CompassContext";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import placeholder from "../assets/placeholder.png";
 
 function CompareDetail(user) {
@@ -16,6 +16,16 @@ function CompareDetail(user) {
   const topicNames = Object.keys(answers);
   const [dropdownValue, setDropdownValue] = useState("");
   const [selectedTab, setSelectedTab] = useState(0);
+  const tabRefs = [useRef(null), useRef(null), useRef(null)];
+  const [bgStyle, setBgStyle] = useState({ left: 0, width: 0 });
+
+  useEffect(() => {
+    const tab = tabRefs[selectedTab].current;
+    if (tab) {
+      const { offsetLeft, offsetWidth } = tab;
+      setBgStyle({ left: offsetLeft, width: offsetWidth });
+    }
+  }, [selectedTab]);
 
   const handleChange = (event) => {
     setDropdownValue(event.target.value);
@@ -25,14 +35,20 @@ function CompareDetail(user) {
 
   return (
     <div>
-      <div className="bg-[#FAFAFA] rounded-xl shadow-xl p-1 w-full max-w-md flex flex-col items-center justify-center min-w-sm">
+      <div className="bg-[#FAFAFA] rounded-xl shadow-xl p-1 max-w-sm flex flex-col items-center justify-center">
         {/* NAV HEADER */}
-        <div className="flex flex-row w-full justify-between bg-gray-300/50 rounded-lg p-1">
+        <div className="relative flex flex-row w-full justify-between bg-gray-300/50 rounded-lg p-1">
           <div
-            className={`${
-              selectedTab == 0 ? "bg-white" : "bg-none"
-            } rounded-lg px-4 py-2 flex flex-row gap-1 cursor-pointer`}
+            className="absolute top-1 h-[calc(100%-0.5rem)] bg-white rounded-lg transition-all duration-300 ease-in-out"
+            style={{
+              left: bgStyle.left,
+              width: bgStyle.width,
+            }}
+          ></div>
+          <div
+            ref={tabRefs[0]}
             onClick={() => setSelectedTab(0)}
+            className="relative z-10 px-4 py-2 flex gap-1 cursor-pointer"
           >
             <svg
               width="20"
@@ -40,9 +56,7 @@ function CompareDetail(user) {
               viewBox="0 0 20 18"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
-              className={`${
-                selectedTab != 0 ? "stroke-slate-500" : "stroke-black"
-              }`}
+              className={selectedTab != 0 ? "stroke-slate-500" : "stroke-black"}
             >
               <path
                 d="M11.6667 2.1665H5.00004C4.55801 2.1665 4.13409 2.3421 3.82153 2.65466C3.50897 2.96722 3.33337 3.39114 3.33337 3.83317V17.1665C3.33337 17.6085 3.50897 18.0325 3.82153 18.345C4.13409 18.6576 4.55801 18.8332 5.00004 18.8332H15C15.4421 18.8332 15.866 18.6576 16.1786 18.345C16.4911 18.0325 16.6667 17.6085 16.6667 17.1665V7.1665L11.6667 2.1665Z"
@@ -84,10 +98,9 @@ function CompareDetail(user) {
             </h2>
           </div>
           <div
-            className={`${
-              selectedTab == 1 ? "bg-white" : "bg-none"
-            } rounded-lg px-4 py-2 flex flex-row gap-1 cursor-pointer`}
+            ref={tabRefs[1]}
             onClick={() => setSelectedTab(1)}
+            className="relative z-10 px-4 py-2 flex gap-1 cursor-pointer"
           >
             <svg
               width="20"
@@ -95,9 +108,7 @@ function CompareDetail(user) {
               viewBox="0 0 20 20"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
-              className={`${
-                selectedTab != 1 ? "stroke-slate-500" : "stroke-black"
-              }`}
+              className={selectedTab != 1 ? "stroke-slate-500" : "stroke-black"}
             >
               <path
                 d="M12 20.5V10.5"
@@ -127,20 +138,17 @@ function CompareDetail(user) {
             </h2>
           </div>
           <div
-            className={`${
-              selectedTab == 2 ? "bg-white" : "bg-none"
-            } rounded-lg px-4 py-2 flex flex-row gap-1 items-baseline cursor-pointer`}
+            ref={tabRefs[2]}
             onClick={() => setSelectedTab(2)}
+            className="relative z-10 px-4 py-2 flex gap-1 cursor-pointer"
           >
             <svg
               width="18"
-              height="19"
-              viewBox="0 0 18 19"
+              height="22"
+              viewBox="0 0 20 15"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
-              className={`${
-                selectedTab != 2 ? "stroke-slate-500" : "stroke-black"
-              }`}
+              className={selectedTab != 2 ? "stroke-slate-500" : "stroke-black"}
             >
               <g clip-path="url(#clip0_71_343)">
                 <path
@@ -180,11 +188,11 @@ function CompareDetail(user) {
           <img src={placeholder} />
         </div>
         {user.user.username && (
-          <h2 className="text-xl font-bold my-4 text-center">
+          <h2 className="text-xl font-bold my-6 text-center">
             {user.user.username}
           </h2>
         )}
-        <div className="flex flex-col w-5/6 justify-center border-b border-black/40">
+        <div className="flex flex-col w-5/6 justify-center border-b border-black/40 my-4">
           <select
             id="topic-dropdown"
             value={dropdownValue}
@@ -200,7 +208,7 @@ function CompareDetail(user) {
             })}
           </select>
         </div>
-        <div className="mt-8">
+        <div className="mt-6">
           {/* Scrollable section with paragraphs of fact based stance summary */}
           {/* Need a way to dynamically serve stance text based on selected stance */}
           <h1 className="p-4 text-center">
