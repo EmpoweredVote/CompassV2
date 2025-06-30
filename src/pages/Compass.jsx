@@ -144,10 +144,10 @@ function Compass() {
   const shouldRenderChart = topics.length && Object.keys(answers).length;
 
   return (
-    <div className="flex flex-row gap-4">
+    <div className="flex flex-row">
       {/* <div> */}
       {compareUser && (
-        <div className="m-6">
+        <div className="m-4">
           <CompareDetail user={compareUser} />
         </div>
       )}

@@ -19,6 +19,8 @@ function CompareDetail(user) {
   const tabRefs = [useRef(null), useRef(null), useRef(null)];
   const [bgStyle, setBgStyle] = useState({ left: 0, width: 0 });
 
+  console.log("answers: ", compareAnswers);
+
   useEffect(() => {
     const tab = tabRefs[selectedTab].current;
     if (tab) {
@@ -31,11 +33,15 @@ function CompareDetail(user) {
     setDropdownValue(event.target.value);
   };
 
-  console.log("names: ", topicNames);
+  console.log(topics);
+  //   console.log(
+  //     "Filtered ",
+  //     topics.filter((topic) => topic.ShortTitle == dropdownValue)
+  //   );
 
   return (
     <div>
-      <div className="bg-[#FAFAFA] rounded-xl shadow-xl p-1 max-w-sm flex flex-col items-center justify-center">
+      <div className="bg-[#FAFAFA] rounded-xl shadow-xl p-1 w-85 flex flex-col items-center justify-center">
         {/* NAV HEADER */}
         <div className="relative flex flex-row w-full justify-between bg-gray-300/50 rounded-lg p-1">
           <div
@@ -48,7 +54,7 @@ function CompareDetail(user) {
           <div
             ref={tabRefs[0]}
             onClick={() => setSelectedTab(0)}
-            className="relative z-10 px-4 py-2 flex gap-1 cursor-pointer"
+            className="relative z-10 px-2 py-2 flex gap-1 cursor-pointer"
           >
             <svg
               width="20"
@@ -92,7 +98,7 @@ function CompareDetail(user) {
             <h2
               className={`${
                 selectedTab != 0 ? "text-slate-500" : "text-black"
-              } text-lg font-medium`}
+              } text-base font-medium`}
             >
               Summary
             </h2>
@@ -100,7 +106,7 @@ function CompareDetail(user) {
           <div
             ref={tabRefs[1]}
             onClick={() => setSelectedTab(1)}
-            className="relative z-10 px-4 py-2 flex gap-1 cursor-pointer"
+            className="relative z-10 px-2 py-2 flex gap-1 cursor-pointer"
           >
             <svg
               width="20"
@@ -132,7 +138,7 @@ function CompareDetail(user) {
             <h2
               className={`${
                 selectedTab != 1 ? "text-slate-500" : "text-black"
-              } text-lg font-medium`}
+              } text-md font-medium`}
             >
               Details
             </h2>
@@ -140,7 +146,7 @@ function CompareDetail(user) {
           <div
             ref={tabRefs[2]}
             onClick={() => setSelectedTab(2)}
-            className="relative z-10 px-4 py-2 flex gap-1 cursor-pointer"
+            className="relative z-10 px-2 py-2 flex gap-1 cursor-pointer"
           >
             <svg
               width="18"
@@ -178,7 +184,7 @@ function CompareDetail(user) {
             <h2
               className={`${
                 selectedTab != 2 ? "text-slate-500" : "text-black"
-              } text-lg font-medium`}
+              } text-md font-medium`}
             >
               Sources
             </h2>
@@ -199,6 +205,9 @@ function CompareDetail(user) {
             onChange={handleChange}
             className="w-full font-semibold text-xl mb-2"
           >
+            <option value="default" className="text-center">
+              Select a topic...
+            </option>
             {topicNames.map((topic) => {
               return (
                 <option value={topic} key={topic} className="text-center">
@@ -208,14 +217,50 @@ function CompareDetail(user) {
             })}
           </select>
         </div>
-        <div className="mt-6">
-          {/* Scrollable section with paragraphs of fact based stance summary */}
-          {/* Need a way to dynamically serve stance text based on selected stance */}
-          <h1 className="p-4 text-center">
-            We haven't created {user.user.username}'s summary for{" "}
-            {dropdownValue ? dropdownValue : "this topic"} yet!
-          </h1>
-        </div>
+        {selectedTab == 0 && (
+          <div className="mt-6">
+            {/* Scrollable section with paragraphs of fact based stance summary */}
+            {/* Need a way to dynamically serve stance text based on selected stance */}
+            <h1 className="p-2 text-center">
+              We haven't created {user.user.username}'s summary for{" "}
+              {dropdownValue && dropdownValue != "default"
+                ? dropdownValue
+                : "this topic"}{" "}
+              yet!
+            </h1>
+          </div>
+        )}
+
+        {selectedTab == 1 && (
+          <div className="mt-6">
+            {dropdownValue && dropdownValue != "default" ? (
+              <div className="text-center flex flex-col gap-4 justify-center items-center">
+                <h1 className="p-2 px-4 text-lg font-bold border rounded-lg w-1/6">
+                  {compareAnswers[dropdownValue]}
+                </h1>
+                {topics
+                  .filter((topic) => topic.ShortTitle == dropdownValue)
+                  .map((topic) => (
+                    <p key={topic.ShortTitle} className="p-2">
+                      {topic.stances[compareAnswers[dropdownValue] - 1].Text}
+                    </p>
+                  ))}
+              </div>
+            ) : (
+              <h1 className="p-4 text-center">
+                Select a topic to view details
+              </h1>
+            )}
+          </div>
+        )}
+
+        {selectedTab == 2 && (
+          <div className="mt-6">
+            {/* Scrollable section with paragraphs of fact based stance summary */}
+            {/* Need a way to dynamically serve stance text based on selected stance */}
+            <h1 className="p-4 text-center">Sources</h1>
+          </div>
+        )}
       </div>
     </div>
   );
