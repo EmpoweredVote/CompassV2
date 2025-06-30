@@ -3,6 +3,7 @@ import RadarChart from "../components/RadarChart";
 import AddTopicModal from "../components/AddTopicModal";
 import ReplaceTopicModal from "../components/ReplaceTopicModal";
 import CompareModal from "../components/CompareModal";
+import CompareDetail from "../components/CompareDetail";
 import { useState, useEffect } from "react";
 
 function Compass() {
@@ -143,84 +144,96 @@ function Compass() {
   const shouldRenderChart = topics.length && Object.keys(answers).length;
 
   return (
-    <div className="flex flex-col items-center gap-6 py-6">
+    <div className="flex flex-row gap-4">
+      {/* <div> */}
       {compareUser && (
-        <div className="flex gap-4 items-center">
-          <span className="inline-block w-4 h-4 bg-pink-500/40 border border-pink-500 rounded-sm" />
-          You
-          <span
-            className="inline-block w-4 h-4 bg-blue-500/20 border border-blue-500 rounded-sm"
-            onClick={() => {
-              setCompareUser(null);
-              setCompareAnswers({});
-            }}
-          />
-          {compareUser.username}
+        <div className="m-6">
+          <CompareDetail user={compareUser} />
         </div>
       )}
-      {shouldRenderChart ? (
-        <RadarChart
-          data={answers}
-          compareData={compareAnswers}
-          invertedSpokes={invertedSpokes}
-          onToggleInversion={(topic) =>
-            setInvertedSpokes((prev) => ({
-              ...prev,
-              [topic]: !prev[topic],
-            }))
-          }
-          onReplaceTopic={(topic) => {
-            setReplacingTopic(topic);
-            setShowReplaceModal(true);
-          }}
-        />
-      ) : (
-        <div className="text-center text-gray-500">No data to display</div>
-      )}
+      <div className="flex flex-col items-center gap-6 py-6">
+        {compareUser && (
+          <div>
+            <div>
+              <div className="flex gap-4 items-center">
+                <span className="inline-block w-4 h-4 bg-pink-500/40 border border-pink-500 rounded-sm" />
+                You
+                <span
+                  className="inline-block w-4 h-4 bg-blue-500/20 border border-blue-500 rounded-sm"
+                  onClick={() => {
+                    setCompareUser(null);
+                    setCompareAnswers({});
+                  }}
+                />
+                {compareUser.username}
+              </div>
+            </div>
+          </div>
+        )}
+        {shouldRenderChart ? (
+          <RadarChart
+            data={answers}
+            compareData={compareAnswers}
+            invertedSpokes={invertedSpokes}
+            onToggleInversion={(topic) =>
+              setInvertedSpokes((prev) => ({
+                ...prev,
+                [topic]: !prev[topic],
+              }))
+            }
+            onReplaceTopic={(topic) => {
+              setReplacingTopic(topic);
+              setShowReplaceModal(true);
+            }}
+          />
+        ) : (
+          <div className="text-center text-gray-500">No data to display</div>
+        )}
 
-      <button
-        onClick={() => setIsModalOpen(true)}
-        className="mt-4 px-6 py-2 bg-black text-white rounded-full hover:bg-opacity-80 transition-all cursor-pointer"
-      >
-        Edit Topics
-      </button>
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="mt-4 px-6 py-2 bg-black text-white rounded-full hover:bg-opacity-80 transition-all cursor-pointer"
+        >
+          Edit Topics
+        </button>
 
-      <button
-        onClick={() => setIsCompareModal(true)}
-        className="mt-4 px-6 py-2 bg-black text-white rounded-full hover:bg-opacity-80 transition-all cursor-pointer"
-      >
-        Compare
-      </button>
+        <button
+          onClick={() => setIsCompareModal(true)}
+          className="mt-4 px-6 py-2 bg-black text-white rounded-full hover:bg-opacity-80 transition-all cursor-pointer"
+        >
+          Compare
+        </button>
 
-      {isCompareModal && (
-        <CompareModal
-          selectedTopics={selectedTopics}
-          onCompare={(u) => {
-            setCompareUser(u);
-          }}
-          onClose={() => setIsCompareModal(false)}
-        />
-      )}
+        {isCompareModal && (
+          <CompareModal
+            selectedTopics={selectedTopics}
+            onCompare={(u) => {
+              setCompareUser(u);
+            }}
+            onClose={() => setIsCompareModal(false)}
+          />
+        )}
 
-      {isModalOpen && (
-        <AddTopicModal
-          selectedTopics={selectedTopics}
-          onAddTopics={(newIDs) => {
-            setSelectedTopics([...selectedTopics, ...newIDs]);
-          }}
-          onRemoveTopic={handleRemoveTopic}
-          onClose={() => setIsModalOpen(false)}
-        />
-      )}
+        {isModalOpen && (
+          <AddTopicModal
+            selectedTopics={selectedTopics}
+            onAddTopics={(newIDs) => {
+              setSelectedTopics([...selectedTopics, ...newIDs]);
+            }}
+            onRemoveTopic={handleRemoveTopic}
+            onClose={() => setIsModalOpen(false)}
+          />
+        )}
 
-      {showReplaceModal && replacingTopic && (
-        <ReplaceTopicModal
-          replacingTopic={replacingTopic}
-          selectedTopics={selectedTopics}
-          onReplace={handleReplace}
-          onClose={() => setShowReplaceModal(false)}
-        />
-      )}
+        {showReplaceModal && replacingTopic && (
+          <ReplaceTopicModal
+            replacingTopic={replacingTopic}
+            selectedTopics={selectedTopics}
+            onReplace={handleReplace}
+            onClose={() => setShowReplaceModal(false)}
+          />
+        )}
+      </div>
     </div>
   );
 }
