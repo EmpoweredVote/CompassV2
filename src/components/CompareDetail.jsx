@@ -18,8 +18,26 @@ function CompareDetail(user) {
   const [selectedTab, setSelectedTab] = useState(0);
   const tabRefs = [useRef(null), useRef(null), useRef(null)];
   const [bgStyle, setBgStyle] = useState({ left: 0, width: 0 });
+  const [selectedTopicID, setSelectedTopicID] = useState("");
+  const [sources, setSources] = useState([]);
+  const [reasoning, setReasoning] = useState("");
 
-  console.log("answers: ", compareAnswers);
+  useEffect(() => {
+    fetch(
+      `${import.meta.env.VITE_API_URL}/compass/context?user_id=${
+        user.user.user_id
+      }&topic_id=${selectedTopicID}`,
+      {
+        method: "GET",
+        credentials: "include",
+      }
+    )
+      .then((res) => res.json())
+      .then((data) => {
+        setReasoning(data.reasoning);
+        setSources(data.sources);
+      });
+  }, [selectedTopicID]);
 
   useEffect(() => {
     const tab = tabRefs[selectedTab].current;
@@ -31,13 +49,18 @@ function CompareDetail(user) {
 
   const handleChange = (event) => {
     setDropdownValue(event.target.value);
+    setReasoning("");
+    setSources([]);
   };
 
-  console.log(topics);
-  //   console.log(
-  //     "Filtered ",
-  //     topics.filter((topic) => topic.ShortTitle == dropdownValue)
-  //   );
+  useEffect(() => {
+    topics
+      .filter((topic) => topic.ShortTitle == dropdownValue)
+      .map((topic) => setSelectedTopicID(topic.ID));
+  }, [dropdownValue]);
+
+  console.log("dropdown value", dropdownValue);
+  console.log("selected topic id ", selectedTopicID);
 
   return (
     <div>
@@ -218,16 +241,21 @@ function CompareDetail(user) {
           </select>
         </div>
         {selectedTab == 0 && (
-          <div className="mt-6">
+          <div className="mt-4">
             {/* Scrollable section with paragraphs of fact based stance summary */}
-            {/* Need a way to dynamically serve stance text based on selected stance */}
-            <h1 className="p-2 text-center">
-              We haven't created {user.user.username}'s summary for{" "}
-              {dropdownValue && dropdownValue != "default"
-                ? dropdownValue
-                : "this topic"}{" "}
-              yet!
-            </h1>
+            {reasoning ? (
+              <div className="p-2">
+                <p>{reasoning}</p>
+              </div>
+            ) : (
+              <h1 className="p-2 text-center">
+                We haven't created {user.user.username}'s summary for{" "}
+                {dropdownValue && dropdownValue != "default"
+                  ? dropdownValue
+                  : "this topic"}{" "}
+                yet!
+              </h1>
+            )}
           </div>
         )}
 
@@ -255,8 +283,18 @@ function CompareDetail(user) {
         )}
 
         {selectedTab == 2 && (
-          <div className="mt-6">
-            <h1 className="p-4 text-center">Sources</h1>
+          <div className="mt-4">
+            {sources && (
+              <div className="flex flex-col gap-2">
+                {sources.map((source) => (
+                  <p key={source}>
+                    <a href={source} target="_blank">
+                      {source}
+                    </a>
+                  </p>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

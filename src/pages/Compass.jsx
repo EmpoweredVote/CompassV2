@@ -4,6 +4,7 @@ import AddTopicModal from "../components/AddTopicModal";
 import ReplaceTopicModal from "../components/ReplaceTopicModal";
 import CompareModal from "../components/CompareModal";
 import CompareDetail from "../components/CompareDetail";
+import UserDetail from "../components/UserDetail";
 import { useState, useEffect } from "react";
 
 function Compass() {
@@ -233,6 +234,9 @@ function Compass() {
             onClose={() => setShowReplaceModal(false)}
           />
         )}
+      </div>
+      <div className="m-4">
+        <UserDetail />
       </div>
     </div>
   );
