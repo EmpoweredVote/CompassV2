@@ -245,7 +245,9 @@ function CompareDetail(user) {
             {/* Scrollable section with paragraphs of fact based stance summary */}
             {reasoning ? (
               <div className="p-2">
-                <p>{reasoning}</p>
+                <div className="whitespace-pre-wrap text-base leading-relaxed ml-1">
+                  {reasoning}
+                </div>
               </div>
             ) : (
               <h1 className="p-2 text-center">

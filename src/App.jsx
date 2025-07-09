@@ -5,12 +5,14 @@ import Register from "./pages/Register";
 import Home from "./pages/Home";
 import Library from "./pages/Library";
 import ProtectedRoute from "./components/ProtectedRoute";
+import AdminRoute from "./components/AdminRoute";
 import Unauthorized from "./pages/Unauthorized";
 import { Quiz } from "./pages/Quiz";
 import Compass from "./pages/Compass";
 import Layout from "./components/Layout";
 import { CompassProvider } from "./components/CompassContext";
-import AdminDashboard from "./pages/AdminDashboard";
+// import AdminDashboard from "./pages/AdminDashboard";
+import AdminDashboard from "./components/admin/AdminDashboard";
 
 function App() {
   return (
@@ -60,11 +62,12 @@ function App() {
         <Route
           path="/admin"
           element={
-            // Create AdminRoute and update this to use it:
             <ProtectedRoute>
-              <Layout>
-                <AdminDashboard />
-              </Layout>
+              <AdminRoute>
+                <Layout>
+                  <AdminDashboard />
+                </Layout>
+              </AdminRoute>
             </ProtectedRoute>
           }
         />
