@@ -200,6 +200,7 @@ function TopicEditor({
         <label className="block font-semibold mb-1">Stances</label>
         <div className="flex flex-col gap-4">
           {editedFields.stances.map((stance, index) => (
+            // Make this div draggable.
             <div
               key={stance.ID ?? `new-${index}`}
               className="flex items-start gap-2"

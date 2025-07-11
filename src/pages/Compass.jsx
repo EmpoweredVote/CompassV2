@@ -145,99 +145,106 @@ function Compass() {
   const shouldRenderChart = topics.length && Object.keys(answers).length;
 
   return (
-    <div className="flex flex-row">
+    <div className="flex flex-col items-center px-4 py-8">
       {/* <div> */}
-      {compareUser && (
-        <div className="m-4">
-          <CompareDetail user={compareUser} />
-        </div>
-      )}
-      <div className="flex flex-col items-center gap-6 py-6">
+      <div className="flex flex-row w-full">
         {compareUser && (
-          <div>
-            <div>
-              <div className="flex gap-4 items-center">
-                <span className="inline-block w-4 h-4 bg-pink-500/40 border border-pink-500 rounded-sm" />
-                You
-                <span
-                  className="inline-block w-4 h-4 bg-blue-500/20 border border-blue-500 rounded-sm"
-                  onClick={() => {
-                    setCompareUser(null);
-                    setCompareAnswers({});
-                  }}
-                />
-                {compareUser.username}
-              </div>
-            </div>
+          <div className="">
+            <CompareDetail user={compareUser} />
           </div>
         )}
-        {shouldRenderChart ? (
-          <RadarChart
-            data={answers}
-            compareData={compareAnswers}
-            invertedSpokes={invertedSpokes}
-            onToggleInversion={(topic) =>
-              setInvertedSpokes((prev) => ({
-                ...prev,
-                [topic]: !prev[topic],
-              }))
-            }
-            onReplaceTopic={(topic) => {
-              setReplacingTopic(topic);
-              setShowReplaceModal(true);
-            }}
-          />
-        ) : (
-          <div className="text-center text-gray-500">No data to display</div>
-        )}
 
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="mt-4 px-6 py-2 bg-black text-white rounded-full hover:bg-opacity-80 transition-all cursor-pointer"
-        >
-          Edit Topics
-        </button>
+        <div className="w-full xl:w-2/3 flex flex-col items-center gap-4">
+          {/* Legend (You vs. Politician) */}
+          {compareUser && (
+            <div className="flex gap-4 items-center">
+              <span className="inline-block w-4 h-4 bg-pink-500/40 border border-pink-500 rounded-sm" />
+              You
+              <span
+                className="inline-block w-4 h-4 bg-blue-500/20 border border-blue-500 rounded-sm"
+                onClick={() => {
+                  setCompareUser(null);
+                  setCompareAnswers({});
+                }}
+              />
+              {compareUser.username}
+            </div>
+          )}
 
-        <button
-          onClick={() => setIsCompareModal(true)}
-          className="mt-4 px-6 py-2 bg-black text-white rounded-full hover:bg-opacity-80 transition-all cursor-pointer"
-        >
-          Compare
-        </button>
+          {/* Radar Chart */}
+          {shouldRenderChart ? (
+            <RadarChart
+              data={answers}
+              compareData={compareAnswers}
+              invertedSpokes={invertedSpokes}
+              onToggleInversion={(topic) =>
+                setInvertedSpokes((prev) => ({
+                  ...prev,
+                  [topic]: !prev[topic],
+                }))
+              }
+              onReplaceTopic={(topic) => {
+                setReplacingTopic(topic);
+                setShowReplaceModal(true);
+              }}
+            />
+          ) : (
+            <div className="text-center text-gray-500">No data to display</div>
+          )}
 
-        {isCompareModal && (
-          <CompareModal
-            selectedTopics={selectedTopics}
-            onCompare={(u) => {
-              setCompareUser(u);
-            }}
-            onClose={() => setIsCompareModal(false)}
-          />
-        )}
+          {/* Buttons */}
+          <div className="flex gap-4 mt-4">
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="px-6 py-2 bg-black text-white rounded-full hover:bg-opacity-80 transition-all"
+            >
+              Edit Topics
+            </button>
 
-        {isModalOpen && (
-          <AddTopicModal
-            selectedTopics={selectedTopics}
-            onAddTopics={(newIDs) => {
-              setSelectedTopics([...selectedTopics, ...newIDs]);
-            }}
-            onRemoveTopic={handleRemoveTopic}
-            onClose={() => setIsModalOpen(false)}
-          />
-        )}
-
-        {showReplaceModal && replacingTopic && (
-          <ReplaceTopicModal
-            replacingTopic={replacingTopic}
-            selectedTopics={selectedTopics}
-            onReplace={handleReplace}
-            onClose={() => setShowReplaceModal(false)}
-          />
-        )}
+            <button
+              onClick={() => setIsCompareModal(true)}
+              className="px-6 py-2 bg-black text-white rounded-full hover:bg-opacity-80 transition-all"
+            >
+              Compare
+            </button>
+          </div>
+        </div>
       </div>
-      <div className="m-4">
+
+      {/* <div className="w-full flex justify-center mt-10">
         <UserDetail />
-      </div>
+      </div> */}
+
+      {/* Modals */}
+      {isCompareModal && (
+        <CompareModal
+          selectedTopics={selectedTopics}
+          onCompare={(u) => {
+            setCompareUser(u);
+          }}
+          onClose={() => setIsCompareModal(false)}
+        />
+      )}
+
+      {isModalOpen && (
+        <AddTopicModal
+          selectedTopics={selectedTopics}
+          onAddTopics={(newIDs) => {
+            setSelectedTopics([...selectedTopics, ...newIDs]);
+          }}
+          onRemoveTopic={handleRemoveTopic}
+          onClose={() => setIsModalOpen(false)}
+        />
+      )}
+
+      {showReplaceModal && replacingTopic && (
+        <ReplaceTopicModal
+          replacingTopic={replacingTopic}
+          selectedTopics={selectedTopics}
+          onReplace={handleReplace}
+          onClose={() => setShowReplaceModal(false)}
+        />
+      )}
     </div>
   );
 }
