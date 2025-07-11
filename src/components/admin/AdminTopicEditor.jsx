@@ -204,10 +204,10 @@ function AdminTopicEditor({
               </div>
               <div className="flex flex-col">
                 <h1 className="ml-6 font-semibold">Stances:</h1>
-                {topic.stances.map((stance) => (
+                {topic.stances.map((stance, i) => (
                   <div key={stance.ID}>
                     <p className="ml-8">
-                      {stance.Value}. {newStance[stance.ID] ?? stance.Text}
+                      {i + 1}. {newStance[stance.ID] ?? stance.Text}
                     </p>
                   </div>
                 ))}

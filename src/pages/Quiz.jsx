@@ -66,6 +66,8 @@ export function Quiz() {
     setSelectedAnswer(value);
   };
 
+  const ordered = currentTopic.stances;
+
   return (
     <div className="min-h-screen flex flex-col justify-between px-4 py-8 sm:px-8 md:px-16 lg:px-32">
       {/* Header */}
@@ -80,23 +82,20 @@ export function Quiz() {
 
       {/* Stances */}
       <div className="flex flex-col gap-3">
-        {currentTopic.stances
-          .slice()
-          .sort((a, b) => a.Value - b.Value)
-          .map((stance) => (
-            <button
-              key={stance.ID}
-              onClick={() => selectAnswer(stance.Value)}
-              className={`text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm sm:text-base font-medium
+        {ordered.map((stance, i) => (
+          <button
+            key={stance.ID}
+            onClick={() => selectAnswer(i + 1)}
+            className={`text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm sm:text-base font-medium
               ${
-                selectedAnswer === stance.Value
+                selectedAnswer === i + 1
                   ? "border-green-600 border-2"
                   : "bg-white text-black border-2 border-gray-300 hover:bg-gray-50"
               }`}
-            >
-              {stance.Value}. {stance.Text}
-            </button>
-          ))}
+          >
+            {i + 1}. {stance.Text}
+          </button>
+        ))}
       </div>
 
       {/* Navigation Buttons */}
