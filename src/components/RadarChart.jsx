@@ -8,9 +8,10 @@ function RadarChart({
   invertedSpokes = {},
   onToggleInversion,
   onReplaceTopic,
+  size = 400,
 }) {
+  const padding = 80;
   const { topics } = useCompass();
-  const size = 400;
   const radius = size / 2 - 40;
   const centerX = size / 2;
   const centerY = size / 2;
@@ -50,8 +51,8 @@ function RadarChart({
   const spring = useSpring({
     to: { points: targetPoints },
     config: { tension: 300, friction: 30 },
-    immediate: countChanged, // skip tween on add/remove
-    reset: countChanged, // <- clears stale interpolator
+    immediate: countChanged,
+    reset: countChanged,
   });
 
   let comparePoints = null;
@@ -77,7 +78,7 @@ function RadarChart({
     to: { points: comparePoints },
     config: { tension: 300, friction: 30 },
     immediate: countChanged,
-    reset: countChanged, // same fix here
+    reset: countChanged,
   });
 
   const guidePolygons = [];
@@ -101,7 +102,13 @@ function RadarChart({
   }
 
   return (
-    <svg width={650} height={size} viewBox={`0 0 ${size} ${size}`}>
+    <svg
+      className="w-full h-auto"
+      viewBox={`-${padding} -${padding} ${size + padding * 2} ${
+        size + padding * 2
+      }`}
+      preserveAspectRatio="xMidYMid meet"
+    >
       {guidePolygons}
 
       {answers.map(([answer], i) => {
@@ -136,12 +143,17 @@ function RadarChart({
           <text
             key={`label-${answer}`}
             x={x}
-            y={y}
+            y={y == 20 ? y - 20 : y}
             textAnchor={anchor}
             onClick={() => onReplaceTopic(answer)}
+            className="text-xl font-medium mb-1 md:text-base md:font-normal"
             style={{ cursor: "pointer", userSelect: "none" }}
           >
-            {answer}
+            {wrapLabel(answer, 10).map((ln, index) => (
+              <tspan key={index} x={x} dy={index === 0 ? "0" : "1.1em"}>
+                {ln}
+              </tspan>
+            ))}
           </text>
         );
       })}
@@ -212,3 +224,32 @@ function RadarChart({
 }
 
 export default RadarChart;
+
+function wrapLabel(label, maxChars = 10) {
+  const words = label.split(/\s+/);
+  const lines = [];
+  let line = "";
+
+  words.forEach((word) => {
+    if (word.length > maxChars) {
+      if (line) {
+        lines.push(line.trim());
+        line = "";
+      }
+      for (let i = 0; i < word.length; i += maxChars) {
+        lines.push(word.slice(i, i + maxChars));
+      }
+      return;
+    }
+
+    if ((line + word).length > maxChars) {
+      lines.push(line.trim());
+      line = word + " ";
+    } else {
+      line += word + " ";
+    }
+  });
+
+  if (line) lines.push(line.trim());
+  return lines;
+}

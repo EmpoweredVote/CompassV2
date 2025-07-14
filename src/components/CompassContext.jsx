@@ -22,21 +22,21 @@ export function CompassProvider({ children }) {
   const [answers, setAnswers] = useState({});
   const [compareAnswers, setCompareAnswers] = useState({});
 
-  useEffect(() => {
-    fetch(`${import.meta.env.VITE_API_URL}/compass/topics`, {
-      credentials: "include",
-    })
-      .then((r) => r.json())
-      .then(setTopics);
+  const refreshData = async () => {
+    const [topicsRes, catsRes] = await Promise.all([
+      fetch(`${import.meta.env.VITE_API_URL}/compass/topics`, {
+        credentials: "include",
+      }).then((r) => r.json()),
+      fetch(`${import.meta.env.VITE_API_URL}/compass/categories`, {
+        credentials: "include",
+      }).then((r) => r.json()),
+    ]);
+    setTopics(topicsRes);
+    setCategories(catsRes);
+  };
 
-    fetch(`${import.meta.env.VITE_API_URL}/compass/categories`, {
-      credentials: "include",
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        setCategories(data);
-        setCatLoaded(true);
-      });
+  useEffect(() => {
+    refreshData().then(() => setCatLoaded(true));
   }, []);
 
   useEffect(() => {
@@ -58,6 +58,8 @@ export function CompassProvider({ children }) {
         setCompareAnswers,
         showPrevAnswers,
         setShowPrevAnswers,
+        refreshData,
+        catLoaded,
       }}
     >
       {children}

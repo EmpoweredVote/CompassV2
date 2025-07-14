@@ -43,7 +43,7 @@ function TopicAccordion({
             e.stopPropagation();
             isEditing ? handleCancel() : handleEditClick();
           }}
-          className="text-sm underline text-blue-600"
+          className="text-sm underline text-blue-600 cursor-pointer"
         >
           {isEditing ? "Cancel" : "Edit"}
         </button>

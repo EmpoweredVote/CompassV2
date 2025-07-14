@@ -4,6 +4,7 @@ import { SortableContext } from "@dnd-kit/sortable";
 import SortableStance from "./SortableStance";
 import { arrayMove } from "@dnd-kit/sortable";
 import { v4 as uuid } from "uuid";
+import { useCompass } from "../CompassContext";
 
 function TopicEditor({
   topic,
@@ -15,6 +16,7 @@ function TopicEditor({
   setTopics,
   setEditedTopic,
 }) {
+  const { refreshData } = useCompass();
   const [isSaving, setIsSaving] = useState(false);
 
   const withValues = (stances) =>
@@ -143,9 +145,20 @@ function TopicEditor({
       }
 
       setTopics((prev) =>
-        prev.map((t) => (t.ID === topic.ID ? { ...t, stances: seq } : t))
+        prev.map((t) =>
+          t.ID === topic.ID
+            ? {
+                ...t,
+                stances: seq,
+                Categories: allCategories.filter((c) =>
+                  editedFields.categories.includes(c.ID)
+                ),
+              }
+            : t
+        )
       );
 
+      await refreshData();
       setEditedTopic(null);
     } catch (err) {
       console.error(err);
