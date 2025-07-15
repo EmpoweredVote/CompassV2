@@ -1,113 +1,75 @@
 import { useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
 import { useCompass } from "./CompassContext";
 
-function UserDetail() {
-  const { topics, answers } = useCompass();
+function UserDetail({ user }) {
+  const { topics, answers, compareAnswers } = useCompass();
 
   const topicNames = Object.keys(answers);
   const [dropdownValue, setDropdownValue] = useState("");
-  const [sliderValue, setSliderValue] = useState(0); // 1-based
-  const [direction, setDirection] = useState(0); // -1 = up, 1 = down
+  const [sliderValue, setSliderValue] = useState(1);
 
   const handleChange = (e) => {
     const selected = e.target.value;
     setDropdownValue(selected);
-    setSliderValue(answers[selected]); // Set to user's stance
-  };
-
-  const handleClick = (clickedIndex) => {
-    if (clickedIndex + 1 === sliderValue) return; // Already selected
-    const dir = clickedIndex + 1 > sliderValue ? 1 : -1;
-    setDirection(dir);
-    setSliderValue(clickedIndex + 1); // Update to new stance (1-based)
-  };
-
-  const stanceVariants = {
-    enter: (dir) => ({
-      y: dir > 0 ? 100 : -100,
-    }),
-    center: {
-      y: 0,
-      transition: { duration: 0.2 },
-    },
-    exit: (dir) => ({
-      y: dir > 0 ? -100 : 100,
-      transition: { duration: 0.2 },
-    }),
+    // setSliderValue(answers[selected]); // Default to user's stance
   };
 
   return (
-    <div className="bg-[#FAFAFA] rounded-lg shadow-xl py-4 px-2 w-85 flex flex-col items-center">
-      <h2 className="text-xl font-bold mb-4 text-center">
-        Your Stance Details
-      </h2>
+    <div className="bg-[#FAFAFA] rounded-lg shadow-xl py-4 px-2 w-full flex flex-col items-center">
+      <div className="flex flex-col w-5/6 justify-center border-b border-black/40 my-4">
+        <select
+          value={dropdownValue}
+          onChange={handleChange}
+          className="w-full font-semibold text-xl mb-2 text-center"
+        >
+          <option value="default">Select a topic...</option>
+          {topicNames.map((topic) => (
+            <option value={topic} key={topic}>
+              {topic}
+            </option>
+          ))}
+        </select>
+      </div>
 
-      <select
-        value={dropdownValue}
-        onChange={handleChange}
-        className="w-5/6 font-semibold text-xl mb-6"
-      >
-        <option value="default">Select a topic...</option>
-        {topicNames.map((topic) => (
-          <option value={topic} key={topic}>
-            {topic}
-          </option>
-        ))}
-      </select>
-
-      {dropdownValue && dropdownValue !== "default" && (
+      {dropdownValue && dropdownValue !== "default" ? (
         <div className="text-center flex flex-col gap-4 items-center">
-          <div className="relative h-64 w-full overflow-hidden select-none">
-            <div className="absolute top-0 left-0 w-full h-12 bg-gradient-to-b from-[#FAFAFA] to-transparent z-10 pointer-events-none" />
-            <div className="absolute bottom-0 left-0 w-full h-12 bg-gradient-to-t from-[#FAFAFA] to-transparent z-10 pointer-events-none" />
+          {topics
+            .filter((t) => t.ShortTitle === dropdownValue)
+            .map((topic) => {
+              return (
+                <div
+                  key={topic.ShortTitle}
+                  className="w-full flex flex-col gap-4"
+                >
+                  <div className="w-full flex flex-col border rounded-lg bg-white">
+                    <h1 className="font-semibold pt-2">
+                      {user.username}'s Stance
+                    </h1>
+                    <p className="p-3 pb-4">
+                      {compareAnswers[dropdownValue] != 0
+                        ? topic.stances[compareAnswers[dropdownValue] - 1].Text
+                        : `${user.username} has not answered this topic yet.`}
+                    </p>
+                  </div>
 
-            {topics
-              .filter((t) => t.ShortTitle === dropdownValue)
-              .map((topic) => {
-                const currentIndex = sliderValue - 1;
+                  <div className="w-full flex flex-col border rounded-lg bg-white">
+                    <h1 className="font-semibold pt-2">Your Stance</h1>
+                    <p className="p-3 pb-4">
+                      {topic.stances[answers[dropdownValue] - 1].Text}
+                    </p>
+                  </div>
 
-                return (
-                  <AnimatePresence
-                    custom={direction}
-                    key={topic.ID}
-                    mode="wait"
-                  >
-                    <motion.div
-                      key={sliderValue}
-                      custom={direction}
-                      variants={stanceVariants}
-                      initial="enter"
-                      animate="center"
-                      exit="exit"
-                      className="cursor-click"
-                    >
-                      {topic.stances[currentIndex - 1] && (
-                        <div
-                          className="text-black/25 mb-4 cursor-pointer"
-                          onClick={() => handleClick(currentIndex - 1)}
-                        >
-                          {topic.stances[currentIndex - 1].Text}
-                        </div>
-                      )}
-                      <div className="text-black font-bold mb-4">
-                        {topic.stances[currentIndex].Text}
-                      </div>
-                      {topic.stances[currentIndex + 1] && (
-                        <div
-                          className="text-black/25 mt-2 cursor-pointer"
-                          onClick={() => handleClick(currentIndex + 1)}
-                        >
-                          {topic.stances[currentIndex + 1].Text}
-                        </div>
-                      )}
-                    </motion.div>
-                  </AnimatePresence>
-                );
-              })}
-          </div>
+                  <div className="w-full flex flex-col border rounded-lg bg-white">
+                    <h1 className="font-semibold pt-2">Explore Stances</h1>
+                    <p className="p-3 pb-4">
+                      {topic.stances[sliderValue - 1].Text}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
 
-          <div>
+          <div className="w-full">
             <h2>{sliderValue}</h2>
             <input
               type="range"
@@ -116,11 +78,22 @@ function UserDetail() {
               value={sliderValue}
               onChange={(e) => {
                 const newVal = parseInt(e.target.value);
-                setDirection(newVal > sliderValue ? 1 : -1);
                 setSliderValue(newVal);
               }}
+              className="w-3/4 accent-purple-400"
             />
           </div>
+
+          <div className="flex w-full justify-evenly my-4">
+            {/* <button className="bg-zinc-200 py-2 px-6 rounded-lg">Cancel</button> */}
+            <button className="bg-black py-2 px-6 rounded-lg text-white">
+              Update Stance
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="p-2 text-center">
+          <p>Select a topic to compare your stances with {user.username}'s</p>
         </div>
       )}
     </div>

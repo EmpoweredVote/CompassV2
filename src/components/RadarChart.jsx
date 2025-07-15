@@ -16,8 +16,8 @@ function RadarChart({
   const centerX = size / 2;
   const centerY = size / 2;
 
-  const answers = Object.entries(data);
-  const numSpokes = answers.length;
+  const spokes = Object.entries(data); // Array of spokes [['topic shortTitle', answerValue], [], etc]
+  const numSpokes = spokes.length;
 
   const prevCountRef = useRef(numSpokes);
   const prevCount = prevCountRef.current;
@@ -29,9 +29,7 @@ function RadarChart({
     prevCountRef.current = numSpokes;
   }, [numSpokes]);
 
-  // topics.map((topic) => console.log(topic.stances.length));
-
-  const pointsArr = answers.map(([answer, value], index) => {
+  const pointsArr = spokes.map(([answer, value], index) => {
     const currentTopic = topics.find((topic) => topic.ShortTitle == answer);
     const maxLength = currentTopic.stances.length;
     const percentage = (value / maxLength) * 10;
@@ -47,12 +45,11 @@ function RadarChart({
   });
 
   const targetPoints = pointsArr.map((p) => p.join(",")).join(" ");
-
   const spring = useSpring({
     to: { points: targetPoints },
-    config: { tension: 300, friction: 30 },
     immediate: countChanged,
     reset: countChanged,
+    config: { tension: 300, friction: 30 },
   });
 
   let comparePoints = null;
@@ -111,7 +108,7 @@ function RadarChart({
     >
       {guidePolygons}
 
-      {answers.map(([answer], i) => {
+      {spokes.map(([answer], i) => {
         const angle = (2 * Math.PI * i) / numSpokes;
         const x = centerX + radius * Math.sin(angle);
         const y = centerY - radius * Math.cos(angle);
@@ -127,7 +124,7 @@ function RadarChart({
         );
       })}
 
-      {answers.map(([answer], i) => {
+      {spokes.map(([answer], i) => {
         const angle = (2 * Math.PI * i) / numSpokes;
         const offset = radius + 20;
         const x = centerX + offset * Math.sin(angle);
@@ -200,7 +197,7 @@ function RadarChart({
         )
       ) : null}
 
-      {answers.map(([answer], i) => {
+      {spokes.map(([answer], i) => {
         const angle = (2 * Math.PI * i) / numSpokes;
         const x = centerX + radius * Math.sin(angle);
         const y = centerY - radius * Math.cos(angle);

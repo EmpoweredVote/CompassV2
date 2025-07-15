@@ -115,7 +115,7 @@ function Compass() {
     ];
 
     return (
-      <div className="relative flex justify-between bg-gray-300/50 rounded-lg p-1 mx-2 mb-4 md:hidden">
+      <div className="relative flex justify-around w-full bg-gray-300/50 rounded-lg p-1 mx-2 mb-4 md:hidden">
         {/* moving highlight */}
         <div
           className="absolute top-1 h-[calc(100%-0.5rem)] bg-white rounded-lg transition-all"
@@ -198,7 +198,7 @@ function Compass() {
 
     return shouldRenderChart ? (
       <div className="w-full max-w-2xl flex flex-col items-center gap-4">
-        <RadarChart
+        {/* <RadarChart
           data={answers}
           compareData={compareAnswers}
           invertedSpokes={invertedSpokes}
@@ -209,7 +209,7 @@ function Compass() {
             setReplacingTopic(topic);
             setShowReplaceModal(true);
           }}
-        />
+        /> */}
         <ActionButtons />
       </div>
     ) : (
@@ -367,22 +367,57 @@ function Compass() {
   const shouldRenderChart = topics.length && Object.keys(answers).length;
 
   return (
-    <div className="px-4 py-6 flex flex-col md:flex-row items-center overflow-hidden">
+    <div className="px-4 py-6 flex flex-col md:flex-row  items-center overflow-hidden">
       {/* -------- mobile nav bar -------- */}
       <TabBar />
 
       {/* -------- compare column (hidden on mobile) -------- */}
       {compareUser && (
-        <div className="hidden md:block">
+        <div className="hidden md:block md:w-2/3 md:max-w-90">
           <CompareDetail user={compareUser} />
         </div>
       )}
 
       {/* -------- center column (chart / stances / Details) -------- */}
       <div className="w-full flex flex-col items-center">
-        {selectedTab == 1 && <Legend />}
-        <ChartArea />
+        {selectedTab === 0 && (
+          <div className="w-full max-w-2xl flex flex-col items-center gap-4">
+            <UserDetail user={compareUser} />
+          </div>
+        )}
+
+        {selectedTab == 1 && (
+          <div className="w-full max-w-2xl flex flex-col items-center gap-4">
+            <Legend />
+            <RadarChart
+              data={answers}
+              compareData={compareAnswers}
+              invertedSpokes={invertedSpokes}
+              onToggleInversion={(topic) =>
+                setInvertedSpokes((prev) => ({
+                  ...prev,
+                  [topic]: !prev[topic],
+                }))
+              }
+              onReplaceTopic={(topic) => {
+                setReplacingTopic(topic);
+                setShowReplaceModal(true);
+              }}
+            />
+            <ActionButtons />
+          </div>
+        )}
+
+        {selectedTab === 2 && (
+          <h1>Create custom view for mobile to see reasoning</h1>
+        )}
       </div>
+
+      {compareUser && (
+        <div className="hidden md:block w-1/2 md:min-w-[280px]">
+          <UserDetail user={compareUser} />
+        </div>
+      )}
 
       {/* -------- modals (shared) -------- */}
       {isCompareModal && (

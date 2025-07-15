@@ -77,7 +77,7 @@ function CompareDetail(user) {
 
   return (
     <div>
-      <div className="bg-[#FAFAFA] rounded-lg shadow-xl py-2 px-1 md:w-100 flex flex-col items-center justify-center">
+      <div className="bg-[#FAFAFA] rounded-lg shadow-xl py-2 px-1 w-full md:h-auto flex flex-col items-center justify-center">
         {/* NAV HEADER */}
         <div className="relative flex flex-row w-full justify-between bg-gray-300/50 rounded-lg p-1">
           <div
@@ -263,7 +263,7 @@ function CompareDetail(user) {
                 </div>
               </div>
             ) : (
-              <h1 className="p-2 text-center">
+              <h1 className="p-4 text-center">
                 We haven't created {user.user.username}'s summary for{" "}
                 {dropdownValue && dropdownValue != "default"
                   ? dropdownValue
@@ -290,8 +290,8 @@ function CompareDetail(user) {
                   ))}
               </div>
             ) : (
-              <h1 className="p-4 text-center">
-                Select a topic to view details
+              <h1 className="mb-4 text-center">
+                Select a topic to view details.
               </h1>
             )}
           </div>
@@ -335,13 +335,6 @@ function CompareDetail(user) {
 }
 
 export default CompareDetail;
-
-// function getDomainName(url) {
-//   let cleaned = url.replace(/^(https?:\/\/)?(www\.)?/, "");
-
-//   let parts = cleaned.split(".");
-//   return parts[0].toUpperCase();
-// }
 
 function getDomainName(url) {
   const ALIAS = {
