@@ -1,17 +1,48 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useCompass } from "./CompassContext";
 
-function UserDetail({ user }) {
-  const { topics, answers, compareAnswers } = useCompass();
+function StanceExplorer({ user, dropdownValue, setDropdownValue }) {
+  const { topics, setAnswers, answers, compareAnswers } = useCompass();
 
   const topicNames = Object.keys(answers);
-  const [dropdownValue, setDropdownValue] = useState("");
   const [sliderValue, setSliderValue] = useState(1);
 
   const handleChange = (e) => {
     const selected = e.target.value;
     setDropdownValue(selected);
-    // setSliderValue(answers[selected]); // Default to user's stance
+  };
+
+  const selectedTopic = topics.find((t) => t.ShortTitle === dropdownValue);
+  const selectedStanceText =
+    selectedTopic && answers[dropdownValue]
+      ? selectedTopic.stances[answers[dropdownValue] - 1]?.Text
+      : "";
+
+  const updateStance = () => {
+    fetch(`${import.meta.env.VITE_API_URL}/compass/answers`, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        topic_id: selectedTopic.ID,
+        value: sliderValue - 1,
+      }),
+    })
+      .then((response) => {
+        if (response.status === 200) {
+          console.log("Stance successfully updated");
+          setAnswers((prev) => ({
+            ...prev,
+            [dropdownValue]: sliderValue,
+          }));
+        }
+      })
+      .catch((err) => {
+        alert("Error updating your stance. Please try again.");
+        console.log(err);
+      });
   };
 
   return (
@@ -54,9 +85,7 @@ function UserDetail({ user }) {
 
                   <div className="w-full flex flex-col border rounded-lg bg-white">
                     <h1 className="font-semibold pt-2">Your Stance</h1>
-                    <p className="p-3 pb-4">
-                      {topic.stances[answers[dropdownValue] - 1].Text}
-                    </p>
+                    <p className="p-3 pb-4">{selectedStanceText}</p>
                   </div>
 
                   <div className="w-full flex flex-col border rounded-lg bg-white">
@@ -86,7 +115,10 @@ function UserDetail({ user }) {
 
           <div className="flex w-full justify-evenly my-4">
             {/* <button className="bg-zinc-200 py-2 px-6 rounded-lg">Cancel</button> */}
-            <button className="bg-black py-2 px-6 rounded-lg text-white">
+            <button
+              className="bg-black py-2 px-6 rounded-lg text-white"
+              onClick={updateStance}
+            >
               Update Stance
             </button>
           </div>
@@ -100,4 +132,4 @@ function UserDetail({ user }) {
   );
 }
 
-export default UserDetail;
+export default StanceExplorer;

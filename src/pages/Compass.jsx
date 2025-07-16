@@ -4,7 +4,7 @@ import AddTopicModal from "../components/AddTopicModal";
 import ReplaceTopicModal from "../components/ReplaceTopicModal";
 import CompareModal from "../components/CompareModal";
 import CompareDetail from "../components/CompareDetail";
-import UserDetail from "../components/UserDetail";
+import StanceExplorer from "../components/StanceExplorer";
 import { useState, useEffect, useRef } from "react";
 
 function Compass() {
@@ -182,41 +182,6 @@ function Compass() {
     );
   }
 
-  function ChartArea() {
-    if (selectedTab === 0)
-      return (
-        <div className="w-full max-w-2xl flex flex-col items-center gap-4">
-          <h1>
-            Create stance explorer that allows users to explore your stance
-            compared to another users. Create with mobile in mind
-          </h1>
-          <UserDetail />
-        </div>
-      );
-    if (selectedTab === 2)
-      return <h1>Create custom view for mobile to see reasoning</h1>;
-
-    return shouldRenderChart ? (
-      <div className="w-full max-w-2xl flex flex-col items-center gap-4">
-        {/* <RadarChart
-          data={answers}
-          compareData={compareAnswers}
-          invertedSpokes={invertedSpokes}
-          onToggleInversion={(topic) =>
-            setInvertedSpokes((prev) => ({ ...prev, [topic]: !prev[topic] }))
-          }
-          onReplaceTopic={(topic) => {
-            setReplacingTopic(topic);
-            setShowReplaceModal(true);
-          }}
-        /> */}
-        <ActionButtons />
-      </div>
-    ) : (
-      <p className="text-center text-gray-500">No data to display</p>
-    );
-  }
-
   const {
     topics,
     selectedTopics,
@@ -233,6 +198,9 @@ function Compass() {
   const [replacingTopic, setReplacingTopic] = useState(null);
   const [isCompareModal, setIsCompareModal] = useState(false);
   const [compareUser, setCompareUser] = useState(null); // {user_id, username}
+
+  // Compare Details & Stance Explorer state
+  const [dropdownValue, setDropdownValue] = useState("");
 
   // Nav State:
   const [selectedTab, setSelectedTab] = useState(1);
@@ -374,7 +342,11 @@ function Compass() {
       {/* -------- compare column (hidden on mobile) -------- */}
       {compareUser && (
         <div className="hidden md:block md:w-2/3 md:max-w-90">
-          <CompareDetail user={compareUser} />
+          <CompareDetail
+            user={compareUser}
+            dropdownValue={dropdownValue}
+            setDropdownValue={setDropdownValue}
+          />
         </div>
       )}
 
@@ -382,7 +354,25 @@ function Compass() {
       <div className="w-full flex flex-col items-center">
         {selectedTab === 0 && (
           <div className="w-full max-w-2xl flex flex-col items-center gap-4">
-            <UserDetail user={compareUser} />
+            {compareUser ? (
+              <StanceExplorer
+                user={compareUser}
+                dropdownValue={dropdownValue}
+                setDropdownValue={setDropdownValue}
+              />
+            ) : (
+              <div className="flex flex-col gap-6 w-full items-center mt-8">
+                <h1 className="text-xl font-semibold">
+                  Select a user to compare with
+                </h1>
+                <button
+                  onClick={() => setIsCompareModal(true)}
+                  className="px-6 py-2 bg-black text-white rounded-full hover:bg-opacity-90"
+                >
+                  Compare
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -409,13 +399,23 @@ function Compass() {
         )}
 
         {selectedTab === 2 && (
-          <h1>Create custom view for mobile to see reasoning</h1>
+          <div className="md:hidden">
+            <CompareDetail
+              user={compareUser}
+              dropdownValue={dropdownValue}
+              setDropdownValue={setDropdownValue}
+            />
+          </div>
         )}
       </div>
 
       {compareUser && (
         <div className="hidden md:block w-1/2 md:min-w-[280px]">
-          <UserDetail user={compareUser} />
+          <StanceExplorer
+            user={compareUser}
+            dropdownValue={dropdownValue}
+            setDropdownValue={setDropdownValue}
+          />
         </div>
       )}
 

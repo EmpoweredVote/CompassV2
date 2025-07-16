@@ -2,21 +2,11 @@ import { useCompass } from "./CompassContext";
 import { useState, useEffect, useRef } from "react";
 import placeholder from "../assets/placeholder.png";
 import Favicon from "./Favicon";
-import { parse } from "tldts";
 
-function CompareDetail(user) {
-  const {
-    topics,
-    selectedTopics,
-    setSelectedTopics,
-    answers,
-    setAnswers,
-    compareAnswers,
-    setCompareAnswers,
-  } = useCompass();
+function CompareDetail({ user, dropdownValue, setDropdownValue }) {
+  const { topics, answers, compareAnswers } = useCompass();
 
   const topicNames = Object.keys(answers);
-  const [dropdownValue, setDropdownValue] = useState("");
   const [selectedTab, setSelectedTab] = useState(0);
   const tabRefs = [useRef(null), useRef(null), useRef(null)];
   const [bgStyle, setBgStyle] = useState({ left: 0, width: 0 });
@@ -27,7 +17,7 @@ function CompareDetail(user) {
   useEffect(() => {
     fetch(
       `${import.meta.env.VITE_API_URL}/compass/context?user_id=${
-        user.user.user_id
+        user.user_id
       }&topic_id=${selectedTopicID}`,
       {
         method: "GET",
@@ -229,9 +219,9 @@ function CompareDetail(user) {
         <div className="mt-6">
           <img src={placeholder} />
         </div>
-        {user.user.username && (
+        {user.username && (
           <h2 className="text-xl font-bold my-6 text-center">
-            {user.user.username}
+            {user.username}
           </h2>
         )}
         <div className="flex flex-col w-5/6 justify-center border-b border-black/40 my-4">
@@ -264,7 +254,7 @@ function CompareDetail(user) {
               </div>
             ) : (
               <h1 className="p-4 text-center">
-                We haven't created {user.user.username}'s summary for{" "}
+                We haven't created {user.username}'s summary for{" "}
                 {dropdownValue && dropdownValue != "default"
                   ? dropdownValue
                   : "this topic"}{" "}
