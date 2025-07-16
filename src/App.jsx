@@ -11,7 +11,6 @@ import { Quiz } from "./pages/Quiz";
 import Compass from "./pages/Compass";
 import Layout from "./components/Layout";
 import { CompassProvider } from "./components/CompassContext";
-// import AdminDashboard from "./pages/AdminDashboard";
 import AdminDashboard from "./components/admin/AdminDashboard";
 
 function App() {

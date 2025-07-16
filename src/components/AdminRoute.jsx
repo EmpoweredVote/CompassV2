@@ -5,7 +5,7 @@ function AdminRoute(props) {
   const [adminStatus, setAdminStatus] = useState("loading");
 
   useEffect(() => {
-    fetch(`${import.meta.env.VITE_API_URL}/auth/admin`, {
+    fetch(`${import.meta.env.VITE_API_URL}/auth/admin-check`, {
       credentials: "include",
     })
       .then((res) => {
