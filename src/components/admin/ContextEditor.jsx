@@ -26,7 +26,7 @@ function ContextEditor({
   };
 
   return (
-    <div className="flex flex-col gap-4 mt-2">
+    <div className="flex flex-col gap-4 mt-2 mx-2">
       <div>
         <label className="font-semibold">Reasoning:</label>
         <textarea
@@ -47,7 +47,7 @@ function ContextEditor({
         />
       </div>
 
-      <div className="flex gap-3 mt-2">
+      <div className="flex justify-center gap-3 my-2">
         <button
           className="border px-4 py-2 rounded hover:bg-gray-100"
           onClick={cancelEdit}

@@ -247,7 +247,7 @@ function CompareDetail({ user, dropdownValue, setDropdownValue }) {
           <div className="mt-4">
             {/* Scrollable section with paragraphs of fact based stance summary */}
             {reasoning ? (
-              <div className="p-2 overflow-scroll md:h-96">
+              <div className="p-2 overflow-scroll md:max-h-96">
                 <div className="whitespace-pre-wrap text-base leading-relaxed ml-1">
                   {reasoning}
                 </div>
@@ -302,7 +302,7 @@ function CompareDetail({ user, dropdownValue, setDropdownValue }) {
             {sources ? (
               <div>
                 {sources.length > 0 ? (
-                  <div className="grid grid-cols-2 px-4 gap-6 overflow-scroll md:h-96">
+                  <div className="grid grid-cols-2 px-4 gap-6 overflow-scroll">
                     {sources.map((source, i) => (
                       <div
                         className="flex flex-col border rounded-md items-center py-2 px-6 cursor-pointer gap-2"
