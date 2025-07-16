@@ -51,7 +51,7 @@ function StanceExplorer({ user, dropdownValue, setDropdownValue }) {
         <select
           value={dropdownValue}
           onChange={handleChange}
-          className="w-full font-semibold text-xl mb-2 text-center"
+          className="w-full font-semibold text-xl mb-2 text-center cursor-pointer"
         >
           <option value="default">Select a topic...</option>
           {topicNames.map((topic) => (

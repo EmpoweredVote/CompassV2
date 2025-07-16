@@ -168,13 +168,13 @@ function Compass() {
       <div className="flex gap-4 mt-4">
         <button
           onClick={() => setIsModalOpen(true)}
-          className="px-6 py-2 bg-black text-white rounded-full hover:bg-opacity-90"
+          className="px-6 py-2 bg-black text-white rounded-full hover:bg-opacity-90 cursor-pointer"
         >
           Edit Topics
         </button>
         <button
           onClick={() => setIsCompareModal(true)}
-          className="px-6 py-2 bg-black text-white rounded-full hover:bg-opacity-90"
+          className="px-6 py-2 bg-black text-white rounded-full hover:bg-opacity-90 cursor-pointer"
         >
           Compare
         </button>

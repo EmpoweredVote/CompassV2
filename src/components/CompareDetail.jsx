@@ -229,7 +229,7 @@ function CompareDetail({ user, dropdownValue, setDropdownValue }) {
             id="topic-dropdown"
             value={dropdownValue}
             onChange={handleChange}
-            className="w-full font-semibold text-xl mb-2"
+            className="w-full font-semibold text-xl mb-2 cursor-pointer"
           >
             <option value="default" className="text-center">
               Select a topic...
