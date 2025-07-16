@@ -302,7 +302,7 @@ function CompareDetail({ user, dropdownValue, setDropdownValue }) {
             {sources ? (
               <div>
                 {sources.length > 0 ? (
-                  <div className="grid grid-cols-2 px-4 gap-6 overflow-scroll">
+                  <div className="grid grid-cols-2 px-4 gap-6 overflow-scroll md:max-h-96">
                     {sources.map((source, i) => (
                       <div
                         className="flex flex-col border rounded-md items-center py-2 px-6 cursor-pointer gap-2"
