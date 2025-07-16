@@ -69,7 +69,7 @@ function CompareDetail({ user, dropdownValue, setDropdownValue }) {
     <div>
       <div className="bg-[#FAFAFA] rounded-lg shadow-xl py-2 px-1 w-full md:h-auto flex flex-col items-center justify-center">
         {/* NAV HEADER */}
-        <div className="relative flex flex-row w-full justify-between bg-gray-300/50 rounded-lg p-1">
+        <div className="relative flex flex-row justify-between gap-6 bg-gray-300/50 rounded-lg p-1">
           <div
             className="absolute top-1 h-[calc(100%-0.5rem)] bg-white rounded-lg transition-all duration-300 ease-in-out"
             style={{
@@ -129,7 +129,7 @@ function CompareDetail({ user, dropdownValue, setDropdownValue }) {
               Summary
             </h2>
           </div>
-          <div
+          {/* <div
             ref={tabRefs[1]}
             onClick={() => setSelectedTab(1)}
             className="relative z-10 px-2 py-2 flex gap-1 cursor-pointer"
@@ -168,7 +168,7 @@ function CompareDetail({ user, dropdownValue, setDropdownValue }) {
             >
               Details
             </h2>
-          </div>
+          </div> */}
           <div
             ref={tabRefs[2]}
             onClick={() => setSelectedTab(2)}
@@ -264,20 +264,30 @@ function CompareDetail({ user, dropdownValue, setDropdownValue }) {
           </div>
         )}
 
-        {selectedTab == 1 && (
+        {/* {selectedTab == 1 && (
           <div className="mt-6">
             {dropdownValue && dropdownValue != "default" ? (
               <div className="text-center flex flex-col gap-4 justify-center items-center">
-                <h1 className="p-2 px-4 text-lg font-bold border rounded-lg w-1/6">
-                  {compareAnswers[dropdownValue]}
-                </h1>
+                {compareAnswers[dropdownValue] ? (
+                  <h1 className="p-2 px-4 text-lg font-bold border rounded-lg w-1/6">
+                    {compareAnswers[dropdownValue]}
+                  </h1>
+                ) : (
+                  <></>
+                )}
                 {topics
                   .filter((topic) => topic.ShortTitle == dropdownValue)
-                  .map((topic) => (
-                    <p key={topic.ShortTitle} className="p-2">
-                      {topic.stances[compareAnswers[dropdownValue] - 1].Text}
-                    </p>
-                  ))}
+                  .map((topic) =>
+                    compareAnswers[dropdownValue] ? (
+                      <p key={topic.ShortTitle} className="p-2">
+                        {topic.stances[compareAnswers[dropdownValue] - 1].Text}
+                      </p>
+                    ) : (
+                      <h1 className="p-4">
+                        {user.username} has not answered this topic yet.
+                      </h1>
+                    )
+                  )}
               </div>
             ) : (
               <h1 className="mb-4 text-center">
@@ -285,7 +295,7 @@ function CompareDetail({ user, dropdownValue, setDropdownValue }) {
               </h1>
             )}
           </div>
-        )}
+        )} */}
 
         {selectedTab == 2 && (
           <div className="mt-4">

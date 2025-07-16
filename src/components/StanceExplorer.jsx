@@ -77,7 +77,7 @@ function StanceExplorer({ user, dropdownValue, setDropdownValue }) {
                       {user.username}'s Stance
                     </h1>
                     <p className="p-3 pb-4">
-                      {compareAnswers[dropdownValue] != 0
+                      {compareAnswers[dropdownValue]
                         ? topic.stances[compareAnswers[dropdownValue] - 1].Text
                         : `${user.username} has not answered this topic yet.`}
                     </p>

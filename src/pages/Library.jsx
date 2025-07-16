@@ -55,7 +55,7 @@ function Library() {
           Topic Library
         </h1>
       </div>
-      <div className="flex items-center w-full max-w-xl mx-auto bg-gray-100 rounded-xl px-4 py-2 mb-6">
+      <div className="flex items-center w-90 md:w-full max-w-xl mx-auto bg-gray-100 rounded-xl px-4 py-2 mb-6">
         <span className="text-gray-400 mr-2">
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -156,7 +156,7 @@ function Library() {
       )}
       <div className="h-20" />
 
-      <div className="fixed bottom-4 right-4 z-50">
+      <div className="fixed bottom-25 right-2 md:bottom-4 md:right-4 z-50">
         <button
           onClick={() => navigate("/quiz")}
           disabled={selectedTopics.length === 0}

@@ -31,7 +31,13 @@ function RadarChart({
 
   const pointsArr = spokes.map(([answer, value], index) => {
     const currentTopic = topics.find((topic) => topic.ShortTitle == answer);
+    if (!currentTopic) {
+      console.warn("Missing topic for answer:", answer);
+    }
     const maxLength = currentTopic.stances.length;
+    if (!maxLength) {
+      console.warn("Topic has no stances:", currentTopic);
+    }
     const percentage = (value / maxLength) * 10;
 
     const angle = (2 * Math.PI * index) / numSpokes;

@@ -29,6 +29,7 @@ function Sidebar() {
           />
         </svg>
       ),
+      isDisabled: false,
     },
     {
       route: "/saved-answers",
@@ -49,6 +50,7 @@ function Sidebar() {
           />
         </svg>
       ),
+      isDisabled: true,
     },
     {
       route: "/results",
@@ -74,6 +76,7 @@ function Sidebar() {
           />
         </svg>
       ),
+      isDisabled: false,
     },
     {
       route: "/settings",
@@ -99,6 +102,7 @@ function Sidebar() {
           />
         </svg>
       ),
+      isDisabled: true,
     },
   ];
 
@@ -125,27 +129,28 @@ function Sidebar() {
   };
 
   return (
-    <div className="fixed top-0 left-0 h-screen w-20 bg-white shadow-md flex flex-col justify-between items-center py-4 z-50">
+    <div className="fixed bottom-0 flex w-full h-20 justify-center gap-8 border md:border-none md:top-0 md:left-0 md:h-screen md:w-20 bg-white shadow-md md:flex-col md:justify-between items-center py-4 z-50">
       {/* Logo */}
       <div
         onClick={() => navigate("/library")}
-        className="cursor-pointer"
+        className="cursor-pointer hidden md:block"
         title="Home"
       >
         <img src={Logo} alt="Empowered Logo" className="w-10" />
       </div>
 
-      <div className="flex flex-col gap-6 mt-8">
+      <div className="flex md:flex-col gap-8 md:mt-8">
         {navItems.map((item) => {
           const isActive = location.pathname === item.route;
           return (
             <button
               key={item.route}
               onClick={() => navigate(item.route)}
-              className={`p-2 rounded-lg transition-colors cursor-pointer ${
+              className={`p-2 rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 ${
                 isActive ? "bg-gray-100" : "hover:bg-gray-100"
               }`}
               title={item.label}
+              disabled={item.isDisabled}
             >
               {item.icon}
             </button>
@@ -153,7 +158,7 @@ function Sidebar() {
         })}
       </div>
 
-      <div className="mb-4 flex flex-col gap-4">
+      <div className="md:mb-4 flex md:flex-col gap-4">
         {isAdmin && (
           <button
             onClick={() => navigate("/admin")}

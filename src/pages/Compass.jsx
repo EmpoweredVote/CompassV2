@@ -353,7 +353,7 @@ function Compass() {
       {/* -------- center column (chart / stances / Details) -------- */}
       <div className="w-full flex flex-col items-center">
         {selectedTab === 0 && (
-          <div className="w-full max-w-2xl flex flex-col items-center gap-4">
+          <div className="w-full max-w-2xl flex flex-col items-center gap-4 md:hidden">
             {compareUser ? (
               <StanceExplorer
                 user={compareUser}
@@ -376,7 +376,7 @@ function Compass() {
           </div>
         )}
 
-        {selectedTab == 1 && (
+        {selectedTab === 1 && (
           <div className="w-full max-w-2xl flex flex-col items-center gap-4">
             <Legend />
             <RadarChart
@@ -398,15 +398,28 @@ function Compass() {
           </div>
         )}
 
-        {selectedTab === 2 && (
-          <div className="md:hidden">
-            <CompareDetail
-              user={compareUser}
-              dropdownValue={dropdownValue}
-              setDropdownValue={setDropdownValue}
-            />
-          </div>
-        )}
+        {selectedTab === 2 &&
+          (compareUser ? (
+            <div className="md:hidden w-full">
+              <CompareDetail
+                user={compareUser}
+                dropdownValue={dropdownValue}
+                setDropdownValue={setDropdownValue}
+              />
+            </div>
+          ) : (
+            <div className="flex flex-col gap-6 w-full items-center mt-8">
+              <h1 className="text-xl font-semibold">
+                Select a user to compare with
+              </h1>
+              <button
+                onClick={() => setIsCompareModal(true)}
+                className="px-6 py-2 bg-black text-white rounded-full hover:bg-opacity-90"
+              >
+                Compare
+              </button>
+            </div>
+          ))}
       </div>
 
       {compareUser && (
