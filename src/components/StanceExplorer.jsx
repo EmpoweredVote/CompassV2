@@ -46,7 +46,7 @@ function StanceExplorer({ user, dropdownValue, setDropdownValue }) {
   };
 
   return (
-    <div className="bg-[#FAFAFA] rounded-lg shadow-xl py-4 px-2 w-full flex flex-col items-center">
+    <div className="bg-neutral-50 rounded-lg border border-neutral-200 py-4 px-2 w-full flex flex-col items-center">
       <div className="flex flex-col w-5/6 justify-center border-b border-black/40 my-4">
         <select
           value={dropdownValue}

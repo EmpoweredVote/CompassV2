@@ -2,6 +2,8 @@ function ContextEditor({
   userID,
   topicID,
   existingContext,
+  existingAnswer,
+  topic,
   editedContextFields,
   setEditedContextFields,
   cancelEdit,
@@ -10,6 +12,7 @@ function ContextEditor({
   const contextDraft = editedContextFields[userID]?.[topicID] || {
     reasoning: existingContext?.reasoning || "",
     sources: existingContext?.sources?.join("\n") || "",
+    value: existingAnswer?.value ?? null,
   };
 
   const updateField = (field, value) => {
@@ -27,6 +30,25 @@ function ContextEditor({
 
   return (
     <div className="flex flex-col gap-4 mt-2 mx-2">
+      <div>
+        <label className="font-semibold">Stance Selection:</label>
+        <select
+          className="border px-2 py-1 rounded w-full"
+          value={contextDraft.value ?? ""}
+          onChange={(e) => updateField("value", parseInt(e.target.value))}
+        >
+          <option value="" disabled>
+            Select a stance
+          </option>
+          {(topic.stances || []).map((s) => (
+            <option key={s.Value} value={s.Value}>
+              {s.Value}. {s.Text}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Reasoning + Sources */}
       <div>
         <label className="font-semibold">Reasoning:</label>
         <textarea
@@ -56,7 +78,7 @@ function ContextEditor({
         </button>
         <button
           className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-          onClick={saveEdit}
+          onClick={() => saveEdit(contextDraft.value)}
         >
           Save
         </button>

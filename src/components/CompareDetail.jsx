@@ -67,7 +67,7 @@ function CompareDetail({ user, dropdownValue, setDropdownValue }) {
 
   return (
     <div>
-      <div className="bg-[#FAFAFA] rounded-lg shadow-xl py-2 px-1 w-full md:h-auto flex flex-col items-center justify-center">
+      <div className="bg-[#FAFAFA] rounded-lg border border-neutral-200 py-2 px-1 w-full md:h-auto flex flex-col items-center justify-center">
         {/* NAV HEADER */}
         <div className="relative flex flex-row justify-between gap-6 bg-gray-300/50 rounded-lg p-1">
           <div
@@ -314,7 +314,7 @@ function CompareDetail({ user, dropdownValue, setDropdownValue }) {
                           target="_blank"
                           className="font-semibold text-lg"
                         >
-                          {getDomainName(source)}
+                          {shortenTitle(getDomainName(source))}
                         </a>
                         <Favicon url={source} size={64} />
                       </div>
@@ -347,4 +347,17 @@ function getDomainName(url) {
   let cleaned = url.replace(/^(https?:\/\/)?(www\.)?/, "");
   let parts = cleaned.split(".");
   return ALIAS[parts[0]] || parts[0].toUpperCase();
+}
+
+function shortenTitle(title) {
+  let newTitle = "";
+  if (title.length > 8) {
+    for (let i = 0; i < 8; i++) {
+      newTitle += title[i];
+    }
+    newTitle += "...";
+    return newTitle;
+  } else {
+    return title;
+  }
 }

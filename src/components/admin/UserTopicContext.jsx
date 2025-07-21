@@ -3,6 +3,7 @@ import ContextSummary from "./ContextSummary";
 
 function UserTopicContext({
   user,
+  answer,
   topic,
   context,
   openTopics,
@@ -59,6 +60,7 @@ function UserTopicContext({
             <ContextEditor
               userID={user.user_id}
               topicID={topic.ID}
+              topic={topic}
               existingContext={ctx}
               editedContextFields={editedContextFields}
               setEditedContextFields={setEditedContextFields}
@@ -66,7 +68,22 @@ function UserTopicContext({
               saveEdit={() => saveContextEdit(user.user_id, topic.ID)}
             />
           ) : (
-            <ContextSummary context={ctx} />
+            <div>
+              {answer && (
+                <div className="m-2 bg-gray-100 p-4 rounded">
+                  <p className="font-semibold">Answer Value: {answer.value}</p>
+                  <p className="text-gray-700">
+                    {topic.stances.find((s) => s.Value === answer.value)
+                      ?.Text || (
+                      <span className="italic text-gray-400">
+                        Unknown stance
+                      </span>
+                    )}
+                  </p>
+                </div>
+              )}
+              <ContextSummary context={ctx} />
+            </div>
           )}
 
           {!ctx && !isEditing && (

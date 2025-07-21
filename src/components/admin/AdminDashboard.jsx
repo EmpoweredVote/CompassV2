@@ -3,23 +3,29 @@ import { useCompass } from "../CompassContext";
 
 const TopicAdminPanel = lazy(() => import("./TopicAdminPanel"));
 const UserAdminPanel = lazy(() => import("./UserAdminPanel"));
+const CreateUser = lazy(() => import("./CreateUser"));
 
 function AdminDashboard() {
-  const {
-    topics,
-    setTopics,
-    selectedTopics,
-    setSelectedTopics,
-    answers,
-    setAnswers,
-    compareAnswers,
-    setCompareAnswers,
-  } = useCompass();
+  const { topics } = useCompass();
 
   const [currentTab, setCurrentTab] = useState("Topics");
   const [allCategories, setAllCategories] = useState([]);
   const [users, setUsers] = useState([]);
-  console.log("Topics: ", topics);
+
+  let page;
+
+  switch (currentTab) {
+    case "Topics":
+      page = <TopicAdminPanel allCategories={allCategories} />;
+      break;
+
+    case "Users":
+      page = <UserAdminPanel users={users} topics={topics} />;
+      break;
+
+    case "Create User":
+      page = <CreateUser topics={topics} />;
+  }
 
   useEffect(() => {
     fetch(`${import.meta.env.VITE_API_URL}/compass/categories`, {
@@ -44,12 +50,12 @@ function AdminDashboard() {
   };
 
   return (
-    <div className="mx-6">
+    <div className="mx-6 mt-6">
       <h1 className="text-center text-2xl font-bold">Admin Dashboard</h1>
 
       <div className="w-1/2 m-auto">
         <div className="flex flex-row justify-center gap-8 my-4">
-          {["Topics", "Users"].map((tab) => (
+          {["Topics", "Users", "Create User"].map((tab) => (
             <button
               key={tab}
               className={`py-2 px-8 border rounded-md cursor-pointer font-semibold hover:bg-gray-200 ${
@@ -64,11 +70,7 @@ function AdminDashboard() {
       </div>
 
       <Suspense fallback={<p className="text-center mt-10">Loading...</p>}>
-        {currentTab === "Topics" ? (
-          <TopicAdminPanel allCategories={allCategories} />
-        ) : (
-          <UserAdminPanel users={users} topics={topics} />
-        )}
+        {page}
       </Suspense>
     </div>
   );

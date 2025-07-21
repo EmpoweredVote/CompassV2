@@ -2,6 +2,7 @@ import UserTopicContext from "./UserTopicContext";
 
 function UserAccordion({
   user,
+  answers,
   isOpen,
   toggleOpen,
   context,
@@ -16,6 +17,8 @@ function UserAccordion({
   saveContextEdit,
   visibleOnlyWithContext,
   toggleVisibleOnlyWithContext,
+  searchQuery,
+  setSearchQuery,
 }) {
   const userContexts = context[user.user_id] || [];
   const hasContent = (ctx) =>
@@ -33,6 +36,13 @@ function UserAccordion({
 
       {isOpen && (
         <div className="p-4 bg-white">
+          <input
+            type="text"
+            placeholder="Search topics..."
+            className="border px-2 py-1 mb-2 rounded w-full"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
           <label className="flex gap-2 items-center">
             <input
               type="checkbox"
@@ -45,14 +55,19 @@ function UserAccordion({
           {topics
             .filter((topic) => {
               const ctx = userContexts.find((c) => c.topic_id === topic.ID);
-              return visibleOnlyWithContext[user.user_id]
+              const matchesSearch = topic.ShortTitle.toLowerCase().includes(
+                searchQuery.toLowerCase()
+              );
+              const shouldShow = visibleOnlyWithContext[user.user_id]
                 ? hasContent(ctx)
                 : true;
+              return matchesSearch && shouldShow;
             })
             .map((topic) => (
               <UserTopicContext
                 key={topic.ID}
                 user={user}
+                answer={answers.find((a) => a.topic_id === topic.ID)}
                 topic={topic}
                 context={userContexts}
                 openTopics={openTopics}

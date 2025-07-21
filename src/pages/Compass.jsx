@@ -332,8 +332,6 @@ function Compass() {
       });
   }, [compareUser, selectedTopics, topics]);
 
-  const shouldRenderChart = topics.length && Object.keys(answers).length;
-
   return (
     <div className="px-4 py-6 flex flex-col md:flex-row  items-center overflow-hidden">
       {/* -------- mobile nav bar -------- */}

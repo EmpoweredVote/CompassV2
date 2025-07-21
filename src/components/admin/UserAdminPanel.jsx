@@ -9,13 +9,39 @@ function UserAdminPanel({ topics }) {
   const [editedContextFields, setEditedContextFields] = useState({});
   const [visibleOnlyWithContext, setVisibleOnlyWithContext] = useState({});
   const [openTopics, setOpenTopics] = useState([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [searchByUser, setSearchByUser] = useState({});
+  const [answersByUser, setAnswersByUser] = useState({});
 
-  const toggleExpanded = (user_id) => {
-    setExpanded((prev) =>
-      prev.includes(user_id)
-        ? prev.filter((id) => id !== user_id)
-        : [...prev, user_id]
-    );
+  const toggleExpanded = async (user_id) => {
+    if (expanded.includes(user_id)) {
+      setExpanded((prev) => prev.filter((id) => id !== user_id));
+      return;
+    }
+
+    try {
+      const topicIDs = topics.map((t) => t.ID); // All topics
+
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL}/compass/compare`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ user_id, ids: topicIDs }),
+        }
+      );
+
+      if (!res.ok) throw new Error("Failed to fetch answers");
+
+      const answerData = await res.json();
+      setAnswersByUser((prev) => ({ ...prev, [user_id]: answerData }));
+      setExpanded((prev) => [...prev, user_id]);
+    } catch (err) {
+      console.error("Error fetching answers:", err);
+    }
   };
 
   const toggleTopicOpen = (topicID) => {
@@ -33,7 +59,7 @@ function UserAdminPanel({ topics }) {
     }));
   };
 
-  const saveContextEdit = async (user_id, topic_id) => {
+  const saveContextEdit = async (user_id, topic_id, valueOverride) => {
     const edited = editedContextFields[user_id]?.[topic_id];
     if (!edited) return;
 
@@ -49,6 +75,8 @@ function UserAdminPanel({ topics }) {
       .split("\n")
       .map((line) => line.trim())
       .filter((line) => line.length > 0);
+
+    const value = valueOverride ?? edited.value;
 
     try {
       const res = await fetch(
@@ -68,6 +96,13 @@ function UserAdminPanel({ topics }) {
 
       if (!res.ok) throw new Error("Failed to save context");
 
+      await fetch(`${import.meta.env.VITE_API_URL}/compass/answers/admin`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id, topic_id, value }),
+      });
+
       // Update local cache
       setContext((prev) => {
         const prevUserContext = prev[user_id] || [];
@@ -86,6 +121,21 @@ function UserAdminPanel({ topics }) {
         return { ...prev, [user_id]: finalList };
       });
 
+      setAnswersByUser((prev) => {
+        const prevAnswers = prev[user_id] || [];
+
+        const updated = prevAnswers.map((a) =>
+          a.topic_id === topic_id ? { ...a, value } : a
+        );
+
+        const alreadyExists = prevAnswers.some((a) => a.topic_id === topic_id);
+        const finalList = alreadyExists
+          ? updated
+          : [...prevAnswers, { topic_id, value }];
+
+        return { ...prev, [user_id]: finalList };
+      });
+
       setEditedContextFields((prev) => {
         const updated = { ...prev };
         delete updated[user_id]?.[topic_id];
@@ -95,7 +145,7 @@ function UserAdminPanel({ topics }) {
       setEditingContext(null);
     } catch (err) {
       console.error(err);
-      alert("Failed to save context");
+      alert("Failed to save context or answers");
     }
   };
 
@@ -139,12 +189,15 @@ function UserAdminPanel({ topics }) {
 
   return (
     <div className="w-3/4 mx-auto mt-6 space-y-4">
-      <h1 className="text-2xl font-bold text-center">Empowered Users</h1>
+      <div className="flex flex-col items-center gap-4">
+        <h1 className="text-2xl font-bold">Empowered Users</h1>
+      </div>
 
       {users.map((user) => (
         <UserAccordion
           key={user.user_id}
           user={user}
+          answers={answersByUser[user.user_id] || []}
           isOpen={expanded.includes(user.user_id)}
           toggleOpen={() => toggleExpanded(user.user_id)}
           context={context}
@@ -159,6 +212,10 @@ function UserAdminPanel({ topics }) {
           saveContextEdit={saveContextEdit}
           visibleOnlyWithContext={visibleOnlyWithContext}
           toggleVisibleOnlyWithContext={toggleVisibleOnlyWithContext}
+          searchQuery={searchByUser[user.user_id] || ""}
+          setSearchQuery={(query) =>
+            setSearchByUser((prev) => ({ ...prev, [user.user_id]: query }))
+          }
         />
       ))}
     </div>
