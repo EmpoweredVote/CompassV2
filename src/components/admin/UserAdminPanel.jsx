@@ -219,6 +219,16 @@ function UserAdminPanel({ topics }) {
               )
             );
           }}
+          updateUsername={(userID, username) => {
+            setUsers((prev) =>
+              prev.map((u) =>
+                u.user_id === userID ? { ...u, username: username } : u
+              )
+            );
+          }}
+          updateUserList={(userID) => {
+            setUsers((prev) => prev.filter((u) => u.user_id !== userID));
+          }}
           searchQuery={searchByUser[user.user_id] || ""}
           setSearchQuery={(query) =>
             setSearchByUser((prev) => ({ ...prev, [user.user_id]: query }))

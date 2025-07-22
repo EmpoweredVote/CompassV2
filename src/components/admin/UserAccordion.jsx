@@ -1,5 +1,6 @@
 import UserTopicContext from "./UserTopicContext";
 import placeholder from "../../assets/placeholder.png";
+import UserEditModal from "./UserEditModal";
 import { useState } from "react";
 
 function UserAccordion({
@@ -20,15 +21,62 @@ function UserAccordion({
   visibleOnlyWithContext,
   toggleVisibleOnlyWithContext,
   updateUserPic,
+  updateUsername,
+  updateUserList,
   searchQuery,
   setSearchQuery,
 }) {
   const [isEditingPic, setIsEditingPic] = useState(false);
   const [newPicURL, setNewPicURL] = useState("");
+  const [showUserModal, setShowUserModal] = useState(false);
 
   const userContexts = context[user.user_id] || [];
   const hasContent = (ctx) =>
     ctx && (ctx.reasoning?.trim() || ctx.sources?.length > 0);
+
+  const closeModal = () => {
+    setShowUserModal(false);
+  };
+
+  const onSaveModal = async (userID, updated) => {
+    // Send new user info to the backend
+    const res = await fetch(
+      `${import.meta.env.VITE_API_URL}/auth/update-username`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ user_id: userID, username: updated.username }),
+      }
+    );
+
+    if (!res.ok) {
+      alert("Failed to update username");
+      return;
+    }
+
+    updateUsername(userID, updated.username);
+  };
+
+  const deleteUser = async (userID) => {
+    // Send userID to backend to be deleted
+    const res = await fetch(
+      `${import.meta.env.VITE_API_URL}/auth/delete-user/${userID}`,
+      {
+        method: "DELETE",
+        credentials: "include",
+      }
+    );
+
+    if (!res.ok) {
+      alert("Failed to delete user.");
+      return;
+    }
+
+    updateUserList(userID);
+  };
 
   const submitPic = async (pic_url, userID) => {
     const res = await fetch(
@@ -147,7 +195,23 @@ function UserAccordion({
           </div>
         )}
         <h2 className="text-xl font-semibold">{user.username}</h2>
-        <span>{isOpen ? "▲" : "▼"}</span>
+        <div onClick={() => setShowUserModal(true)}>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={1.5}
+            stroke="currentColor"
+            className="size-6"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10"
+            />
+          </svg>
+          {/* <span>{isOpen ? "▲" : "▼"}</span> */}
+        </div>
       </div>
 
       {isOpen && (
@@ -196,6 +260,14 @@ function UserAccordion({
               />
             ))}
         </div>
+      )}
+      {showUserModal && (
+        <UserEditModal
+          user={user}
+          onClose={closeModal}
+          onSave={onSaveModal}
+          deleteUser={deleteUser}
+        />
       )}
     </div>
   );
