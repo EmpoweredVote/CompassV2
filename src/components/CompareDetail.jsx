@@ -217,7 +217,10 @@ function CompareDetail({ user, dropdownValue, setDropdownValue }) {
           </div>
         </div>
         <div className="mt-6">
-          <img src={placeholder} />
+          <img
+            src={user.profile_pic_url || placeholder}
+            className="rounded-full object-cover w-32 h-32"
+          />
         </div>
         {user.username && (
           <h2 className="text-xl font-bold my-6 text-center">

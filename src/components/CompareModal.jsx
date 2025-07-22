@@ -6,7 +6,7 @@ function CompareModal({ onCompare, onClose }) {
   //    1. On compare button click, open a compare modal with all the empowered users listed. Get compare user with GET /empowered-accounts
   //    2. Select a user to compare with
   //    3. Return selected user's username and ID
-  const [users, setUsers] = useState([]); // array of {user_id, username}
+  const [users, setUsers] = useState([]); // array of {user_id, username, profle_pic_url}
   const [selected, setSelected] = useState(null); // single selected user object
 
   useEffect(() => {
