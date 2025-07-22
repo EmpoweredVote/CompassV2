@@ -212,6 +212,13 @@ function UserAdminPanel({ topics }) {
           saveContextEdit={saveContextEdit}
           visibleOnlyWithContext={visibleOnlyWithContext}
           toggleVisibleOnlyWithContext={toggleVisibleOnlyWithContext}
+          updateUserPic={(userID, newURL) => {
+            setUsers((prev) =>
+              prev.map((u) =>
+                u.user_id === userID ? { ...u, profile_pic_url: newURL } : u
+              )
+            );
+          }}
           searchQuery={searchByUser[user.user_id] || ""}
           setSearchQuery={(query) =>
             setSearchByUser((prev) => ({ ...prev, [user.user_id]: query }))
