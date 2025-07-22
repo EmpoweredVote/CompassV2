@@ -30,13 +30,7 @@ function UserAccordion({
   const hasContent = (ctx) =>
     ctx && (ctx.reasoning?.trim() || ctx.sources?.length > 0);
 
-  const toggleEditingPic = () => {
-    setIsEditingPic(!isEditingPic);
-    console.log("editing");
-  };
-
   const submitPic = async (pic_url, userID) => {
-    console.log("URL: ", pic_url);
     const res = await fetch(
       `${import.meta.env.VITE_API_URL}/auth/update-profile-pic`,
       {

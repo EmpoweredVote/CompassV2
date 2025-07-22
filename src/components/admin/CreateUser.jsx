@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import CreateUserAccordion from "./CreateUserAccordion";
+import placeholder from "../../assets/placeholder.png";
 
 function CreateUser({ topics }) {
   const [status, setStatus] = useState(null);
@@ -8,6 +9,7 @@ function CreateUser({ topics }) {
   const [checkedStances, setCheckedStances] = useState({});
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [imgSrc, setImgSrc] = useState(placeholder);
 
   useEffect(() => {
     if (status) {
@@ -26,6 +28,17 @@ function CreateUser({ topics }) {
 
   const handleFieldChange = (field, value) => {
     setNewUser((prev) => ({ ...prev, [field]: value }));
+
+    if (field == "pic_url") {
+      const testImg = new Image();
+      testImg.src = value;
+      testImg.onload = () => {
+        setImgSrc(value);
+      };
+      testImg.onerror = () => {
+        setImgSrc(placeholder);
+      };
+    }
   };
 
   const handleAccordionToggle = (topicID) => {
@@ -45,7 +58,6 @@ function CreateUser({ topics }) {
       ...prev,
       [topic.ID]: { answer: value },
     }));
-    console.log("Checked: ", checkedStances);
   };
 
   const isAnswered = (topic) => {
@@ -69,7 +81,10 @@ function CreateUser({ topics }) {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ username: newUser.username }),
+          body: JSON.stringify({
+            username: newUser.username,
+            profile_pic_url: newUser.pic_url,
+          }),
         }
       );
 
@@ -132,8 +147,26 @@ function CreateUser({ topics }) {
             ❌ Failed to create dummy user. Please try again.
           </div>
         )}
-        <div className="w-full md:w-3/4 m-auto mt-6 flex gap-4 p-4 rounded-xl">
-          <h1 className="block text-xl font-semibold">Username:</h1>
+        <div className="flex flex-col items-center gap-2 justify-center mt-6">
+          <img
+            src={imgSrc}
+            alt={`${newUser.username}'s profile`}
+            className="w-24 h-24 object-cover rounded-full border shadow"
+          />
+          <div className="flex flex-col gap-2 mt-2 w-1/3">
+            <input
+              type="text"
+              className="border p-1 rounded"
+              placeholder="Enter image URL..."
+              value={newUser.pic_url}
+              onChange={(e) => {
+                handleFieldChange("pic_url", e.target.value);
+              }}
+            />
+          </div>
+        </div>
+        <div className="w-full md:w-3/4 m-auto mt-6 flex flex-col gap-2 items-center rounded-xl">
+          <h1 className="block text-xl font-semibold">Username</h1>
           <input
             className="border rounded p-1 w-1/2 bg-white"
             value={newUser.username}
