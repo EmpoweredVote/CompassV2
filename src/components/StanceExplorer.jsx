@@ -76,6 +76,9 @@ function StanceExplorer({ user, dropdownValue, setDropdownValue }) {
                     <h1 className="font-semibold pt-2">
                       {user.username}'s Stance
                     </h1>
+                    <p className="text-gray-500">
+                      {compareAnswers[dropdownValue]}
+                    </p>
                     <p className="p-3 pb-4">
                       {compareAnswers[dropdownValue]
                         ? topic.stances[compareAnswers[dropdownValue] - 1].Text
@@ -85,6 +88,7 @@ function StanceExplorer({ user, dropdownValue, setDropdownValue }) {
 
                   <div className="w-full flex flex-col border rounded-lg bg-white">
                     <h1 className="font-semibold pt-2">Your Stance</h1>
+                    <p className="text-gray-500">{answers[dropdownValue]}</p>
                     <p className="p-3 pb-4">{selectedStanceText}</p>
                   </div>
 
