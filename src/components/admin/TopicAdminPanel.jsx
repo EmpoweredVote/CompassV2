@@ -77,7 +77,7 @@ function TopicAdminPanel({ allCategories }) {
       <div className="w-3/4 m-auto flex flex-col gap-4">
         <div>
           {isSuccess && (
-            <div className="flex flex-col items-center">
+            <div className="flex flex-col items-center mt-4">
               <div className="w-full px-4 py-2 border border-black/75 rounded-lg bg-gray-50">
                 <h1 className="font-semibold text-center text-lg text-green-600">
                   Topic Successfully Saved
