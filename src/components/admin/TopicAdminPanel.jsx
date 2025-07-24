@@ -12,7 +12,8 @@ function TopicAdminPanel({ allCategories }) {
   const [newStance, setNewStance] = useState({});
   const [openModal, setOpenModal] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-  const [deleteStatus, setDeleteStatus] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [search, setSearch] = useState("");
 
   const closeModal = () => {
     setOpenModal(false);
@@ -28,7 +29,7 @@ function TopicAdminPanel({ allCategories }) {
 
   useEffect(() => {
     if (isSuccess) {
-      const timeout = setTimeout(() => setIsSuccess(false), 10000);
+      const timeout = setTimeout(() => setIsSuccess(false), 5000);
       return () => clearTimeout(timeout);
     }
   }, [isSuccess]);
@@ -37,13 +38,21 @@ function TopicAdminPanel({ allCategories }) {
     setIsSuccess(true);
   };
 
+  const toggleIsDeleting = () => {
+    setIsDeleting(!isDeleting);
+  };
+
+  const topicsToDisplay = topics.filter((topic) =>
+    topic.ShortTitle.toLowerCase().includes(search.toLowerCase())
+  );
+
   return (
-    <div>
-      <div className="w-3/4 m-auto flex flex-row-reverse justify-between">
+    <div className="mt-8">
+      <div className="w-3/4 m-auto flex flex-row-reverse justify-evenly">
         <div className="flex gap-2">
           <button
             className="bg-red-600 text-white px-4 py-1 rounded cursor-pointer hover:bg-red-700"
-            onClick={() => setDeleteStatus(true)}
+            onClick={() => toggleIsDeleting()}
           >
             -
           </button>
@@ -54,6 +63,18 @@ function TopicAdminPanel({ allCategories }) {
             +
           </button>
         </div>
+        <div className="w-2/3 flex m-auto">
+          <input
+            type="text"
+            placeholder="Search topics..."
+            className="border px-2 py-1 rounded w-full"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+      </div>
+
+      <div className="w-3/4 m-auto mt-4 flex flex-col gap-4">
         <div>
           {isSuccess && (
             <div className="flex flex-col items-center">
@@ -65,10 +86,6 @@ function TopicAdminPanel({ allCategories }) {
             </div>
           )}
         </div>
-        <div></div>
-      </div>
-
-      <div className="w-3/4 m-auto mt-6 flex flex-col gap-4">
         {openModal && (
           <CreateTopic
             onClose={closeModal}
@@ -79,7 +96,7 @@ function TopicAdminPanel({ allCategories }) {
             setNewStance={setNewStance}
           />
         )}
-        {topics.map((topic) => (
+        {topicsToDisplay.map((topic) => (
           <TopicAccordion
             key={topic.ID}
             topic={topic}
@@ -93,6 +110,7 @@ function TopicAdminPanel({ allCategories }) {
             setNewStance={setNewStance}
             allCategories={allCategories}
             setTopics={setTopics}
+            isDeleting={isDeleting}
           />
         ))}
       </div>

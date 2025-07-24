@@ -15,6 +15,7 @@ function TopicEditor({
   allCategories,
   setTopics,
   setEditedTopic,
+  isDeleting,
 }) {
   const { refreshData } = useCompass();
   const [isSaving, setIsSaving] = useState(false);

@@ -4,8 +4,6 @@ function TopicSummary({ topic, allCategories }) {
     return match ? match.Title : "Unknown Category";
   });
 
-  console.log("First topic:", topic);
-
   return (
     <div className="flex flex-col gap-4">
       <div>
