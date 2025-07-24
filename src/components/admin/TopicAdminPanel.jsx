@@ -48,7 +48,7 @@ function TopicAdminPanel({ allCategories }) {
 
   return (
     <div className="mt-8">
-      <div className="w-3/4 m-auto flex flex-row-reverse justify-evenly">
+      <div className="w-3/4 m-auto flex flex-row-reverse justify-center gap-4">
         <div className="flex gap-2">
           <button
             className="bg-red-600 text-white px-4 py-1 rounded cursor-pointer hover:bg-red-700"
@@ -63,7 +63,7 @@ function TopicAdminPanel({ allCategories }) {
             +
           </button>
         </div>
-        <div className="w-2/3 flex m-auto">
+        <div className="w-full flex m-auto">
           <input
             type="text"
             placeholder="Search topics..."
@@ -74,7 +74,7 @@ function TopicAdminPanel({ allCategories }) {
         </div>
       </div>
 
-      <div className="w-3/4 m-auto mt-4 flex flex-col gap-4">
+      <div className="w-3/4 m-auto flex flex-col gap-4">
         <div>
           {isSuccess && (
             <div className="flex flex-col items-center">
