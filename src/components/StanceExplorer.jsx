@@ -79,6 +79,7 @@ function StanceExplorer({ user, dropdownValue, setDropdownValue }) {
                     <p className="text-gray-500">
                       {compareAnswers[dropdownValue]}
                     </p>
+                    {/* Problem line ? */}
                     <p className="p-3 pb-4">
                       {compareAnswers[dropdownValue]
                         ? topic.stances[compareAnswers[dropdownValue] - 1].text
