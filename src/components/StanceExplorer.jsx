@@ -6,7 +6,7 @@ function StanceExplorer({ user, dropdownValue, setDropdownValue }) {
 
   const topicNames = Object.keys(answers);
   const [sliderValue, setSliderValue] = useState(1);
-
+  const [maxValue, setMaxValue] = useState();
   const handleChange = (e) => {
     const selected = e.target.value;
     setDropdownValue(selected);
@@ -79,7 +79,6 @@ function StanceExplorer({ user, dropdownValue, setDropdownValue }) {
                     <p className="text-gray-500">
                       {compareAnswers[dropdownValue]}
                     </p>
-                    {/* Problem line ? */}
                     <p className="p-3 pb-4">
                       {compareAnswers[dropdownValue]
                         ? topic.stances[compareAnswers[dropdownValue] - 1].text
@@ -108,7 +107,7 @@ function StanceExplorer({ user, dropdownValue, setDropdownValue }) {
             <input
               type="range"
               min={1}
-              max={10}
+              max={selectedTopic.stances.length}
               value={sliderValue}
               onChange={(e) => {
                 const newVal = parseInt(e.target.value);
