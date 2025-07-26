@@ -21,7 +21,7 @@ function TopicEditor({
   const [isSaving, setIsSaving] = useState(false);
 
   const withValues = (stances) =>
-    stances.map((s, i) => ({ ...s, Value: i + 1 }));
+    stances.map((s, i) => ({ ...s, value: i + 1 }));
 
   const handleFieldChange = (field, value) => {
     setEditedFields((prev) => ({ ...prev, [field]: value }));
@@ -29,14 +29,14 @@ function TopicEditor({
 
   const handleStanceChange = (index, value) => {
     const updated = [...editedFields.stances];
-    updated[index].Text = value;
+    updated[index].text = value;
     setEditedFields((prev) => ({ ...prev, stances: updated }));
   };
 
-  const handleCategoryToggle = (categoryID) => {
-    const updated = editedFields.categories.includes(categoryID)
-      ? editedFields.categories.filter((id) => id !== categoryID)
-      : [...editedFields.categories, categoryID];
+  const handleCategoryToggle = (category_id) => {
+    const updated = editedFields.categories.includes(category_id)
+      ? editedFields.categories.filter((id) => id !== category_id)
+      : [...editedFields.categories, category_id];
 
     setEditedFields((prev) => ({ ...prev, categories: updated }));
   };
@@ -46,7 +46,7 @@ function TopicEditor({
 
     setEditedFields((prev) => ({
       ...prev,
-      stances: [...prev.stances, { Text: newStance.text, tempId: uuid() }],
+      stances: [...prev.stances, { text: newStance.text, tempId: uuid() }],
     }));
     setNewStance({ text: "" });
   };
@@ -57,12 +57,12 @@ function TopicEditor({
       stances: prev.stances.filter((_, i) => i !== indexToRemove),
     }));
 
-  const stanceIds = editedFields.stances.map((s) => s.ID ?? s.tempId);
+  const stance_ids = editedFields.stances.map((s) => s.id ?? s.tempId);
 
   const handleDragEnd = ({ active, over }) => {
     if (!over || active.id === over.id) return;
-    const oldIndex = stanceIds.indexOf(active.id);
-    const newIndex = stanceIds.indexOf(over.id);
+    const oldIndex = stance_ids.indexOf(active.id);
+    const newIndex = stance_ids.indexOf(over.id);
     setEditedFields((p) => ({
       ...p,
       stances: arrayMove(p.stances, oldIndex, newIndex),
@@ -78,22 +78,22 @@ function TopicEditor({
     const added = [];
     const removed = [];
 
-    const oldByID = Object.fromEntries(topic.stances.map((s) => [s.ID, s]));
+    const oldByID = Object.fromEntries(topic.stances.map((s) => [s.id, s]));
 
     seq.forEach((s, i) => {
-      if (!s.ID) {
-        added.push({ text: s.Text, value: i + 1 });
+      if (!s.id) {
+        added.push({ text: s.text, value: i + 1 });
       } else {
-        const orig = oldByID[s.ID];
-        if (!orig || orig.Text !== s.Text || orig.Value !== i + 1) {
-          updated.push({ id: s.ID, text: s.Text, value: i + 1 });
+        const orig = oldByID[s.id];
+        if (!orig || orig.text !== s.text || orig.value !== i + 1) {
+          updated.push({ id: s.id, text: s.text, value: i + 1 });
         }
       }
     });
 
-    const newIDs = new Set(seq.map((s) => s.ID).filter(Boolean));
+    const newIDs = new Set(seq.map((s) => s.id).filter(Boolean));
     topic.stances.forEach((s) => {
-      if (!newIDs.has(s.ID)) removed.push({ id: s.ID });
+      if (!newIDs.has(s.id)) removed.push({ id: s.id });
     });
 
     try {
@@ -102,9 +102,9 @@ function TopicEditor({
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ID: topic.ID,
-          Title: editedFields.title,
-          ShortTitle: editedFields.shortTitle,
+          id: topic.id,
+          title: editedFields.title,
+          short_title: editedFields.short_title,
         }),
       });
 
@@ -113,14 +113,14 @@ function TopicEditor({
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          topic_id: topic.ID,
+          topic_id: topic.id,
           updated,
           added,
           removed,
         }),
       });
 
-      const oldCategoryIDs = topic.Categories.map((c) => c.ID);
+      const oldCategoryIDs = topic.categories.map((c) => c.id);
       const newCategoryIDs = editedFields.categories;
 
       const add = newCategoryIDs.filter((id) => !oldCategoryIDs.includes(id));
@@ -136,7 +136,7 @@ function TopicEditor({
             credentials: "include",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              topic_id: topic.ID,
+              topic_id: topic.id,
               add,
               remove,
             }),
@@ -147,12 +147,12 @@ function TopicEditor({
 
       setTopics((prev) =>
         prev.map((t) =>
-          t.ID === topic.ID
+          t.id === topic.id
             ? {
                 ...t,
                 stances: seq,
-                Categories: allCategories.filter((c) =>
-                  editedFields.categories.includes(c.ID)
+                categories: allCategories.filter((c) =>
+                  editedFields.categories.includes(c.id)
                 ),
               }
             : t
@@ -185,19 +185,19 @@ function TopicEditor({
           <label className="block font-semibold">Short Title</label>
           <input
             className="border rounded p-1 w-full"
-            value={editedFields.shortTitle}
-            onChange={(e) => handleFieldChange("shortTitle", e.target.value)}
+            value={editedFields.short_title}
+            onChange={(e) => handleFieldChange("short_title", e.target.value)}
           />
         </div>
 
         <div>
           <label className="block font-semibold mb-1">Stances</label>
-          <SortableContext items={stanceIds}>
+          <SortableContext items={stance_ids}>
             <div className="flex flex-col gap-4">
               {editedFields.stances.map((stance, index) => (
                 // Make the div below drag & droppable/sorted 1-10.
                 <SortableStance
-                  key={stance.ID ?? stance.tempId}
+                  key={stance.id ?? stance.tempId}
                   stance={stance}
                   index={index}
                   onRemove={handleRemoveStance}
@@ -243,13 +243,13 @@ function TopicEditor({
           <label className="block font-semibold mb-1">Categories</label>
           <div className="grid grid-cols-2 gap-2">
             {allCategories.map((category) => (
-              <label key={category.ID} className="flex items-center gap-2">
+              <label key={category.id} className="flex items-center gap-2">
                 <input
                   type="checkbox"
-                  checked={editedFields.categories.includes(category.ID)}
-                  onChange={() => handleCategoryToggle(category.ID)}
+                  checked={editedFields.categories.includes(category.id)}
+                  onChange={() => handleCategoryToggle(category.id)}
                 />
-                {category.Title}
+                {category.title}
               </label>
             ))}
           </div>

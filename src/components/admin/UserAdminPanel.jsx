@@ -20,7 +20,7 @@ function UserAdminPanel({ topics }) {
     }
 
     try {
-      const topicIDs = topics.map((t) => t.ID); // All topics
+      const topic_ids = topics.map((t) => t.id); // All topics
 
       const res = await fetch(
         `${import.meta.env.VITE_API_URL}/compass/compare`,
@@ -30,7 +30,7 @@ function UserAdminPanel({ topics }) {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ user_id, ids: topicIDs }),
+          body: JSON.stringify({ user_id, ids: topic_ids }),
         }
       );
 
@@ -44,11 +44,11 @@ function UserAdminPanel({ topics }) {
     }
   };
 
-  const toggleTopicOpen = (topicID) => {
+  const toggleTopicOpen = (topic_id) => {
     setOpenTopics((prev) =>
-      prev.includes(topicID)
-        ? prev.filter((id) => id !== topicID)
-        : [...prev, topicID]
+      prev.includes(topic_id)
+        ? prev.filter((id) => id !== topic_id)
+        : [...prev, topic_id]
     );
   };
 
@@ -171,7 +171,7 @@ function UserAdminPanel({ topics }) {
         console.log(contextData);
 
         const grouped = contextData.reduce((acc, ctx) => {
-          const id = ctx.UserID;
+          const id = ctx.user_id;
           if (!acc[id]) acc[id] = [];
           acc[id].push(ctx);
           return acc;
@@ -212,22 +212,22 @@ function UserAdminPanel({ topics }) {
           saveContextEdit={saveContextEdit}
           visibleOnlyWithContext={visibleOnlyWithContext}
           toggleVisibleOnlyWithContext={toggleVisibleOnlyWithContext}
-          updateUserPic={(userID, newURL) => {
+          updateUserPic={(user_id, newURL) => {
             setUsers((prev) =>
               prev.map((u) =>
-                u.user_id === userID ? { ...u, profile_pic_url: newURL } : u
+                u.user_id === user_id ? { ...u, profile_pic_url: newURL } : u
               )
             );
           }}
-          updateUsername={(userID, username) => {
+          updateUsername={(user_id, username) => {
             setUsers((prev) =>
               prev.map((u) =>
-                u.user_id === userID ? { ...u, username: username } : u
+                u.user_id === user_id ? { ...u, username: username } : u
               )
             );
           }}
-          updateUserList={(userID) => {
-            setUsers((prev) => prev.filter((u) => u.user_id !== userID));
+          updateUserList={(user_id) => {
+            setUsers((prev) => prev.filter((u) => u.user_id !== user_id));
           }}
           searchQuery={searchByUser[user.user_id] || ""}
           setSearchQuery={(query) =>

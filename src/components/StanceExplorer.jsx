@@ -12,10 +12,10 @@ function StanceExplorer({ user, dropdownValue, setDropdownValue }) {
     setDropdownValue(selected);
   };
 
-  const selectedTopic = topics.find((t) => t.ShortTitle === dropdownValue);
+  const selectedTopic = topics.find((t) => t.short_title === dropdownValue);
   const selectedStanceText =
     selectedTopic && answers[dropdownValue]
-      ? selectedTopic.stances[answers[dropdownValue] - 1]?.Text
+      ? selectedTopic.stances[answers[dropdownValue] - 1]?.text
       : "";
 
   const updateStance = () => {
@@ -26,7 +26,7 @@ function StanceExplorer({ user, dropdownValue, setDropdownValue }) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        topic_id: selectedTopic.ID,
+        topic_id: selectedTopic.id,
         value: sliderValue - 1,
       }),
     })
@@ -65,11 +65,11 @@ function StanceExplorer({ user, dropdownValue, setDropdownValue }) {
       {dropdownValue && dropdownValue !== "default" ? (
         <div className="text-center flex flex-col gap-4 items-center">
           {topics
-            .filter((t) => t.ShortTitle === dropdownValue)
+            .filter((t) => t.short_title === dropdownValue)
             .map((topic) => {
               return (
                 <div
-                  key={topic.ShortTitle}
+                  key={topic.short_title}
                   className="w-full flex flex-col gap-4"
                 >
                   <div className="w-full flex flex-col border rounded-lg bg-white">
@@ -81,7 +81,7 @@ function StanceExplorer({ user, dropdownValue, setDropdownValue }) {
                     </p>
                     <p className="p-3 pb-4">
                       {compareAnswers[dropdownValue]
-                        ? topic.stances[compareAnswers[dropdownValue] - 1].Text
+                        ? topic.stances[compareAnswers[dropdownValue] - 1].text
                         : `${user.username} has not answered this topic yet.`}
                     </p>
                   </div>
@@ -95,7 +95,7 @@ function StanceExplorer({ user, dropdownValue, setDropdownValue }) {
                   <div className="w-full flex flex-col border rounded-lg bg-white">
                     <h1 className="font-semibold pt-2">Explore Stances</h1>
                     <p className="p-3 pb-4">
-                      {topic.stances[sliderValue - 1].Text}
+                      {topic.stances[sliderValue - 1].text}
                     </p>
                   </div>
                 </div>

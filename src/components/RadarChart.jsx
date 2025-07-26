@@ -30,7 +30,7 @@ function RadarChart({
   }, [numSpokes]);
 
   const pointsArr = spokes.map(([answer, value], index) => {
-    const currentTopic = topics.find((topic) => topic.ShortTitle == answer);
+    const currentTopic = topics.find((topic) => topic.short_title == answer);
     if (!currentTopic) {
       console.warn("Missing topic for answer:", answer);
     }
@@ -61,7 +61,7 @@ function RadarChart({
   let comparePoints = null;
   if (Object.keys(compareData).length) {
     const cmpArr = Object.entries(compareData).map(([answer, value], index) => {
-      const currentTopic = topics.find((topic) => topic.ShortTitle == answer);
+      const currentTopic = topics.find((topic) => topic.short_title == answer);
       const maxLength = currentTopic.stances.length;
       const percentage = (value / maxLength) * 10;
 

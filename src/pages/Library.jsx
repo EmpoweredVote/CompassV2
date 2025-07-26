@@ -35,16 +35,18 @@ function Library() {
   }, []);
 
   const getVisibleTopics = (category) => {
-    return category.Topics.filter(
-      (t) => showPrevAnswers || !answeredTopicIDs.includes(t.ID)
-    ).filter((t) => t.ShortTitle.toLowerCase().includes(search.toLowerCase()));
+    return category.topics
+      .filter((t) => showPrevAnswers || !answeredTopicIDs.includes(t.id))
+      .filter((t) =>
+        t.short_title.toLowerCase().includes(search.toLowerCase())
+      );
   };
 
-  const toggleTopic = (topicID) => {
-    if (selectedTopics.includes(topicID)) {
-      setSelectedTopics(selectedTopics.filter((topic) => topic !== topicID));
+  const toggleTopic = (topic_id) => {
+    if (selectedTopics.includes(topic_id)) {
+      setSelectedTopics(selectedTopics.filter((topic) => topic !== topic_id));
     } else {
-      setSelectedTopics((prevTopics) => [...prevTopics, topicID]);
+      setSelectedTopics((prevTopics) => [...prevTopics, topic_id]);
     }
   };
 
@@ -101,27 +103,27 @@ function Library() {
             if (visible.length === 0) return null;
 
             return (
-              <div key={category.ID} className="p-2 md:p-4 mb-6">
+              <div key={category.id} className="p-2 md:p-4 mb-6">
                 <h2 className="text-xl md:text-2xl font-semibold mb-2 px-2">
-                  {category.Title}
+                  {category.title}
                 </h2>
                 <div className="flex flex-wrap gap-2 md:gap-3 p-2 md:p-4">
                   {visible.map((topic) => (
                     <button
-                      key={topic.ID}
-                      onClick={() => toggleTopic(topic.ID)}
+                      key={topic.id}
+                      onClick={() => toggleTopic(topic.id)}
                       className={`px-3 py-1.5 md:px-4 md:py-2 rounded-full border text-sm md:text-base font-medium transition-colors duration-200 cursor-pointer ${
-                        selectedTopics.includes(topic.ID)
+                        selectedTopics.includes(topic.id)
                           ? "bg-green-600 text-white border-green-600"
                           : "bg-white text-black border-black hover:bg-gray-100"
                       }`}
                     >
-                      {answeredTopicIDs.includes(topic.ID) ? (
+                      {answeredTopicIDs.includes(topic.id) ? (
                         <span className="flex flex-row gap-1">
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
                             fill={
-                              selectedTopics.includes(topic.ID)
+                              selectedTopics.includes(topic.id)
                                 ? "#eab308"
                                 : "none"
                             }
@@ -129,7 +131,7 @@ function Library() {
                             strokeWidth={1.5}
                             stroke="currentColor"
                             className={`size-6 ${
-                              selectedTopics.includes(topic.ID)
+                              selectedTopics.includes(topic.id)
                                 ? "text-black"
                                 : "text-yellow-500"
                             }`}
@@ -141,10 +143,10 @@ function Library() {
                             />
                           </svg>
 
-                          {topic.ShortTitle}
+                          {topic.short_title}
                         </span>
                       ) : (
-                        topic.ShortTitle
+                        topic.short_title
                       )}
                     </button>
                   ))}

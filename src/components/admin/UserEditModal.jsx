@@ -8,6 +8,8 @@ function UserEditModal({ user, onClose, onSave, deleteUser }) {
     setUpdated((prev) => ({ ...prev, [field]: value }));
   };
 
+  console.log("Updated", updated);
+
   return (
     <div className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center z-50">
       <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">

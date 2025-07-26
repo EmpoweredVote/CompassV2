@@ -14,27 +14,27 @@ function UserTopicContext({
   setEditedContextFields,
   saveContextEdit,
 }) {
-  const isOpen = openTopics.includes(topic.ID);
+  const isOpen = openTopics.includes(topic.id);
   const isEditing =
     editingContext?.user_id === user.user_id &&
-    editingContext?.topic_id === topic.ID;
+    editingContext?.topic_id === topic.id;
 
-  const ctx = context.find((c) => c.topic_id === topic.ID);
+  const ctx = context.find((c) => c.topic_id === topic.id);
 
   const handleToggle = () => {
-    toggleTopicOpen(topic.ID);
+    toggleTopicOpen(topic.id);
   };
 
   const handleStartEdit = () => {
-    setEditingContext({ user_id: user.user_id, topic_id: topic.ID });
-    if (!isOpen) toggleTopicOpen(topic.ID);
+    setEditingContext({ user_id: user.user_id, topic_id: topic.id });
+    if (!isOpen) toggleTopicOpen(topic.id);
   };
 
   return (
     <div className="border rounded mt-2 overflow-hidden">
       <div className="flex justify-between cursor-pointer bg-gray-100 p-4">
         <h3 onClick={handleToggle} className="font-semibold w-full h-full">
-          {topic.ShortTitle}
+          {topic.short_title}
         </h3>
         <button onClick={handleStartEdit}>
           <svg
@@ -58,14 +58,14 @@ function UserTopicContext({
         <div className="mt-2">
           {isEditing ? (
             <ContextEditor
-              userID={user.user_id}
-              topicID={topic.ID}
+              user_id={user.user_id}
+              topic_id={topic.id}
               topic={topic}
               existingContext={ctx}
               editedContextFields={editedContextFields}
               setEditedContextFields={setEditedContextFields}
               cancelEdit={() => setEditingContext(null)}
-              saveEdit={() => saveContextEdit(user.user_id, topic.ID)}
+              saveEdit={() => saveContextEdit(user.user_id, topic.id)}
             />
           ) : (
             <div>
@@ -73,8 +73,8 @@ function UserTopicContext({
                 <div className="m-2 bg-gray-100 p-4 rounded">
                   <p className="font-semibold">Answer Value: {answer.value}</p>
                   <p className="text-gray-700">
-                    {topic.stances.find((s) => s.Value === answer.value)
-                      ?.Text || (
+                    {topic.stances.find((s) => s.value === answer.value)
+                      ?.text || (
                       <span className="italic text-gray-400">
                         Unknown stance
                       </span>

@@ -1,6 +1,6 @@
 function ContextEditor({
-  userID,
-  topicID,
+  user_id,
+  topic_id,
   existingContext,
   existingAnswer,
   topic,
@@ -9,7 +9,7 @@ function ContextEditor({
   cancelEdit,
   saveEdit,
 }) {
-  const contextDraft = editedContextFields[userID]?.[topicID] || {
+  const contextDraft = editedContextFields[user_id]?.[topic_id] || {
     reasoning: existingContext?.reasoning || "",
     sources: existingContext?.sources?.join("\n") || "",
     value: existingAnswer?.value ?? null,
@@ -18,10 +18,10 @@ function ContextEditor({
   const updateField = (field, value) => {
     setEditedContextFields((prev) => ({
       ...prev,
-      [userID]: {
-        ...prev[userID],
-        [topicID]: {
-          ...prev[userID]?.[topicID],
+      [user_id]: {
+        ...prev[user_id],
+        [topic_id]: {
+          ...prev[user_id]?.[topic_id],
           [field]: value,
         },
       },
@@ -41,8 +41,8 @@ function ContextEditor({
             Select a stance
           </option>
           {(topic.stances || []).map((s) => (
-            <option key={s.Value} value={s.Value}>
-              {s.Value}. {s.Text}
+            <option key={s.value} value={s.value}>
+              {s.value}. {s.text}
             </option>
           ))}
         </select>

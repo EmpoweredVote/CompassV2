@@ -23,7 +23,7 @@ function CreateUser({ topics }) {
   };
 
   const visibleTopics = topics.filter((topic) =>
-    topic.ShortTitle.toLowerCase().includes(search.toLowerCase())
+    topic.short_title.toLowerCase().includes(search.toLowerCase())
   );
 
   const handleFieldChange = (field, value) => {
@@ -41,11 +41,11 @@ function CreateUser({ topics }) {
     }
   };
 
-  const handleAccordionToggle = (topicID) => {
+  const handleAccordionToggle = (topic_id) => {
     setOpenMenu((prev) =>
-      prev.includes(topicID)
-        ? prev.filter((id) => id !== topicID)
-        : [...prev, topicID]
+      prev.includes(topic_id)
+        ? prev.filter((id) => id !== topic_id)
+        : [...prev, topic_id]
     );
   };
 
@@ -56,12 +56,12 @@ function CreateUser({ topics }) {
   const handleCheck = (topic, value) => {
     setCheckedStances((prev) => ({
       ...prev,
-      [topic.ID]: { answer: value },
+      [topic.id]: { answer: value },
     }));
   };
 
   const isAnswered = (topic) => {
-    return topic.ID in checkedStances;
+    return topic.id in checkedStances;
   };
 
   const formatAnswers = () => {
@@ -191,10 +191,10 @@ function CreateUser({ topics }) {
             {visibleTopics.map((topic) => {
               return (
                 <CreateUserAccordion
-                  key={topic.ID}
+                  key={topic.id}
                   topic={topic}
-                  isOpen={openMenu.includes(topic.ID)}
-                  onToggle={() => handleAccordionToggle(topic.ID)}
+                  isOpen={openMenu.includes(topic.id)}
+                  onToggle={() => handleAccordionToggle(topic.id)}
                   onCheck={handleCheck}
                   checked={checkedStances}
                   isAnswered={isAnswered}

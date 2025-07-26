@@ -39,24 +39,24 @@ function CreateTopic({
   const { refreshData } = useCompass();
   const [topicSaved, setTopicSaved] = useState();
   const [initialStances, setInitialStances] = useState([
-    { Text: "" },
-    { Text: "" },
-    { Text: "" },
-    { Text: "" },
+    { text: "" },
+    { text: "" },
+    { text: "" },
+    { text: "" },
   ]);
   const [editedFields, setEditedFields] = useState({
     title: "",
-    shortTitle: "",
+    short_title: "",
     categories: [],
     stances: initialStances.map((s) => ({
-      Text: s.Text,
+      text: s.text,
       tempId: uuid(),
     })),
   });
   const [isSaving, setIsSaving] = useState(false);
 
   const withValues = (stances) =>
-    stances.map((s, i) => ({ ...s, Value: i + 1 }));
+    stances.map((s, i) => ({ ...s, value: i + 1 }));
 
   const handleFieldChange = (field, value) => {
     setEditedFields((prev) => ({ ...prev, [field]: value }));
@@ -64,7 +64,7 @@ function CreateTopic({
 
   const handleStanceChange = (index, value) => {
     const updated = [...editedFields.stances];
-    updated[index].Text = value;
+    updated[index].text = value;
     setEditedFields((prev) => ({ ...prev, stances: updated }));
   };
 
@@ -81,7 +81,7 @@ function CreateTopic({
 
     setEditedFields((prev) => ({
       ...prev,
-      stances: [...prev.stances, { Text: newStance.text, tempId: uuid() }],
+      stances: [...prev.stances, { text: newStance.text, tempId: uuid() }],
     }));
     setNewStance({ text: "" });
   };
@@ -92,7 +92,7 @@ function CreateTopic({
       stances: prev.stances.filter((_, i) => i !== indexToRemove),
     }));
 
-  const stanceIds = editedFields.stances.map((s) => s.ID ?? s.tempId);
+  const stanceIds = editedFields.stances.map((s) => s.id ?? s.tempId);
 
   const handleDragEnd = ({ active, over }) => {
     if (!over || active.id === over.id) return;
@@ -109,7 +109,7 @@ function CreateTopic({
     const formattedStances = [];
 
     seq.forEach((stance, i) => {
-      formattedStances.push({ value: i + 1, text: stance.Text });
+      formattedStances.push({ value: i + 1, text: stance.text });
     });
 
     const formattedCategories = [];
@@ -120,7 +120,7 @@ function CreateTopic({
 
     const payload = {
       title: editedFields.title,
-      shortTitle: editedFields.shortTitle,
+      short_title: editedFields.short_title,
       stances: formattedStances,
       categories: formattedCategories,
     };
@@ -161,25 +161,6 @@ function CreateTopic({
             <h1>New Topic</h1>
           </div>
 
-          {/* {topicSaved && (
-            <div className="flex flex-col items-center">
-              <div className="w-1/2 px-4 py-2 border border-black/75 rounded-lg bg-gray-50">
-                <h1 className="font-semibold text-center text-lg text-green-600">
-                  Topic Successfully Saved
-                </h1>
-              </div>
-            </div>
-          )}
-          {topicSaved == false && (
-            <div className="flex flex-col items-center">
-              <div className="w-1/2 px-4 py-2 border border-black/75 rounded-lg bg-gray-50">
-                <h1 className="font-semibold text-center text-lg text-red-600">
-                  Topic Failed to Save
-                </h1>
-              </div>
-            </div>
-          )} */}
-
           <DndContext onDragEnd={handleDragEnd}>
             <div className="flex flex-col gap-2">
               <label className="block font-semibold text-lg">Title</label>
@@ -194,9 +175,9 @@ function CreateTopic({
               <label className="block font-semibold text-lg">Short Title</label>
               <input
                 className="border rounded p-1 mx-4"
-                value={editedFields.shortTitle}
+                value={editedFields.short_title}
                 onChange={(e) =>
-                  handleFieldChange("shortTitle", e.target.value)
+                  handleFieldChange("short_title", e.target.value)
                 }
               />
             </div>
@@ -210,7 +191,7 @@ function CreateTopic({
                   {editedFields.stances.map((stance, index) => (
                     // Make the div below drag & droppable/sorted 1-10.
                     <SortableStance
-                      key={stance.ID ?? stance.tempId}
+                      key={stance.id ?? stance.tempId}
                       stance={stance}
                       index={index}
                       onRemove={handleRemoveStance}
@@ -258,13 +239,13 @@ function CreateTopic({
               </label>
               <div className="grid grid-cols-2 gap-2">
                 {allCategories.map((category) => (
-                  <label key={category.ID} className="flex items-center gap-2">
+                  <label key={category.id} className="flex items-center gap-2">
                     <input
                       type="checkbox"
-                      checked={editedFields.categories.includes(category.ID)}
-                      onChange={() => handleCategoryToggle(category.ID)}
+                      checked={editedFields.categories.includes(category.id)}
+                      onChange={() => handleCategoryToggle(category.id)}
                     />
-                    {category.Title}
+                    {category.title}
                   </label>
                 ))}
               </div>

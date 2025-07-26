@@ -24,9 +24,9 @@ function ReplaceTopicModal({
 
   const availableTopics = topics.filter(
     (t) =>
-      answeredTopicIDs.includes(t.ID) &&
-      !selectedTopics.includes(t.ID) &&
-      t.ShortTitle !== replacingTopic
+      answeredTopicIDs.includes(t.id) &&
+      !selectedTopics.includes(t.id) &&
+      t.short_title !== replacingTopic
   );
 
   return (
@@ -40,17 +40,17 @@ function ReplaceTopicModal({
           {availableTopics.length ? (
             availableTopics.map((topic) => (
               <div
-                key={topic.ID}
+                key={topic.id}
                 className={`flex items-center justify-between border rounded px-3 py-2 cursor-pointer ${
-                  replacementID === topic.ID
+                  replacementID === topic.id
                     ? "bg-gray-100 border-black"
                     : "hover:bg-gray-50"
                 }`}
-                onClick={() => setReplacementID(topic.ID)}
+                onClick={() => setReplacementID(topic.id)}
               >
-                <span>{topic.ShortTitle}</span>
+                <span>{topic.short_title}</span>
                 <span className="text-sm text-gray-500 text-right">
-                  {topic.Title}
+                  {topic.title}
                 </span>
               </div>
             ))

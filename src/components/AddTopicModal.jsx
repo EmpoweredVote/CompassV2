@@ -24,11 +24,11 @@ function AddTopicModal({
   }, []);
 
   const availableTopics = topics.filter(
-    (t) => answeredTopicIDs.includes(t.ID) && !selectedTopics.includes(t.ID)
+    (t) => answeredTopicIDs.includes(t.id) && !selectedTopics.includes(t.id)
   );
 
   const selectedTopicObjects = topics.filter((t) =>
-    selectedTopics.includes(t.ID)
+    selectedTopics.includes(t.id)
   );
 
   const toggleSelect = (id) => {
@@ -51,13 +51,13 @@ function AddTopicModal({
               </h3>
               {selectedTopicObjects.map((topic) => (
                 <div
-                  key={topic.ID}
+                  key={topic.id}
                   className="flex items-center justify-between border rounded px-3 py-2 mb-1 cursor-pointer"
                 >
-                  <span>{topic.ShortTitle}</span>
+                  <span>{topic.short_title}</span>
                   <button
                     onClick={() => {
-                      onRemoveTopic(topic.ID);
+                      onRemoveTopic(topic.id);
                       setHasChanges(true);
                     }}
                     className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 cursor-pointer"
@@ -76,19 +76,19 @@ function AddTopicModal({
             {availableTopics.length > 0 ? (
               availableTopics.map((topic) => (
                 <div
-                  key={topic.ID}
+                  key={topic.id}
                   className="flex items-center justify-between border rounded px-3 py-2 mb-1"
                 >
-                  <span>{topic.ShortTitle}</span>
+                  <span>{topic.short_title}</span>
                   <button
-                    onClick={() => toggleSelect(topic.ID)}
+                    onClick={() => toggleSelect(topic.id)}
                     className={`px-3 py-1 rounded cursor-pointer ${
-                      selected.includes(topic.ID)
+                      selected.includes(topic.id)
                         ? "bg-black text-white"
                         : "bg-gray-200"
                     }`}
                   >
-                    {selected.includes(topic.ID) ? "Remove" : "Add"}
+                    {selected.includes(topic.id) ? "Remove" : "Add"}
                   </button>
                 </div>
               ))

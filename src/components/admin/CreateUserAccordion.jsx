@@ -29,7 +29,7 @@ function CreateUserAccordion({
         onClick={onToggle}
         className="bg-gray-100 p-4 cursor-pointer flex justify-between items-center"
       >
-        <h2 className="font-semibold text-lg">{topic.ShortTitle}</h2>
+        <h2 className="font-semibold text-lg">{topic.short_title}</h2>
         <p>{isAnswered(topic) ? answeredIcon : ""}</p>
       </div>
 
@@ -37,24 +37,24 @@ function CreateUserAccordion({
         <div className="p-4 bg-white">
           <div className="flex flex-col gap-4">
             <div>
-              <h2 className="text-xl font-bold">{topic.Title}</h2>
-              <p className="text-gray-600 italic">{topic.ShortTitle}</p>
+              <h2 className="text-xl font-bold">{topic.title}</h2>
+              <p className="text-gray-600 italic">{topic.short_title}</p>
             </div>
 
             <div>
               <h3 className="font-semibold">Stances:</h3>
               {(topic.stances || []).map((stance, index) => (
-                <label key={stance.Value}>
+                <label key={stance.value}>
                   <div className="flex gap-4">
                     <input
                       type="radio"
-                      name={topic.ShortTitle}
-                      value={stance.Value}
-                      checked={checked[topic.ID]?.answer == stance.Value}
-                      onChange={() => onCheck(topic, stance.Value)}
+                      name={topic.short_title}
+                      value={stance.value}
+                      checked={checked[topic.id]?.answer == stance.value}
+                      onChange={() => onCheck(topic, stance.value)}
                     />
                     <p key={index} className="mb-1">
-                      {stance.Value}. {stance.Text}
+                      {stance.value}. {stance.text}
                     </p>
                   </div>
                 </label>

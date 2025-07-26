@@ -1,14 +1,14 @@
 function TopicSummary({ topic, allCategories }) {
-  const categoryNames = (topic.Categories || []).map((cat) => {
-    const match = allCategories.find((c) => c.ID === cat.ID);
-    return match ? match.Title : "Unknown Category";
+  const categoryNames = (topic.categories || []).map((cat) => {
+    const match = allCategories.find((c) => c.id === cat.id);
+    return match ? match.title : "Unknown Category";
   });
 
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h2 className="text-xl font-bold">{topic.Title}</h2>
-        <p className="text-gray-600 italic">{topic.ShortTitle}</p>
+        <h2 className="text-xl font-bold">{topic.title}</h2>
+        <p className="text-gray-600 italic">{topic.short_title}</p>
       </div>
 
       <div>
@@ -16,7 +16,7 @@ function TopicSummary({ topic, allCategories }) {
         <ul className="list-decimal list-inside ml-4">
           {(topic.stances || []).map((stance, index) => (
             <li key={index} className="mb-1">
-              {stance.Text}
+              {stance.text}
             </li>
           ))}
         </ul>

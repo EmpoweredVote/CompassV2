@@ -20,12 +20,12 @@ function TopicAccordion({
   const { refreshData } = useCompass();
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const handleEditClick = () => {
-    setEditedTopic(topic.ID);
+    setEditedTopic(topic.id);
     setEditedFields({
-      title: topic.Title,
-      shortTitle: topic.ShortTitle,
+      title: topic.title,
+      short_title: topic.short_title,
       stances: topic.stances.map((s) => ({ ...s })),
-      categories: [...topic.Categories.map((c) => c.ID)],
+      categories: [...topic.categories.map((c) => c.id)],
     });
     setNewStance({ text: "" });
   };
@@ -40,7 +40,7 @@ function TopicAccordion({
     console.log("Starting Delete...");
     try {
       const res = await fetch(
-        `${import.meta.env.VITE_API_URL}/compass/topics/delete/${topic.ID}`,
+        `${import.meta.env.VITE_API_URL}/compass/topics/delete/${topic.id}`,
         {
           method: "DELETE",
           credentials: "include",
@@ -66,7 +66,7 @@ function TopicAccordion({
         <div className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl p-6 w-1/3 max-w-2xl overflow-y-auto flex flex-col items-center gap-6">
             <h1 className="text-xl text-center">
-              Are you sure you want to delete {topic.ShortTitle}?
+              Are you sure you want to delete {topic.short_title}?
             </h1>
             <div className="flex gap-4">
               <button
@@ -90,7 +90,7 @@ function TopicAccordion({
           onClick={onToggle}
           className="bg-gray-100 p-4 cursor-pointer flex justify-between items-center"
         >
-          <h2 className="font-semibold text-lg">{topic.ShortTitle}</h2>
+          <h2 className="font-semibold text-lg">{topic.short_title}</h2>
           {isDeleting ? (
             <button
               onClick={(e) => {

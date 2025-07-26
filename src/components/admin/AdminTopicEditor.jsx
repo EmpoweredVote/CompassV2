@@ -21,9 +21,9 @@ function AdminTopicEditor({
     const value = event.target.value;
     setEditedFields((prev) => ({
       ...prev,
-      [topic.ID]: {
-        ...prev[topic.ID],
-        ShortTitle: value,
+      [topic.id]: {
+        ...prev[topic.id],
+        short_title: value,
       },
     }));
   };
@@ -32,23 +32,23 @@ function AdminTopicEditor({
     const value = event.target.value;
     setEditedFields((prev) => ({
       ...prev,
-      [topic.ID]: {
-        ...prev[topic.ID],
-        Title: value,
+      [topic.id]: {
+        ...prev[topic.id],
+        title: value,
       },
     }));
   };
 
-  const handleStanceChange = (event, stanceID) => {
+  const handleStanceChange = (event, stance_id) => {
     setNewStance((prev) => ({
       ...prev,
-      [stanceID]: event.target.value,
+      [stance_id]: event.target.value,
     }));
   };
 
-  const topicCategoryIDs = new Set(topic.Categories.map((c) => c.ID));
+  const topicCategoryIDs = new Set(topic.categories.map((c) => c.id));
   const availableCategories = allCategories.filter(
-    (c) => !topicCategoryIDs.has(c.ID)
+    (c) => !topicCategoryIDs.has(c.id)
   );
 
   return (
@@ -58,7 +58,7 @@ function AdminTopicEditor({
           className="w-3/4 py-4 h-full cursor-pointer"
           onClick={onToggleOpen}
         >
-          <h1 className="text-lg">{topic.Title}</h1>
+          <h1 className="text-lg">{topic.title}</h1>
         </div>
         <div className="flex justify-end cursor-pointer" onClick={onEditClick}>
           <svg
@@ -80,18 +80,18 @@ function AdminTopicEditor({
 
       {isOpen && (
         <div className="flex flex-col border m-2 p-4 gap-2">
-          {editedTopic === topic.ID ? (
+          {editedTopic === topic.id ? (
             <>
               <div className="flex flex-row">
                 <h1 className="ml-6 font-semibold">ID:</h1>
-                <p className="px-4">{topic.ID}</p>
+                <p className="px-4">{topic.id}</p>
               </div>
               <div className="flex flex-row w-full">
                 <label className="ml-6 font-semibold">
                   Title:
                   <input
                     type="text"
-                    value={editedFields[topic.ID]?.Title ?? topic.Title}
+                    value={editedFields[topic.id]?.title ?? topic.title}
                     onChange={handleTitleChange}
                     className="border rounded-lg ml-4 px-2 min-w-96"
                   />
@@ -103,7 +103,7 @@ function AdminTopicEditor({
                   <input
                     type="text"
                     value={
-                      editedFields[topic.ID]?.ShortTitle ?? topic.ShortTitle
+                      editedFields[topic.id]?.short_title ?? topic.short_title
                     }
                     onChange={handleShortTitleChange}
                     className="border rounded-lg ml-4 px-2"
@@ -113,13 +113,13 @@ function AdminTopicEditor({
               <div className="flex flex-col">
                 <h1 className="ml-6 mb-2 font-semibold">Categories:</h1>
                 <ol className="ml-6 mb-2">
-                  {topic.Categories.map((category) => (
-                    <li key={category.ID} className="flex items-center gap-2">
-                      {category.Title}
+                  {topic.categories.map((category) => (
+                    <li key={category.id} className="flex items-center gap-2">
+                      {category.title}
                       <button
                         className="text-red-600 hover:underline text-sm"
                         onClick={() =>
-                          handleRemoveCategory(topic.ID, category.ID)
+                          handleRemoveCategory(topic.id, category.id)
                         }
                       >
                         Remove
@@ -132,7 +132,7 @@ function AdminTopicEditor({
                   <select
                     className="border rounded px-2 py-1 mt-1"
                     onChange={(e) =>
-                      handleAddCategory(topic.ID, e.target.value)
+                      handleAddCategory(topic.id, e.target.value)
                     }
                     defaultValue=""
                   >
@@ -140,8 +140,8 @@ function AdminTopicEditor({
                       Select a category
                     </option>
                     {availableCategories.map((category) => (
-                      <option key={category.ID} value={category.ID}>
-                        {category.Title}
+                      <option key={category.id} value={category.id}>
+                        {category.title}
                       </option>
                     ))}
                   </select>
@@ -150,11 +150,11 @@ function AdminTopicEditor({
               <div className="flex flex-col">
                 <h1 className="ml-6 font-semibold">Stances:</h1>
                 {topic.stances.map((stance) => (
-                  <div key={stance.ID}>
+                  <div key={stance.id}>
                     <textarea
-                      id={stance.ID}
-                      value={newStance[stance.ID] ?? stance.Text}
-                      onChange={(e) => handleStanceChange(e, stance.ID)}
+                      id={stance.id}
+                      value={newStance[stance.id] ?? stance.text}
+                      onChange={(e) => handleStanceChange(e, stance.id)}
                       className="border rounded-lg ml-8 px-2 w-3/4"
                     />
                   </div>
@@ -170,7 +170,7 @@ function AdminTopicEditor({
                 <button
                   className="border text-white rounded-lg px-4 py-2 cursor-pointer bg-green-600 hover:bg-green-700"
                   onClick={() => {
-                    onSubmitEdit(topic.ID);
+                    onSubmitEdit(topic.id);
                     onStanceEdit(topic);
                   }}
                 >
@@ -182,22 +182,22 @@ function AdminTopicEditor({
             <>
               <div className="flex flex-row">
                 <h1 className="ml-6 font-semibold">ID:</h1>
-                <p className="px-4">{topic.ID}</p>
+                <p className="px-4">{topic.id}</p>
               </div>
               <div className="flex flex-row">
                 <h1 className="ml-6 font-semibold">Title:</h1>
-                <p className="px-4">{topic.Title}</p>
+                <p className="px-4">{topic.title}</p>
               </div>
               <div className="flex flex-row">
                 <h1 className="ml-6 font-semibold">Short Title:</h1>
-                <p className="px-4">{topic.ShortTitle}</p>
+                <p className="px-4">{topic.short_title}</p>
               </div>
               <div className="flex flex-row">
                 <h1 className="ml-6 font-semibold">Categories:</h1>
                 <ul>
-                  {topic.Categories.map((category) => (
-                    <li className="px-4" key={category.ID}>
-                      {category.Title}
+                  {topic.categories.map((category) => (
+                    <li className="px-4" key={category.id}>
+                      {category.title}
                     </li>
                   ))}
                 </ul>
@@ -205,9 +205,9 @@ function AdminTopicEditor({
               <div className="flex flex-col">
                 <h1 className="ml-6 font-semibold">Stances:</h1>
                 {topic.stances.map((stance, i) => (
-                  <div key={stance.ID}>
+                  <div key={stance.id}>
                     <p className="ml-8">
-                      {i + 1}. {newStance[stance.ID] ?? stance.Text}
+                      {i + 1}. {newStance[stance.id] ?? stance.text}
                     </p>
                   </div>
                 ))}

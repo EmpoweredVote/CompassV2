@@ -3,7 +3,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
 function SortableStance({ stance, index, onRemove, onChange }) {
-  const id = stance.ID ?? stance.tempId;
+  const id = stance.id ?? stance.tempId;
   const { attributes, listeners, setNodeRef, transform, transition } =
     useSortable({ id });
 
@@ -14,7 +14,7 @@ function SortableStance({ stance, index, onRemove, onChange }) {
 
   return (
     <div ref={setNodeRef} style={style} {...attributes}>
-      <div key={stance.ID ?? `new-${index}`} className="flex items-start gap-2">
+      <div key={stance.id ?? `new-${index}`} className="flex items-start gap-2">
         <div className="flex flex-row">
           <svg
             fill="none"
@@ -63,7 +63,7 @@ function SortableStance({ stance, index, onRemove, onChange }) {
         </div>
         <textarea
           className="border rounded p-2 w-full"
-          value={stance.Text}
+          value={stance.text}
           onChange={(e) => onChange(index, e.target.value)}
         />
         <button

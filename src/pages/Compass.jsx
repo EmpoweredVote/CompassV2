@@ -260,9 +260,9 @@ function Compass() {
         const mapped = selectedTopics
           .map((id) => {
             const answer = data.find((a) => a.topic_id === id);
-            const topic = topics.find((t) => t.ID === id);
+            const topic = topics.find((t) => t.id === id);
             if (!answer || !topic) return null;
-            return [topic.ShortTitle, answer.value];
+            return [topic.short_title, answer.value];
           })
           .filter(Boolean);
 
@@ -274,23 +274,23 @@ function Compass() {
   const handleRemoveTopic = (idToRemove) => {
     setSelectedTopics((prev) => prev.filter((id) => id !== idToRemove));
 
-    const topic = topics.find((t) => t.ID === idToRemove);
+    const topic = topics.find((t) => t.id === idToRemove);
     if (topic) {
-      const shortTitle = topic.ShortTitle;
+      const short_title = topic.short_title;
       setInvertedSpokes((prev) => {
         const updated = { ...prev };
-        delete updated[shortTitle];
+        delete updated[short_title];
         return updated;
       });
     }
   };
 
   const handleReplace = (newID) => {
-    const oldTopic = topics.find((t) => t.ShortTitle === replacingTopic);
+    const oldTopic = topics.find((t) => t.short_title === replacingTopic);
     if (!oldTopic) return;
 
     setSelectedTopics((prev) =>
-      prev.map((id) => (id === oldTopic.ID ? newID : id))
+      prev.map((id) => (id === oldTopic.id ? newID : id))
     );
 
     setInvertedSpokes((prev) => {
@@ -323,9 +323,9 @@ function Compass() {
         const mapped = selectedTopics
           .map((id) => {
             const a = data.find((d) => d.topic_id === id);
-            const topic = topics.find((t) => t.ID === id);
+            const topic = topics.find((t) => t.id === id);
             if (!topic) return null; // skip if topic missing
-            return [topic.ShortTitle, a ? a.value : 0];
+            return [topic.short_title, a ? a.value : 0];
           })
           .filter(Boolean);
         setCompareAnswers(Object.fromEntries(mapped));

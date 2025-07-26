@@ -38,7 +38,7 @@ function UserAccordion({
     setShowUserModal(false);
   };
 
-  const onSaveModal = async (userID, updated) => {
+  const onSaveModal = async (user_id, updated) => {
     // Send new user info to the backend
     const res = await fetch(
       `${import.meta.env.VITE_API_URL}/auth/update-username`,
@@ -48,7 +48,7 @@ function UserAccordion({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ user_id: userID, username: updated.username }),
+        body: JSON.stringify({ user_id: user_id, username: updated.username }),
       }
     );
 
@@ -57,13 +57,13 @@ function UserAccordion({
       return;
     }
 
-    updateUsername(userID, updated.username);
+    updateUsername(user_id, updated.username);
   };
 
-  const deleteUser = async (userID) => {
+  const deleteUser = async (user_id) => {
     // Send userID to backend to be deleted
     const res = await fetch(
-      `${import.meta.env.VITE_API_URL}/auth/delete-user/${userID}`,
+      `${import.meta.env.VITE_API_URL}/auth/delete-user/${user_id}`,
       {
         method: "DELETE",
         credentials: "include",
@@ -75,10 +75,10 @@ function UserAccordion({
       return;
     }
 
-    updateUserList(userID);
+    updateUserList(user_id);
   };
 
-  const submitPic = async (pic_url, userID) => {
+  const submitPic = async (pic_url, user_id) => {
     const res = await fetch(
       `${import.meta.env.VITE_API_URL}/auth/update-profile-pic`,
       {
@@ -87,7 +87,7 @@ function UserAccordion({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ user_id: userID, url: pic_url }),
+        body: JSON.stringify({ user_id: user_id, url: pic_url }),
       }
     );
 
@@ -96,7 +96,7 @@ function UserAccordion({
       return;
     }
 
-    updateUserPic(userID, pic_url);
+    updateUserPic(user_id, pic_url);
     setIsEditingPic(false);
   };
 
@@ -233,10 +233,10 @@ function UserAccordion({
 
           {topics
             .filter((topic) => {
-              const ctx = userContexts.find((c) => c.topic_id === topic.ID);
-              const matchesSearch = topic.ShortTitle.toLowerCase().includes(
-                searchQuery.toLowerCase()
-              );
+              const ctx = userContexts.find((c) => c.topic_id === topic.id);
+              const matchesSearch = topic.short_title
+                .toLowerCase()
+                .includes(searchQuery.toLowerCase());
               const shouldShow = visibleOnlyWithContext[user.user_id]
                 ? hasContent(ctx)
                 : true;
@@ -244,9 +244,9 @@ function UserAccordion({
             })
             .map((topic) => (
               <UserTopicContext
-                key={topic.ID}
+                key={topic.id}
                 user={user}
-                answer={answers.find((a) => a.topic_id === topic.ID)}
+                answer={answers.find((a) => a.topic_id === topic.id)}
                 topic={topic}
                 context={userContexts}
                 openTopics={openTopics}

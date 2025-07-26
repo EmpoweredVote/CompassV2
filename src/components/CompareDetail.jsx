@@ -61,8 +61,8 @@ function CompareDetail({ user, dropdownValue, setDropdownValue }) {
 
   useEffect(() => {
     topics
-      .filter((topic) => topic.ShortTitle == dropdownValue)
-      .map((topic) => setSelectedTopicID(topic.ID));
+      .filter((topic) => topic.short_title == dropdownValue)
+      .map((topic) => setSelectedTopicID(topic.id));
   }, [dropdownValue]);
 
   return (
@@ -129,46 +129,6 @@ function CompareDetail({ user, dropdownValue, setDropdownValue }) {
               Summary
             </h2>
           </div>
-          {/* <div
-            ref={tabRefs[1]}
-            onClick={() => setSelectedTab(1)}
-            className="relative z-10 px-2 py-2 flex gap-1 cursor-pointer"
-          >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 20 20"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              className={selectedTab != 1 ? "stroke-slate-500" : "stroke-black"}
-            >
-              <path
-                d="M12 20.5V10.5"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M18 20.5V4.5"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M6 20.5V16.5"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            <h2
-              className={`${
-                selectedTab != 1 ? "text-slate-500" : "text-black"
-              } text-md font-medium`}
-            >
-              Details
-            </h2>
-          </div> */}
           <div
             ref={tabRefs[2]}
             onClick={() => setSelectedTab(2)}
@@ -266,39 +226,6 @@ function CompareDetail({ user, dropdownValue, setDropdownValue }) {
             )}
           </div>
         )}
-
-        {/* {selectedTab == 1 && (
-          <div className="mt-6">
-            {dropdownValue && dropdownValue != "default" ? (
-              <div className="text-center flex flex-col gap-4 justify-center items-center">
-                {compareAnswers[dropdownValue] ? (
-                  <h1 className="p-2 px-4 text-lg font-bold border rounded-lg w-1/6">
-                    {compareAnswers[dropdownValue]}
-                  </h1>
-                ) : (
-                  <></>
-                )}
-                {topics
-                  .filter((topic) => topic.ShortTitle == dropdownValue)
-                  .map((topic) =>
-                    compareAnswers[dropdownValue] ? (
-                      <p key={topic.ShortTitle} className="p-2">
-                        {topic.stances[compareAnswers[dropdownValue] - 1].Text}
-                      </p>
-                    ) : (
-                      <h1 className="p-4">
-                        {user.username} has not answered this topic yet.
-                      </h1>
-                    )
-                  )}
-              </div>
-            ) : (
-              <h1 className="mb-4 text-center">
-                Select a topic to view details.
-              </h1>
-            )}
-          </div>
-        )} */}
 
         {selectedTab == 2 && (
           <div className="mt-4">

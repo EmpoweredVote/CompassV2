@@ -19,11 +19,11 @@ function TopicAdminPanel({ allCategories }) {
     setOpenModal(false);
   };
 
-  const handleAccordionToggle = (topicID) => {
+  const handleAccordionToggle = (topic_id) => {
     setOpenMenu((prev) =>
-      prev.includes(topicID)
-        ? prev.filter((id) => id !== topicID)
-        : [...prev, topicID]
+      prev.includes(topic_id)
+        ? prev.filter((id) => id !== topic_id)
+        : [...prev, topic_id]
     );
   };
 
@@ -43,7 +43,7 @@ function TopicAdminPanel({ allCategories }) {
   };
 
   const topicsToDisplay = topics.filter((topic) =>
-    topic.ShortTitle.toLowerCase().includes(search.toLowerCase())
+    topic.short_title.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -98,11 +98,11 @@ function TopicAdminPanel({ allCategories }) {
         )}
         {topicsToDisplay.map((topic) => (
           <TopicAccordion
-            key={topic.ID}
+            key={topic.id}
             topic={topic}
-            isOpen={openMenu.includes(topic.ID)}
-            onToggle={() => handleAccordionToggle(topic.ID)}
-            isEditing={editedTopic === topic.ID}
+            isOpen={openMenu.includes(topic.id)}
+            onToggle={() => handleAccordionToggle(topic.id)}
+            isEditing={editedTopic === topic.id}
             setEditedTopic={setEditedTopic}
             editedFields={editedFields}
             setEditedFields={setEditedFields}

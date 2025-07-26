@@ -15,7 +15,7 @@ export function Quiz() {
   }
 
   const currentTopic = topics.find(
-    (topic) => topic.ID == selectedTopics[currentIndex]
+    (topic) => topic.id == selectedTopics[currentIndex]
   );
 
   const handleNext = () => {
@@ -51,8 +51,8 @@ export function Quiz() {
   };
 
   useEffect(() => {
-    const topicID = selectedTopics[currentIndex];
-    const prevAnswer = answers[topicID] || null;
+    const topic_id = selectedTopics[currentIndex];
+    const prevAnswer = answers[topic_id] || null;
     setSelectedAnswer(prevAnswer);
   }, [currentIndex]);
 
@@ -73,7 +73,7 @@ export function Quiz() {
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl md:text-3xl font-semibold mb-2 text-center">
-          {currentTopic.Title}
+          {currentTopic.title}
         </h1>
         <p className="text-lg md:text-lg font-semibold mb-2 text-center text-gray-600">
           {currentIndex + 1} / {selectedTopics.length}
@@ -84,7 +84,7 @@ export function Quiz() {
       <div className="flex flex-col gap-3">
         {ordered.map((stance, i) => (
           <button
-            key={stance.ID}
+            key={stance.id}
             onClick={() => selectAnswer(i + 1)}
             className={`text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm sm:text-base font-medium
               ${
@@ -93,7 +93,7 @@ export function Quiz() {
                   : "bg-white text-black border-2 border-gray-300 hover:bg-gray-50"
               }`}
           >
-            {i + 1}. {stance.Text}
+            {i + 1}. {stance.text}
           </button>
         ))}
       </div>
