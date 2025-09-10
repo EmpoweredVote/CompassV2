@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { getPolName, normalizeOfficeTitle } from "../../util/name";
 
 // --- Small utilities ---
 const normalize = (s) =>
@@ -8,8 +9,7 @@ const normalize = (s) =>
     .replace(/\p{Diacritic}/gu, "")
     .toLowerCase();
 
-const displayName = (p) =>
-  p.full_name || [p.first_name, p.last_name].filter(Boolean).join(" ").trim();
+const displayName = (p) => getPolName(p);
 
 function PoliticianPicker({
   politicians = [],
@@ -135,15 +135,18 @@ function PoliticianPicker({
                 }`}
               >
                 <div className="flex flex-row gap-4 items-center">
-                  <div className="size-24 rounded-full overflow-hidden shrink-0">
+                  <div className="size-18 rounded-full overflow-hidden shrink-0">
                     <img
                       src={p.photo_origin_url}
+                      loading="lazy"
                       className="w-full h-full object-cover "
                     />
                   </div>
                   <div className="flex flex-col">
                     <div className="font-medium">{displayName(p)}</div>
-                    <div className="text-gray-500">{p.office_title}</div>
+                    <div className="text-gray-500">
+                      {normalizeOfficeTitle(p.office_title)}
+                    </div>
                   </div>
                 </div>
               </button>
@@ -221,7 +224,6 @@ function AttachAnswers({ topics, politicians = [] }) {
 
       {/* Politician picker */}
       <div className="mt-4 flex flex-col items-center gap-2">
-        <label className="font-semibold">Select Politician</label>
         <PoliticianPicker
           politicians={politicians}
           value={selectedPol}

@@ -1,4 +1,5 @@
 import PoliticianTopicContext from "./PoliticianTopicContext";
+import { getPolName, normalizeOfficeTitle } from "../../util/name";
 
 function PoliticianAccordion({
   politician,
@@ -16,6 +17,8 @@ function PoliticianAccordion({
   // saveContextEdit expects (topic_id, draft)
   saveContextEdit,
 }) {
+  const fullName = getPolName(politician);
+
   return (
     <div className="border rounded-lg overflow-hidden">
       <div
@@ -28,16 +31,14 @@ function PoliticianAccordion({
         <div className="w-32 h-32 flex-shrink-0">
           <img
             src={politician.photo_origin_url}
+            loading="lazy"
             className="w-full h-full rounded-lg object-cover"
           />
         </div>
         <div className="flex flex-col">
-          <h2 className="text-xl font-semibold">
-            {politician.full_name ||
-              `${politician.first_name} ${politician.last_name}`}
-          </h2>
+          <h2 className="text-xl font-semibold">{fullName}</h2>
           <span className="text-sm text-gray-600">
-            {politician.office_title}
+            {normalizeOfficeTitle(politician.office_title)}
           </span>
         </div>
       </div>

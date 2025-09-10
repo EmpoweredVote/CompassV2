@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useCompass } from "./CompassContext";
 
-function StanceExplorer({ user, dropdownValue, setDropdownValue }) {
+function StanceExplorer({ politician, dropdownValue, setDropdownValue }) {
   const { topics, setAnswers, answers, compareAnswers } = useCompass();
 
   const topicNames = Object.keys(answers);
@@ -11,6 +11,8 @@ function StanceExplorer({ user, dropdownValue, setDropdownValue }) {
     const selected = e.target.value;
     setDropdownValue(selected);
   };
+
+  const fullName = politician.first_name + " " + politician.last_name;
 
   const selectedTopic = topics.find((t) => t.short_title === dropdownValue);
   const selectedStanceText =
@@ -73,16 +75,14 @@ function StanceExplorer({ user, dropdownValue, setDropdownValue }) {
                   className="w-full flex flex-col gap-4"
                 >
                   <div className="w-full flex flex-col border rounded-lg bg-white">
-                    <h1 className="font-semibold pt-2">
-                      {user.username}'s Stance
-                    </h1>
+                    <h1 className="font-semibold pt-2">{fullName}'s Stance</h1>
                     <p className="text-gray-500">
                       {compareAnswers[dropdownValue]}
                     </p>
                     <p className="p-3 pb-4">
                       {compareAnswers[dropdownValue]
                         ? topic.stances[compareAnswers[dropdownValue] - 1].text
-                        : `${user.username} has not answered this topic yet.`}
+                        : `${fullName} has not answered this topic yet.`}
                     </p>
                   </div>
 
@@ -129,7 +129,7 @@ function StanceExplorer({ user, dropdownValue, setDropdownValue }) {
         </div>
       ) : (
         <div className="p-2 text-center">
-          <p>Select a topic to compare your stances with {user.username}'s</p>
+          <p>Select a topic to compare your stances with {fullName}'s</p>
         </div>
       )}
     </div>

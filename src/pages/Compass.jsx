@@ -1,3 +1,4 @@
+// Compass.jsx
 import { useCompass } from "../components/CompassContext";
 import RadarChart from "../components/RadarChart";
 import AddTopicModal from "../components/AddTopicModal";
@@ -146,7 +147,10 @@ function Compass() {
   }
 
   function Legend() {
-    if (!compareUser) return null;
+    if (!comparePol) return null;
+    const name =
+      comparePol.full_name ||
+      [comparePol.first_name, comparePol.last_name].filter(Boolean).join(" ");
     return (
       <div className="flex gap-4 items-center">
         <span className="inline-block w-4 h-4 bg-pink-500/40 border border-pink-500 rounded-sm" />
@@ -154,11 +158,12 @@ function Compass() {
         <span
           className="inline-block w-4 h-4 bg-blue-500/20 border border-blue-500 rounded-sm cursor-pointer"
           onClick={() => {
-            setCompareUser(null);
+            setComparePol(null);
             setCompareAnswers({});
           }}
+          title="Clear comparison"
         />
-        {compareUser.username}
+        {name || "Selected Politician"}
       </div>
     );
   }
@@ -182,6 +187,7 @@ function Compass() {
     );
   }
 
+  // -------- Compass Context --------
   const {
     topics,
     selectedTopics,
@@ -191,13 +197,17 @@ function Compass() {
     compareAnswers,
     setCompareAnswers,
   } = useCompass();
+
+  // -------- Local UI State --------
   const [invertedSpokes, setInvertedSpokes] = useState({});
   const [hasLoadedFromStorage, setHasLoadedFromStorage] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showReplaceModal, setShowReplaceModal] = useState(false);
   const [replacingTopic, setReplacingTopic] = useState(null);
   const [isCompareModal, setIsCompareModal] = useState(false);
-  const [compareUser, setCompareUser] = useState(null); // {user_id, username}
+
+  // NEW: selected comparison politician
+  const [comparePol, setComparePol] = useState(null); // { id, full_name/first/last, ... }
 
   // Compare Details & Stance Explorer state
   const [dropdownValue, setDropdownValue] = useState("");
@@ -215,34 +225,38 @@ function Compass() {
     }
   }, [selectedTab]);
 
-  // Load localStorage on first mount
+  // -------- Load localStorage on first mount --------
   useEffect(() => {
     const savedInversions = localStorage.getItem("invertedSpokes");
-    const savedUser = localStorage.getItem("compareUser");
+    const savedPol = localStorage.getItem("comparePolitician");
 
     if (savedInversions) setInvertedSpokes(JSON.parse(savedInversions));
-    if (savedUser) setCompareUser(JSON.parse(savedUser));
+    if (savedPol) {
+      try {
+        setComparePol(JSON.parse(savedPol));
+      } catch {}
+    }
 
     setHasLoadedFromStorage(true);
   }, []);
 
-  // Sync invertedSpokes -> localStorage
+  // -------- Sync invertedSpokes -> localStorage --------
   useEffect(() => {
     if (!hasLoadedFromStorage) return;
     localStorage.setItem("invertedSpokes", JSON.stringify(invertedSpokes));
   }, [invertedSpokes, hasLoadedFromStorage]);
 
-  // Sync compare user -> localStorage
+  // -------- Sync compare politician -> localStorage --------
   useEffect(() => {
     if (!hasLoadedFromStorage) return;
-    if (compareUser) {
-      localStorage.setItem("compareUser", JSON.stringify(compareUser));
+    if (comparePol) {
+      localStorage.setItem("comparePolitician", JSON.stringify(comparePol));
     } else {
-      localStorage.removeItem("compareUser");
+      localStorage.removeItem("comparePolitician");
     }
-  }, [compareUser, hasLoadedFromStorage]);
+  }, [comparePol, hasLoadedFromStorage]);
 
-  // Keep answers up to date when selectedTopics change
+  // -------- Keep YOUR answers up to date when selectedTopics change --------
   useEffect(() => {
     if (!hasLoadedFromStorage || !topics.length || !selectedTopics.length)
       return;
@@ -250,9 +264,7 @@ function Compass() {
     fetch(`${import.meta.env.VITE_API_URL}/compass/answers/batch`, {
       method: "POST",
       credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ids: selectedTopics }),
     })
       .then((res) => res.json())
@@ -268,9 +280,9 @@ function Compass() {
 
         setAnswers(Object.fromEntries(mapped));
       });
-  }, [selectedTopics, topics, hasLoadedFromStorage]);
+  }, [selectedTopics, topics, hasLoadedFromStorage, setAnswers]);
 
-  // Remove inversion if a topic is deleted
+  // -------- Remove inversion if a topic is deleted --------
   const handleRemoveTopic = (idToRemove) => {
     setSelectedTopics((prev) => prev.filter((id) => id !== idToRemove));
 
@@ -303,34 +315,35 @@ function Compass() {
     setReplacingTopic(null);
   };
 
+  // -------- Build compareAnswers when comparePol or topics change --------
   useEffect(() => {
-    if (!compareUser || !selectedTopics.length) {
+    if (!comparePol || !selectedTopics.length) {
       setCompareAnswers({});
       return;
     }
 
-    fetch(`${import.meta.env.VITE_API_URL}/compass/compare`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        user_id: compareUser.user_id,
-        ids: selectedTopics,
-      }),
-    })
-      .then((res) => res.json())
-      .then((data) => {
+    const url = `${import.meta.env.VITE_API_URL}/compass/politicians/${
+      comparePol.id
+    }/answers`;
+    fetch(url, { credentials: "include" })
+      .then((r) => r.json())
+      .then((allAnswers) => {
+        // allAnswers: [{topic_id, value}, ...]
         const mapped = selectedTopics
           .map((id) => {
-            const a = data.find((d) => d.topic_id === id);
-            const topic = topics.find((t) => t.id === id);
-            if (!topic) return null; // skip if topic missing
-            return [topic.short_title, a ? a.value : 0];
+            const a = allAnswers.find((x) => x.topic_id === id);
+            const t = topics.find((tt) => tt.id === id);
+            if (!t) return null;
+            return [t.short_title, a ? a.value : 0];
           })
           .filter(Boolean);
         setCompareAnswers(Object.fromEntries(mapped));
+      })
+      .catch((e) => {
+        console.error("[Compass] compare fetch failed", e);
+        setCompareAnswers({});
       });
-  }, [compareUser, selectedTopics, topics]);
+  }, [comparePol, selectedTopics, topics, setCompareAnswers]);
 
   return (
     <div className="px-4 py-6 flex flex-col md:flex-row  items-center overflow-hidden">
@@ -338,10 +351,10 @@ function Compass() {
       <TabBar />
 
       {/* -------- compare column (hidden on mobile) -------- */}
-      {compareUser && (
+      {comparePol && (
         <div className="hidden md:block md:w-2/3 md:max-w-90">
           <CompareDetail
-            user={compareUser}
+            politician={comparePol}
             dropdownValue={dropdownValue}
             setDropdownValue={setDropdownValue}
           />
@@ -352,16 +365,18 @@ function Compass() {
       <div className="w-full flex flex-col items-center">
         {selectedTab === 0 && (
           <div className="w-full max-w-2xl flex flex-col items-center gap-4 md:hidden">
-            {compareUser ? (
+            {comparePol ? (
               <StanceExplorer
-                user={compareUser}
+                // If StanceExplorer still expects `user`, we pass both for compatibility
+                user={comparePol}
+                politician={comparePol}
                 dropdownValue={dropdownValue}
                 setDropdownValue={setDropdownValue}
               />
             ) : (
               <div className="flex flex-col gap-6 w-full items-center mt-8">
                 <h1 className="text-xl font-semibold">
-                  Select a user to compare with
+                  Select a politician to compare with
                 </h1>
                 <button
                   onClick={() => setIsCompareModal(true)}
@@ -375,7 +390,7 @@ function Compass() {
         )}
 
         {selectedTab === 1 && (
-          <div className="w-full max-w-2xl flex flex-col items-center gap-4">
+          <div className="w-full max-w-2xl flex flex-col items-center">
             <Legend />
             <RadarChart
               data={answers}
@@ -397,10 +412,10 @@ function Compass() {
         )}
 
         {selectedTab === 2 &&
-          (compareUser ? (
+          (comparePol ? (
             <div className="md:hidden w-full">
               <CompareDetail
-                user={compareUser}
+                politician={comparePol}
                 dropdownValue={dropdownValue}
                 setDropdownValue={setDropdownValue}
               />
@@ -408,7 +423,7 @@ function Compass() {
           ) : (
             <div className="flex flex-col gap-6 w-full items-center mt-8">
               <h1 className="text-xl font-semibold">
-                Select a user to compare with
+                Select a politician to compare with
               </h1>
               <button
                 onClick={() => setIsCompareModal(true)}
@@ -420,10 +435,11 @@ function Compass() {
           ))}
       </div>
 
-      {compareUser && (
+      {comparePol && (
         <div className="hidden md:block w-1/2 md:min-w-[280px]">
           <StanceExplorer
-            user={compareUser}
+            user={comparePol}
+            politician={comparePol}
             dropdownValue={dropdownValue}
             setDropdownValue={setDropdownValue}
           />
@@ -434,7 +450,7 @@ function Compass() {
       {isCompareModal && (
         <CompareModal
           selectedTopics={selectedTopics}
-          onCompare={(u) => setCompareUser(u)}
+          onCompare={(p) => setComparePol(p)}
           onClose={() => setIsCompareModal(false)}
         />
       )}

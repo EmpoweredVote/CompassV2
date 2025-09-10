@@ -2,9 +2,10 @@ import { useCompass } from "./CompassContext";
 import { useState, useEffect, useRef } from "react";
 import placeholder from "../assets/placeholder.png";
 import Favicon from "./Favicon";
+import { getPolName } from "../util/name";
 
-function CompareDetail({ user, dropdownValue, setDropdownValue }) {
-  const { topics, answers, compareAnswers } = useCompass();
+function CompareDetail({ politician, dropdownValue, setDropdownValue }) {
+  const { topics, answers } = useCompass();
 
   const topicNames = Object.keys(answers);
   const [selectedTab, setSelectedTab] = useState(0);
@@ -14,36 +15,38 @@ function CompareDetail({ user, dropdownValue, setDropdownValue }) {
   const [sources, setSources] = useState([]);
   const [reasoning, setReasoning] = useState("");
 
+  const polName = getPolName(politician);
+
   useEffect(() => {
+    if (!selectedTopicID || !politician?.id) return;
     fetch(
-      `${import.meta.env.VITE_API_URL}/compass/context?user_id=${
-        user.user_id
-      }&topic_id=${selectedTopicID}`,
-      {
-        method: "GET",
-        credentials: "include",
-      }
+      `${import.meta.env.VITE_API_URL}/compass/politicians/${
+        politician.id
+      }/${selectedTopicID}/context`,
+      { method: "GET", credentials: "include" }
     )
       .then(async (res) => {
         if (!res.ok) {
           const msg = await res.text();
+          // 404 => no context written
+          if (res.status === 404) {
+            setReasoning("");
+            setSources([]);
+            return null;
+          }
           throw new Error(`${res.status} ${res.statusText}: ${msg}`);
         }
         return res.json();
       })
       .then((data) => {
-        setReasoning(data.reasoning);
-        setSources(data.sources);
+        if (!data) return;
+        setReasoning(data.reasoning || "");
+        setSources(Array.isArray(data.sources) ? data.sources : []);
       })
       .catch((err) => {
-        if (err.message.startsWith("404")) {
-          setReasoning("");
-          setSources([]);
-        } else {
-          console.error(err);
-        }
+        console.error("[CompareDetail] context fetch failed", err);
       });
-  }, [selectedTopicID]);
+  }, [selectedTopicID, politician?.id]);
 
   useEffect(() => {
     const tab = tabRefs[selectedTab].current;
@@ -60,23 +63,19 @@ function CompareDetail({ user, dropdownValue, setDropdownValue }) {
   };
 
   useEffect(() => {
-    topics
-      .filter((topic) => topic.short_title == dropdownValue)
-      .map((topic) => setSelectedTopicID(topic.id));
-  }, [dropdownValue]);
+    const t = topics.find((topic) => topic.short_title === dropdownValue);
+    setSelectedTopicID(t ? t.id : "");
+  }, [dropdownValue, topics]);
 
   return (
     <div>
       <div className="bg-[#FAFAFA] rounded-lg border border-neutral-200 py-2 px-1 w-full md:h-auto flex flex-col items-center justify-center">
-        {/* NAV HEADER */}
+        {/* header tabs (Summary / Sources) */}
         <div className="relative flex flex-row justify-between gap-6 bg-gray-300/50 rounded-lg p-1">
           <div
             className="absolute top-1 h-[calc(100%-0.5rem)] bg-white rounded-lg transition-all duration-300 ease-in-out"
-            style={{
-              left: bgStyle.left,
-              width: bgStyle.width,
-            }}
-          ></div>
+            style={{ left: bgStyle.left, width: bgStyle.width }}
+          />
           <div
             ref={tabRefs[0]}
             onClick={() => setSelectedTab(0)}
@@ -176,17 +175,22 @@ function CompareDetail({ user, dropdownValue, setDropdownValue }) {
             </h2>
           </div>
         </div>
-        <div className="mt-6">
+
+        <div className="mt-6 size-32 rounded-full overflow-hidden shrink-0">
           <img
-            src={user.profile_pic_url || placeholder}
-            className="rounded-full object-cover w-32 h-32"
+            src={
+              politician.photo_origin_url ||
+              politician.photo_custom_url ||
+              placeholder
+            }
+            className="w-full h-full object-cover object-center"
           />
         </div>
-        {user.username && (
-          <h2 className="text-xl font-bold my-6 text-center">
-            {user.username}
-          </h2>
-        )}
+
+        <h2 className="text-xl font-bold my-6 text-center">
+          {polName || "Selected Politician"}
+        </h2>
+
         <div className="flex flex-col w-5/6 justify-center border-b border-black/40 my-4">
           <select
             id="topic-dropdown"
@@ -197,18 +201,16 @@ function CompareDetail({ user, dropdownValue, setDropdownValue }) {
             <option value="default" className="text-center">
               Select a topic...
             </option>
-            {topicNames.map((topic) => {
-              return (
-                <option value={topic} key={topic} className="text-center">
-                  {topic}
-                </option>
-              );
-            })}
+            {topicNames.map((topic) => (
+              <option value={topic} key={topic} className="text-center">
+                {topic}
+              </option>
+            ))}
           </select>
         </div>
-        {selectedTab == 0 && (
+
+        {selectedTab === 0 && (
           <div className="mt-4">
-            {/* Scrollable section with paragraphs of fact based stance summary */}
             {reasoning ? (
               <div className="p-2 overflow-scroll md:max-h-96">
                 <div className="whitespace-pre-wrap text-base leading-relaxed ml-1">
@@ -217,8 +219,9 @@ function CompareDetail({ user, dropdownValue, setDropdownValue }) {
               </div>
             ) : (
               <h1 className="p-4 text-center">
-                We haven't created {user.username}'s summary for{" "}
-                {dropdownValue && dropdownValue != "default"
+                We haven&apos;t created{" "}
+                {polName ? `${polName}'s` : "this politician's"} summary for{" "}
+                {dropdownValue && dropdownValue !== "default"
                   ? dropdownValue
                   : "this topic"}{" "}
                 yet!
@@ -227,32 +230,27 @@ function CompareDetail({ user, dropdownValue, setDropdownValue }) {
           </div>
         )}
 
-        {selectedTab == 2 && (
+        {selectedTab === 2 && (
           <div className="mt-4">
-            {sources ? (
-              <div>
-                {sources.length > 0 ? (
-                  <div className="grid grid-cols-2 px-4 gap-6 overflow-scroll md:max-h-96">
-                    {sources.map((source, i) => (
-                      <div
-                        className="flex flex-col border rounded-md items-center py-2 px-6 cursor-pointer gap-2"
-                        key={source + i}
-                        onClick={() => window.open(source, "_blank")}
-                      >
-                        <a
-                          href={source}
-                          target="_blank"
-                          className="font-semibold text-lg"
-                        >
-                          {shortenTitle(getDomainName(source))}
-                        </a>
-                        <Favicon url={source} size={64} />
-                      </div>
-                    ))}
+            {Array.isArray(sources) && sources.length > 0 ? (
+              <div className="grid grid-cols-2 px-4 gap-6 overflow-scroll md:max-h-96">
+                {sources.map((source, i) => (
+                  <div
+                    className="flex flex-col border rounded-md items-center py-2 px-6 cursor-pointer gap-2"
+                    key={source + i}
+                    onClick={() => window.open(source, "_blank")}
+                  >
+                    <a
+                      href={source}
+                      target="_blank"
+                      className="font-semibold text-lg"
+                      rel="noreferrer"
+                    >
+                      {shortenTitle(getDomainName(source))}
+                    </a>
+                    <Favicon url={source} size={64} />
                   </div>
-                ) : (
-                  <p className="mb-4">No sources found for this topic.</p>
-                )}
+                ))}
               </div>
             ) : (
               <p className="mb-4">No sources found for this topic.</p>
@@ -271,23 +269,12 @@ function getDomainName(url) {
     youtu: "YOUTUBE",
     nyti: "NYTIMES",
     amzn: "AMAZON",
-    fb: "FACEBOOK", // fb.com
+    fb: "FACEBOOK",
   };
-
   let cleaned = url.replace(/^(https?:\/\/)?(www\.)?/, "");
   let parts = cleaned.split(".");
   return ALIAS[parts[0]] || parts[0].toUpperCase();
 }
-
 function shortenTitle(title) {
-  let newTitle = "";
-  if (title.length > 8) {
-    for (let i = 0; i < 8; i++) {
-      newTitle += title[i];
-    }
-    newTitle += "...";
-    return newTitle;
-  } else {
-    return title;
-  }
+  return title.length > 8 ? title.slice(0, 8) + "..." : title;
 }

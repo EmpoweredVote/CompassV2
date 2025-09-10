@@ -4,15 +4,12 @@ import { useCompass } from "../CompassContext";
 const PoliticianAdminPanel = lazy(() => import("./PoliticianAdminPanel"));
 const AttachAnswers = lazy(() => import("./AttachAnswers"));
 const TopicAdminPanel = lazy(() => import("./TopicAdminPanel"));
-// const UserAdminPanel = lazy(() => import("./UserAdminPanel"));
-// const CreateUser = lazy(() => import("./CreateUser"));
 
 function AdminDashboard() {
   const { topics } = useCompass();
 
   const [currentTab, setCurrentTab] = useState("Topics");
   const [allCategories, setAllCategories] = useState([]);
-  // const [users, setUsers] = useState([]);
   const [politicians, setPoliticians] = useState([]);
   const [filteredPol, setFilteredPol] = useState([]);
 
@@ -26,7 +23,7 @@ function AdminDashboard() {
   }, []);
 
   useEffect(() => {
-    fetch(`${import.meta.env.VITE_API_URL}/essentials/politicians/98110`, {
+    fetch(`${import.meta.env.VITE_API_URL}/essentials/politicians`, {
       credentials: "include",
     })
       .then((res) => res.json())
@@ -45,11 +42,11 @@ function AdminDashboard() {
       page = <TopicAdminPanel allCategories={allCategories} />;
       break;
 
-    case "Politicians":
+    case "Context":
       page = <PoliticianAdminPanel politicians={filteredPol} topics={topics} />;
       break;
 
-    case "Attach Answers":
+    case "Answers":
       page = <AttachAnswers topics={topics} politicians={filteredPol} />;
   }
 
@@ -63,7 +60,7 @@ function AdminDashboard() {
 
       <div className="w-1/2 m-auto">
         <div className="flex flex-row justify-center gap-8 my-4">
-          {["Topics", "Politicians", "Attach Answers"].map((tab) => (
+          {["Topics", "Context", "Answers"].map((tab) => (
             <button
               key={tab}
               className={`py-2 px-8 border rounded-md cursor-pointer font-semibold hover:bg-gray-200 ${

@@ -222,7 +222,7 @@ function PoliticianAdminPanel({ politicians, topics }) {
 
   return (
     <div className="w-3/4 mx-auto mt-6 space-y-4">
-      <h1 className="text-2xl font-bold text-center">Politicians</h1>
+      <h1 className="text-2xl font-bold text-center">Politician Context</h1>
       {politicians.map((p) => (
         <PoliticianAccordion
           key={p.id}
