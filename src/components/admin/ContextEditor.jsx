@@ -1,5 +1,5 @@
 function ContextEditor({
-  user_id,
+  politician_id,
   topic_id,
   existingContext,
   existingAnswer,
@@ -7,21 +7,25 @@ function ContextEditor({
   editedContextFields,
   setEditedContextFields,
   cancelEdit,
-  saveEdit,
+  saveEdit, // expects draft
 }) {
-  const contextDraft = editedContextFields[user_id]?.[topic_id] || {
+  // Build a base from existing context/answer…
+  const base = {
     reasoning: existingContext?.reasoning || "",
-    sources: existingContext?.sources?.join("\n") || "",
+    sources: (existingContext?.sources || []).join("\n") || "",
     value: existingAnswer?.value ?? null,
   };
+  // …and merge any partial edits on top (so unchanged fields persist)
+  const overrides = editedContextFields[politician_id]?.[topic_id] || {};
+  const contextDraft = { ...base, ...overrides };
 
   const updateField = (field, value) => {
     setEditedContextFields((prev) => ({
       ...prev,
-      [user_id]: {
-        ...prev[user_id],
+      [politician_id]: {
+        ...prev[politician_id],
         [topic_id]: {
-          ...prev[user_id]?.[topic_id],
+          ...(prev[politician_id]?.[topic_id] || {}),
           [field]: value,
         },
       },
@@ -35,7 +39,12 @@ function ContextEditor({
         <select
           className="border px-2 py-1 rounded w-full"
           value={contextDraft.value ?? ""}
-          onChange={(e) => updateField("value", parseInt(e.target.value))}
+          onChange={(e) =>
+            updateField(
+              "value",
+              e.target.value === "" ? null : parseInt(e.target.value, 10)
+            )
+          }
         >
           <option value="" disabled>
             Select a stance
@@ -48,7 +57,6 @@ function ContextEditor({
         </select>
       </div>
 
-      {/* Reasoning + Sources */}
       <div>
         <label className="font-semibold">Reasoning:</label>
         <textarea
@@ -78,7 +86,19 @@ function ContextEditor({
         </button>
         <button
           className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-          onClick={() => saveEdit(contextDraft.value)}
+          onClick={() => {
+            const draft = {
+              reasoning: contextDraft.reasoning,
+              sources: contextDraft.sources,
+              value: contextDraft.value,
+            };
+            console.log("[Editor] Save clicked", {
+              politician_id,
+              topic_id,
+              draft,
+            });
+            saveEdit(draft);
+          }}
         >
           Save
         </button>
@@ -86,5 +106,4 @@ function ContextEditor({
     </div>
   );
 }
-
 export default ContextEditor;

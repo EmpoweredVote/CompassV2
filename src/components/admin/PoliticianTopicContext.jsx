@@ -1,9 +1,9 @@
-import ContextEditor from "./ContextEditor";
 import ContextSummary from "./ContextSummary";
+import ContextEditor from "./ContextEditor";
 
-function UserTopicContext({
-  user,
-  answer,
+function PoliticianTopicContext({
+  politician_id,
+  answers, // array
   topic,
   context,
   openTopics,
@@ -12,21 +12,27 @@ function UserTopicContext({
   setEditingContext,
   editedContextFields,
   setEditedContextFields,
+  // saveContextEdit(topic_id, draft)
   saveContextEdit,
 }) {
-  const isOpen = openTopics.includes(topic.id);
+  const isOpen = Array.isArray(openTopics) && openTopics.includes(topic.id);
   const isEditing =
-    editingContext?.user_id === user.user_id &&
+    editingContext?.politician_id === politician_id &&
     editingContext?.topic_id === topic.id;
 
-  const ctx = context.find((c) => c.topic_id === topic.id);
+  const ctx = (context || []).find((c) => c.topic_id === topic.id);
+  const currentAnswer = (Array.isArray(answers) ? answers : []).find(
+    (a) => a.topic_id === topic.id
+  );
 
   const handleToggle = () => {
+    console.log("[PTC] toggle topic", { politician_id, topic_id: topic.id });
     toggleTopicOpen(topic.id);
   };
 
   const handleStartEdit = () => {
-    setEditingContext({ user_id: user.user_id, topic_id: topic.id });
+    console.log("[PTC] start edit", { politician_id, topic_id: topic.id });
+    setEditingContext({ politician_id, topic_id: topic.id });
     if (!isOpen) toggleTopicOpen(topic.id);
   };
 
@@ -36,44 +42,43 @@ function UserTopicContext({
         <h3 onClick={handleToggle} className="font-semibold w-full h-full">
           {topic.short_title}
         </h3>
-        <button onClick={handleStartEdit}>
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-5 w-5 text-gray-600 hover:text-black cursor-pointer"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={1.5}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931ZM19.5 7.125 16.862 4.487ZM18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10"
-            />
-          </svg>
-        </button>
+        <button onClick={handleStartEdit}>…</button>
       </div>
 
       {isOpen && (
         <div className="mt-2">
           {isEditing ? (
             <ContextEditor
-              user_id={user.user_id}
+              politician_id={politician_id}
               topic_id={topic.id}
               topic={topic}
               existingContext={ctx}
+              existingAnswer={currentAnswer}
               editedContextFields={editedContextFields}
               setEditedContextFields={setEditedContextFields}
-              cancelEdit={() => setEditingContext(null)}
-              saveEdit={() => saveContextEdit(user.user_id, topic.id)}
+              cancelEdit={() => {
+                console.log("[PTC] cancel edit");
+                setEditingContext(null);
+              }}
+              // IMPORTANT: call with (topic_id, draft)
+              saveEdit={(draft) => {
+                console.log("[PTC] saveEdit clicked", {
+                  politician_id,
+                  topic_id: topic.id,
+                  draft,
+                });
+                return saveContextEdit(topic.id, draft);
+              }}
             />
           ) : (
             <div>
-              {answer && (
+              {currentAnswer && (
                 <div className="m-2 bg-gray-100 p-4 rounded">
-                  <p className="font-semibold">Answer Value: {answer.value}</p>
+                  <p className="font-semibold">
+                    Answer Value: {currentAnswer.value}
+                  </p>
                   <p className="text-gray-700">
-                    {topic.stances.find((s) => s.value === answer.value)
+                    {topic.stances.find((s) => s.value === currentAnswer.value)
                       ?.text || (
                       <span className="italic text-gray-400">
                         Unknown stance
@@ -97,4 +102,4 @@ function UserTopicContext({
   );
 }
 
-export default UserTopicContext;
+export default PoliticianTopicContext;
