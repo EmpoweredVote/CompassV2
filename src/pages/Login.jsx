@@ -2,9 +2,6 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 
 function Login() {
-  // Render form with username/password field
-  // send form data to POST /auth/login
-  // If 200, redirect to Home page
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPasswords, setShowPasswords] = useState(false);

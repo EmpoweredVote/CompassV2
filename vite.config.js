@@ -3,9 +3,14 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), "");
+  const fileEnv = loadEnv(mode, process.cwd(), "VITE_");
+  const shellEnv = Object.fromEntries(
+    Object.entries(process.env).filter(([k]) => k.startsWith("VITE_"))
+  );
+  const env = { ...fileEnv, ...shellEnv };
+
   return {
-    base: env.VITE_BASE ?? "/",
+    base: env.VITE_BASE || "/",
     plugins: [react(), tailwindcss()],
     build: { outDir: "dist", assetsDir: "assets" },
   };
