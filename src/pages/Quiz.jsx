@@ -69,7 +69,7 @@ export function Quiz() {
   const ordered = currentTopic.stances;
 
   return (
-    <div className="min-h-screen flex flex-col justify-between px-4 py-8 sm:px-8 md:px-16 lg:px-32">
+    <div className="h-dvh flex flex-col justify-between px-4 py-8 sm:px-8 md:px-16 lg:px-32">
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl md:text-3xl font-semibold mb-2 text-center">
@@ -82,6 +82,9 @@ export function Quiz() {
 
       {/* Stances */}
       <div className="flex flex-col gap-3">
+        <h2 className="text-xl md:text-2xl font-semibold mb-2">
+          {currentTopic.start_phrase}...
+        </h2>
         {ordered.map((stance, i) => (
           <button
             key={stance.id}

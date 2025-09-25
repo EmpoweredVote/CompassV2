@@ -17,6 +17,7 @@ function Library() {
   const [search, setSearch] = useState("");
   const [answeredTopicIDs, setAnsweredTopicIDs] = useState([]);
   const [answeredLoaded, setAnsweredLoaded] = useState(false);
+  const [isDisabled, setIsDisabled] = useState(true);
 
   const updateSearch = (e) => {
     setSearch(e.target.value);
@@ -34,6 +35,14 @@ function Library() {
       });
   }, []);
 
+  useEffect(() => {
+    if (selectedTopics.length == 0) {
+      setIsDisabled(true);
+    } else {
+      setIsDisabled(false);
+    }
+  }, [selectedTopics]);
+
   const getVisibleTopics = (category) => {
     return category.topics
       .filter((t) => showPrevAnswers || !answeredTopicIDs.includes(t.id))
@@ -48,6 +57,11 @@ function Library() {
     } else {
       setSelectedTopics((prevTopics) => [...prevTopics, topic_id]);
     }
+  };
+
+  const clearSelections = () => {
+    setSelectedTopics([]);
+    localStorage.setItem("selectedTopics", []);
   };
 
   return (
@@ -83,7 +97,7 @@ function Library() {
           className="w-full bg-transparent outline-none text-sm md:text-base"
         />
       </div>
-      <div className="flex items-center justify-center w-full max-w-xl mx-auto">
+      <div className="flex items-center justify-center w-full max-w-xl mx-auto gap-4">
         <button
           className={`px-3 py-1.5 md:px-4 md:py-2 rounded-full border text-sm md:text-base font-medium transition-colors duration-200 cursor-pointer ${
             showPrevAnswers
@@ -93,6 +107,14 @@ function Library() {
           onClick={() => setShowPrevAnswers(!showPrevAnswers)}
         >
           Show Previously Answered
+        </button>
+        <button
+          className={`px-3 py-1.5 md:px-4 md:py-2 rounded-full border text-sm md:text-base font-medium hover:bg-gray-100 ${
+            isDisabled ? "disabled cursor-not-allowed" : "cursor-pointer"
+          }`}
+          onClick={() => clearSelections()}
+        >
+          Unselect All
         </button>
       </div>
       {answeredLoaded && (
