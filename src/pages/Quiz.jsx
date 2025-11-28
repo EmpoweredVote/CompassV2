@@ -87,55 +87,58 @@ export function Quiz() {
   const ordered = currentTopic.stances;
 
   return (
-    <div className="flex flex-col min-h-screen justify-between">
+    <div className="flex flex-col min-h-screen">
       {/* Header */}
       <div className="mb-6 mt-4">
-        <h1 className="text-2xl md:text-3xl font-semibold mb-2 text-center text-sky-600">
+        <h1 className="text-2xl md:text-3xl font-semibold mb-2 text-center text-[#006678]">
           Choose a Stance
         </h1>
         <p className="text-lg md:text-xl mb-2 text-center">
           Select the option that best fits your view.
         </p>
+      </div>
+
+      <div className="flex flex-col">
         <h1 className="text-2xl md:text-3xl font-semibold mb-2 text-center">
           {currentTopic.title}
         </h1>
-      </div>
 
-      <div className="flex-1 flex flex-col md:flex-row md:gap-8 pb-12 md:pb-0">
-        <div className="md:basis-3/5 flex items-center justify-center">
-          <div className="w-full max-w-[700px] aspect-square">
-            <RadarChart
-              data={chartData}
-              invertedSpokes={invertedSpokes}
-              onToggleInversion={(topic) =>
-                setInvertedSpokes((prev) => ({
-                  ...prev,
-                  [topic]: !prev[topic],
-                }))
-              }
-            />
+        <div className="flex-1 flex flex-col md:flex-row md:pb-0">
+          <div className="md:basis-3/5 flex justify-center">
+            <div className="w-full max-w-[700px] aspect-square">
+              <RadarChart
+                data={chartData}
+                invertedSpokes={invertedSpokes}
+                onToggleInversion={(topic) =>
+                  setInvertedSpokes((prev) => ({
+                    ...prev,
+                    [topic]: !prev[topic],
+                  }))
+                }
+              />
+            </div>
           </div>
-        </div>
 
-        {/* Stances */}
-        <div className="md:basis-2/5 flex flex-col gap-3 px-4 justify-center overflow-y-auto md:pb-0">
-          <h2 className="text-xl md:text-2xl font-semibold mb-2">
-            {currentTopic.start_phrase}...
-          </h2>
-          {ordered.map((stance, i) => (
-            <button
-              key={stance.id}
-              onClick={() => selectAnswer(i + 1)}
-              className={`text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm sm:text-base font-medium
+          {/* Stances */}
+          <div className="md:basis-2/5 flex flex-col gap-3 px-4 overflow-y-auto md:pb-0 justify-center">
+            <h2 className="text-xl md:text-2xl font-semibold mb-2">
+              {currentTopic.start_phrase}...
+            </h2>
+            {ordered.map((stance, i) => (
+              <button
+                key={stance.id}
+                onClick={() => selectAnswer(i + 1)}
+                className={`text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm sm:text-base font-medium
               ${
                 selectedAnswer === i + 1
                   ? "border-green-600 border-2"
                   : "bg-white text-black border-2 border-gray-300 hover:bg-gray-50"
               }`}
-            >
-              {i + 1}. {stance.text}
-            </button>
-          ))}
+              >
+                {i + 1}. {stance.text}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
