@@ -6,9 +6,7 @@ function Layout({ children }) {
       <div className="">
         <Sidebar />
       </div>
-      <main className="mb-20 md:flex-1 md:ml-16 md:px-4 md:mb-5">
-        {children}
-      </main>
+      <main className="flex-1 md:ml-20 pb-20 md:pb-5">{children}</main>
     </div>
   );
 }
