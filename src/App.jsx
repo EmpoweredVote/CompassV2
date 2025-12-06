@@ -12,6 +12,7 @@ import Compass from "./pages/Compass";
 import Layout from "./components/Layout";
 import { CompassProvider } from "./components/CompassContext";
 import AdminDashboard from "./components/admin/AdminDashboard";
+import { Onboarding } from "./pages/Onboarding";
 
 function App() {
   return (
@@ -20,6 +21,14 @@ function App() {
         <Route path="/" element={<Login />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route
+          path="/help"
+          element={
+            <ProtectedRoute>
+              <Onboarding />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/home"
           element={
@@ -42,9 +51,7 @@ function App() {
           path="/quiz"
           element={
             <ProtectedRoute>
-              <Layout>
-                <Quiz />
-              </Layout>
+              <Quiz />
             </ProtectedRoute>
           }
         />

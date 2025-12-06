@@ -89,17 +89,9 @@ export function Quiz() {
   return (
     <div className="flex flex-col min-h-screen">
       {/* Header */}
-      <div className="mb-6 mt-4">
-        <h1 className="text-2xl md:text-3xl font-semibold mb-2 text-center text-[#006678]">
-          Choose a Stance
-        </h1>
-        <p className="text-lg md:text-xl mb-2 text-center">
-          Select the option that best fits your view.
-        </p>
-      </div>
 
-      <div className="flex flex-col">
-        <h1 className="text-2xl md:text-3xl font-semibold mb-2 text-center">
+      <div className="flex flex-col md:mt-6">
+        <h1 className="text-2xl md:text-3xl font-semibold mt-4 md:my-4 text-center">
           {currentTopic.title}
         </h1>
 
@@ -120,7 +112,7 @@ export function Quiz() {
           </div>
 
           {/* Stances */}
-          <div className="md:basis-2/5 flex flex-col gap-3 px-4 overflow-y-auto md:pb-0 justify-center">
+          <div className="md:basis-2/5 flex flex-col gap-3 px-4 overflow-y-auto mb-2 md:mb-0 md:pb-0 justify-center md:mr-6">
             <h2 className="text-xl md:text-2xl font-semibold mb-2">
               {currentTopic.start_phrase}...
             </h2>
@@ -128,14 +120,14 @@ export function Quiz() {
               <button
                 key={stance.id}
                 onClick={() => selectAnswer(i + 1)}
-                className={`text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm sm:text-base font-medium
+                className={`text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm sm:text-base font-medium cursor-pointer
               ${
                 selectedAnswer === i + 1
                   ? "border-green-600 border-2"
                   : "bg-white text-black border-2 border-gray-300 hover:bg-gray-50"
               }`}
               >
-                {i + 1}. {stance.text}
+                {stance.text}
               </button>
             ))}
           </div>
@@ -143,8 +135,8 @@ export function Quiz() {
       </div>
 
       {/* Footer */}
-      <div className="inset-shadow-sm md:fixed md:bottom-5 md:left-20 md:right-0">
-        <div className="flex justify-between items-center mx-4 md:mx-10 mt-4">
+      <div className="inset-shadow-sm md:fixed md:bottom-5 md:left-0 md:right-0">
+        <footer className="flex justify-between items-center mx-4 my-4 md:mx-10 md:my-0 md:mt-4">
           <button
             onClick={handleBack}
             disabled={currentIndex === 0}
@@ -160,7 +152,7 @@ export function Quiz() {
 
           <div className="flex flex-col text-center">
             <h1 className="text-xl text-gray-600">Stances Chosen</h1>
-            <p className="text-3xl font-semibold">
+            <p className="text-2xl md:text-3xl font-semibold">
               {currentIndex + 1} of {selectedTopics.length}
             </p>
           </div>
@@ -177,10 +169,8 @@ export function Quiz() {
           >
             {isLastQuestion ? "Finish" : "Next"}
           </button>
-        </div>
+        </footer>
       </div>
-
-      {/* Navigation Buttons */}
     </div>
   );
 }
