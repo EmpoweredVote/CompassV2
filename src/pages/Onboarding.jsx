@@ -1,6 +1,7 @@
 // Only redirect to this page the first time a user logs in.
 import { useState } from "react";
 import { useNavigate } from "react-router";
+import Compass from "../assets/compass.jpg";
 
 export function Onboarding() {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -14,31 +15,31 @@ export function Onboarding() {
     {
       title: "Welcome to the Empowered Compass!",
       desc: "Visualize your political stance. Map your alignment on key issues and easily compare your beliefs with leaders.",
-      contentSrc: "src/assets/compass.jpg",
+      contentSrc: Compass,
       alt: "Image of a compass",
     },
     {
       title: "Choose your Topics",
       desc: "Select up to 8 Topics (e.g. Healthcare, Foreign Policy, etc). These choices build the structure of your personal Compass.",
-      contentSrc: "src/assets/compass.jpg",
+      contentSrc: Compass,
       alt: "Image of a compass",
     },
     {
       title: "Define your Position & Build your Compass",
       desc: "Select a stance on the spectrum. Your choice immediately builds and updates your Compass.",
-      contentSrc: "src/assets/compass.jpg",
+      contentSrc: Compass,
       alt: "Image of a compass",
     },
     {
       title: "Compare with Candidates",
       desc: "Select any politician to see their stances overlayed onto your map. Instantly see where you align and diverge.",
-      contentSrc: "src/assets/compass.jpg",
+      contentSrc: Compass,
       alt: "Image of a compass",
     },
     {
       title: "Let's get started!",
       desc: "You're ready to begin! Select your first topics and watch your Empowered Compass build instantly with every stance you choose.",
-      contentSrc: "src/assets/compass.jpg",
+      contentSrc: Compass,
       alt: "Image of a compass",
     },
   ];
