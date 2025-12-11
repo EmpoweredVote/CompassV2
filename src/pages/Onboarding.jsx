@@ -2,6 +2,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import Compass from "../assets/compass.jpg";
+import OnboardingGif1 from "../assets/onboarding_gifs/onboarding_1.gif";
+import OnboardingGif2 from "../assets/onboarding_gifs/onboarding_2.gif";
+import OnboardingGif3 from "../assets/onboarding_gifs/onboarding_3.gif";
+import OnboardingGif4 from "../assets/onboarding_gifs/onboarding_4.gif";
+import OnboardingGif5 from "../assets/onboarding_gifs/onboarding_5.gif";
 
 export function Onboarding() {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -15,32 +20,32 @@ export function Onboarding() {
     {
       title: "Welcome to the Empowered Compass!",
       desc: "Visualize your political stance. Map your alignment on key issues and easily compare your beliefs with leaders.",
-      contentSrc: Compass,
-      alt: "Image of a compass",
+      contentSrc: OnboardingGif1,
+      alt: "GIF demonstrating the Empowered Compass",
     },
     {
       title: "Choose your Topics",
       desc: "Select up to 8 Topics (e.g. Healthcare, Foreign Policy, etc). These choices build the structure of your personal Compass.",
-      contentSrc: Compass,
-      alt: "Image of a compass",
+      contentSrc: OnboardingGif2,
+      alt: "GIF showing a user selecting topics",
     },
     {
       title: "Define your Position & Build your Compass",
       desc: "Select a stance on the spectrum. Your choice immediately builds and updates your Compass.",
-      contentSrc: Compass,
-      alt: "Image of a compass",
+      contentSrc: OnboardingGif3,
+      alt: "GIF showing a user picking their stance",
     },
     {
       title: "Compare with Candidates",
       desc: "Select any politician to see their stances overlayed onto your map. Instantly see where you align and diverge.",
-      contentSrc: Compass,
-      alt: "Image of a compass",
+      contentSrc: OnboardingGif4,
+      alt: "GIF comparing your compass with a politicians",
     },
     {
       title: "Let's get started!",
       desc: "You're ready to begin! Select your first topics and watch your Empowered Compass build instantly with every stance you choose.",
-      contentSrc: Compass,
-      alt: "Image of a compass",
+      contentSrc: OnboardingGif5,
+      alt: "Celebration GIF",
     },
   ];
 
@@ -66,7 +71,7 @@ export function Onboarding() {
           <div className="flex flex-col w-full max-w-2xl gap-4">
             {/* Image / GIF area */}
             <div className="w-full flex justify-center mb-4 md:mb-8">
-              <div className="w-full max-w-[320px] md:max-w-[600px] lg:max-w-[800px] aspect-[4/3]">
+              <div className="w-full max-w-[320px] md:max-w-[600px] lg:max-w-[1000px] aspect-[4/3]">
                 <img
                   src={pageContent[currentIndex].contentSrc}
                   alt={pageContent[currentIndex].alt}
