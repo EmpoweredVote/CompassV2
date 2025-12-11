@@ -147,7 +147,9 @@ export function Onboarding() {
 
           <div className="flex justify-end gap-3">
             <button
-              onClick={() => navigate("/library")}
+              onClick={() => {
+                setCurrentIndex(totalPages - 1);
+              }}
               className={`px-5 py-2 rounded-full border text-sm font-medium transition-colors duration-200 hidden md:flex
                 ${
                   isLastQuestion
