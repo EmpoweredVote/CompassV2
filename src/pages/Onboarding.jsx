@@ -55,11 +55,30 @@ export function Onboarding() {
     }
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (!isLastQuestion) {
       setCurrentIndex((i) => i + 1);
-    } else if (isLastQuestion) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/auth/complete-onboarding`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("HTTP error " + response.status);
+      }
+
       navigate("/library");
+    } catch (err) {
+      console.error("Failed to complete onboarding:", err);
+      // optional: show a toast / error state
     }
   };
 

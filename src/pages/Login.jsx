@@ -29,7 +29,24 @@ function Login() {
           throw new Error("HTTP error " + response.status);
         }
       })
-      .then(() => navigate("/library"))
+      .then(() => {
+        fetch(`${import.meta.env.VITE_API_URL}/auth/me`, {
+          method: "GET",
+          credentials: "include",
+        }).then(async (res) => {
+          if (!res.ok) {
+            throw new Error("HTTP error " + res.status);
+          }
+
+          const data = await res.json();
+
+          if (data.completed_onboarding) {
+            navigate("/library");
+          } else {
+            navigate("/help");
+          }
+        });
+      })
       .catch((error) => {
         console.error("Error during HTTP request:", error);
       });
