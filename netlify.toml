@@ -1,0 +1,8 @@
+[build]
+  command = "echo '//npm.pkg.github.com/:_authToken=${NPM_TOKEN}' >> .npmrc && npm ci && npm run build"
+  publish = "dist"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

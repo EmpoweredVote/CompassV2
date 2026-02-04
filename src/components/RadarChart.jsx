@@ -1,5 +1,5 @@
 import { useCompass } from "../components/CompassContext";
-import { RadarChartCore } from "@EmpoweredVote/ev-ui";
+import { RadarChartCore } from "@chrisandrewsedu/ev-ui";
 
 export default function RadarChart(props) {
   const { topics } = useCompass();
