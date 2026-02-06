@@ -116,7 +116,7 @@ function Compass() {
     ];
 
     return (
-      <div className="relative flex justify-around w-full bg-gray-300/50 rounded-lg p-1 mx-2 mb-4 md:hidden">
+      <div className="relative flex justify-around w-full bg-gray-300/50 rounded-lg p-1 mx-2 mb-4 md:hidden border-l-4 border-ev-yellow">
         {/* moving highlight */}
         <div
           className="absolute top-1 h-[calc(100%-0.5rem)] bg-white rounded-lg transition-all"
@@ -173,13 +173,13 @@ function Compass() {
       <div className="flex gap-4 mt-4">
         <button
           onClick={() => setIsModalOpen(true)}
-          className="px-6 py-2 bg-black text-white rounded-full hover:bg-opacity-90 cursor-pointer"
+          className="px-6 py-2 bg-black text-white rounded-full hover:bg-ev-yellow-dark hover:text-black transition-colors cursor-pointer"
         >
           Edit Topics
         </button>
         <button
           onClick={() => setIsCompareModal(true)}
-          className="px-6 py-2 bg-black text-white rounded-full hover:bg-opacity-90 cursor-pointer"
+          className="px-6 py-2 bg-black text-white rounded-full hover:bg-ev-yellow-dark hover:text-black transition-colors cursor-pointer"
         >
           Compare
         </button>

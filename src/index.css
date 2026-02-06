@@ -1,1 +1,8 @@
 @import "tailwindcss";
+
+@theme {
+  /* Empowered Vote - Inform Pillar Color */
+  --color-ev-yellow: #fed12e;
+  --color-ev-yellow-light: #fef3c7;
+  --color-ev-yellow-dark: #eab308;
+}

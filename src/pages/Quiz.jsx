@@ -123,7 +123,7 @@ export function Quiz() {
                 className={`text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm sm:text-base font-medium cursor-pointer
               ${
                 selectedAnswer === i + 1
-                  ? "border-green-600 border-2"
+                  ? "border-ev-yellow border-2 bg-ev-yellow-light"
                   : "bg-white text-black border-2 border-gray-300 hover:bg-gray-50"
               }`}
               >
@@ -150,9 +150,14 @@ export function Quiz() {
             Back
           </button>
 
-          <div className="flex flex-col text-center">
-            <h1 className="text-xl text-gray-600">Stances Chosen</h1>
-            <p className="text-2xl md:text-3xl font-semibold">
+          <div className="flex flex-col text-center items-center">
+            <div className="w-32 md:w-48 h-1.5 bg-gray-200 rounded-full overflow-hidden mb-2">
+              <div
+                className="h-full bg-ev-yellow rounded-full transition-all duration-300"
+                style={{ width: `${((currentIndex + 1) / selectedTopics.length) * 100}%` }}
+              />
+            </div>
+            <p className="text-sm text-gray-600">
               {currentIndex + 1} of {selectedTopics.length}
             </p>
           </div>
