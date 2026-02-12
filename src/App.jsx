@@ -9,6 +9,7 @@ import AdminRoute from "./components/AdminRoute";
 import Unauthorized from "./pages/Unauthorized";
 import { Quiz } from "./pages/Quiz";
 import Compass from "./pages/Compass";
+import BuildCompass from "./pages/BuildCompass";
 import Layout from "./components/Layout";
 import { CompassProvider } from "./components/CompassContext";
 import AdminDashboard from "./components/admin/AdminDashboard";
@@ -52,6 +53,16 @@ function App() {
           element={
             <ProtectedRoute>
               <Quiz />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/build"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <BuildCompass />
+              </Layout>
             </ProtectedRoute>
           }
         />

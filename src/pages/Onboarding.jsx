@@ -85,6 +85,27 @@ export function Onboarding() {
   return (
     <>
       <div className="h-screen flex flex-col gap-2 md:gap-8">
+        {/* Close button */}
+        <div className="flex justify-end px-4 pt-3 md:px-6 md:pt-4">
+          <button
+            onClick={() => navigate("/library")}
+            className="p-2 rounded-full text-gray-400 hover:text-black hover:bg-gray-100 transition-colors duration-200 cursor-pointer"
+            aria-label="Close"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              className="w-6 h-6"
+            >
+              <path
+                fillRule="evenodd"
+                d="M5.47 5.47a.75.75 0 011.06 0L12 10.94l5.47-5.47a.75.75 0 111.06 1.06L13.06 12l5.47 5.47a.75.75 0 11-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 01-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 010-1.06z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </button>
+        </div>
         {/* Main content area */}
         <main className="flex-1 flex flex-col items-center justify-center md:justify-end px-4">
           <div className="flex flex-col w-full max-w-2xl gap-4">

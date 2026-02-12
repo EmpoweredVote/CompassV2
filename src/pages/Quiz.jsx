@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useCompass } from "../components/CompassContext";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import RadarChart from "../components/RadarChart";
 import {
   DndContext,
@@ -129,8 +129,25 @@ function SortableWriteInCard({ id, text, onChange, onCancel, showHint }) {
 }
 
 export function Quiz() {
-  const { topics, selectedTopics, answers, setAnswers, writeIns, setWriteIns } =
+  const { topics, categories, selectedTopics, answers, setAnswers, writeIns, setWriteIns } =
     useCompass();
+
+  const [searchParams] = useSearchParams();
+  const mode = searchParams.get("mode") === "full" ? "full" : "curated";
+
+  // Build ordered list of topic IDs for full mode (grouped by category)
+  const fullQuizTopicIds = useMemo(() => {
+    if (mode !== "full" || !categories.length) return [];
+    const ids = [];
+    for (const cat of categories) {
+      for (const topic of cat.topics) {
+        ids.push(topic.id);
+      }
+    }
+    return ids;
+  }, [mode, categories]);
+
+  const quizTopicIds = mode === "full" ? fullQuizTopicIds : selectedTopics;
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [invertedSpokes, setInvertedSpokes] = useState({});
@@ -149,15 +166,30 @@ export function Quiz() {
     })
   );
 
-  if (!selectedTopics.length || !topics.length) {
-    return <div>Loading quiz...</div>;
+  if (!quizTopicIds.length || !topics.length) {
+    return <div className="flex items-center justify-center min-h-screen text-gray-500">Loading quiz...</div>;
   }
 
-  const currentTopicId = selectedTopics[currentIndex];
+  const currentTopicId = quizTopicIds[currentIndex];
   const currentTopic = topics.find((topic) => topic.id == currentTopicId);
-  const isLastQuestion = currentIndex === selectedTopics.length - 1;
+  const isLastQuestion = currentIndex === quizTopicIds.length - 1;
+
+  // For full mode: find which category the current topic belongs to
+  const currentCategory = mode === "full"
+    ? categories.find((cat) => cat.topics.some((t) => t.id === currentTopicId))
+    : null;
+
+  // Check if this is the first topic of a new category (for showing category headers)
+  const isNewCategory = mode === "full" && currentIndex > 0
+    ? (() => {
+        const prevTopicId = quizTopicIds[currentIndex - 1];
+        const prevCat = categories.find((cat) => cat.topics.some((t) => t.id === prevTopicId));
+        return prevCat?.id !== currentCategory?.id;
+      })()
+    : mode === "full";
 
   const chartData = useMemo(() => {
+    if (mode === "full") return {};
     return Object.fromEntries(
       selectedTopics.map((id) => {
         const topic = topics.find((t) => t.id === id);
@@ -166,26 +198,23 @@ export function Quiz() {
         return [label, value];
       })
     );
-  }, [selectedTopics, topics, answers]);
+  }, [mode, selectedTopics, topics, answers]);
 
   useEffect(() => {
     const isTopicChange = prevIndexRef.current !== currentIndex;
     prevIndexRef.current = currentIndex;
 
-    const topic = topics.find((t) => t.id === selectedTopics[currentIndex]);
+    const topic = topics.find((t) => t.id === quizTopicIds[currentIndex]);
     if (!topic) return;
 
     const prev = answers[topic.short_title] || null;
     setSelectedAnswer(prev);
 
-    // Restore write-in state if this topic has a saved write-in
     const savedWriteIn = writeIns[topic.short_title];
     if (savedWriteIn && prev && !Number.isInteger(prev)) {
       setShowWriteIn(true);
       setWriteInText(savedWriteIn);
-      // Only update hasRepositioned on topic navigation, not on typing
       if (isTopicChange) setHasRepositioned(true);
-      // Restore orderedItems with write-in at saved position
       const stanceIds = topic.stances.map((s) => s.id);
       const writeInIndex = Math.floor(prev);
       const items = [...stanceIds];
@@ -197,7 +226,7 @@ export function Quiz() {
       if (isTopicChange) setHasRepositioned(false);
       setOrderedItems([]);
     }
-  }, [currentIndex, selectedTopics, topics, answers, writeIns]);
+  }, [currentIndex, quizTopicIds, topics, answers, writeIns]);
 
   const selectAnswer = (value, isWriteIn = false) => {
     setSelectedAnswer(value);
@@ -210,7 +239,6 @@ export function Quiz() {
       [topic.short_title]: value,
     }));
 
-    // Clear write-in data if selecting a regular stance
     if (!isWriteIn) {
       setWriteIns((prev) => {
         const updated = { ...prev };
@@ -226,7 +254,7 @@ export function Quiz() {
 
     fetch(`${import.meta.env.VITE_API_URL}/compass/answers`, {
       method: "POST",
-      credentials: "include", // REQUIRED for cookie auth
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
       },
@@ -241,7 +269,11 @@ export function Quiz() {
         setSelectedAnswer(null);
 
         if (isLastQuestion) {
-          navigate("/results");
+          if (mode === "full") {
+            navigate("/build");
+          } else {
+            navigate("/results");
+          }
         } else {
           setCurrentIndex((prev) => prev + 1);
         }
@@ -281,7 +313,6 @@ export function Quiz() {
 
   const handleWriteInTextChange = (newText) => {
     setWriteInText(newText);
-    // Only sync writeIns if already placed via drag
     if (selectedAnswer && !Number.isInteger(selectedAnswer)) {
       if (newText.trim()) {
         setWriteIns((prev) => ({
@@ -289,7 +320,6 @@ export function Quiz() {
           [currentTopic.short_title]: newText,
         }));
       } else {
-        // Text cleared after placing — remove placement
         setSelectedAnswer(null);
         setAnswers((prev) => {
           const updated = { ...prev };
@@ -324,6 +354,184 @@ export function Quiz() {
     }
   };
 
+  // Stance buttons (shared between both modes)
+  const stanceContent = (
+    <>
+      <h2 className="text-xl md:text-2xl font-semibold mb-2">
+        {currentTopic.start_phrase}...
+      </h2>
+
+      {!showWriteIn ? (
+        <>
+          {ordered.map((stance, i) => (
+            <button
+              key={stance.id}
+              onClick={() => {
+                setShowWriteIn(false);
+                setWriteInText("");
+                selectAnswer(i + 1);
+              }}
+              className={`text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm sm:text-base font-medium cursor-pointer
+              ${
+                selectedAnswer === i + 1
+                  ? "border-ev-yellow border-2 bg-ev-yellow-light"
+                  : "bg-white text-black border-2 border-gray-300 hover:bg-gray-50"
+              }`}
+            >
+              {stance.text}
+            </button>
+          ))}
+
+          <button
+            onClick={() => {
+              setShowWriteIn(true);
+              setHasRepositioned(false);
+              setOrderedItems([
+                ...ordered.map((s) => s.id),
+                "write-in",
+              ]);
+            }}
+            className="text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm sm:text-base font-medium cursor-pointer border-2 border-dashed border-gray-400 text-gray-500 hover:border-ev-yellow hover:text-black"
+          >
+            Write your own...
+          </button>
+        </>
+      ) : (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          modifiers={[restrictToVerticalAxis]}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={orderedItems}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="flex flex-col gap-3">
+              {orderedItems.map((itemId) =>
+                itemId === "write-in" ? (
+                  <SortableWriteInCard
+                    key="write-in"
+                    id="write-in"
+                    text={writeInText}
+                    onChange={handleWriteInTextChange}
+                    onCancel={handleCancelWriteIn}
+                    showHint={!!writeInText.trim() && !hasRepositioned}
+                  />
+                ) : (
+                  <SortableStanceLabel
+                    key={itemId}
+                    id={itemId}
+                    text={
+                      ordered.find((s) => s.id === itemId)?.text ?? ""
+                    }
+                  />
+                )
+              )}
+            </div>
+          </SortableContext>
+        </DndContext>
+      )}
+    </>
+  );
+
+  // --- FULL MODE LAYOUT ---
+  if (mode === "full") {
+    return (
+      <div className="flex flex-col min-h-screen">
+        {/* Header */}
+        <div className="flex justify-between items-center px-4 pt-3 md:px-6 md:pt-4">
+          <div />
+          <button
+            onClick={() => navigate("/library")}
+            className="p-2 rounded-full text-gray-400 hover:text-black hover:bg-gray-100 transition-colors duration-200 cursor-pointer"
+            aria-label="Exit quiz"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              className="w-6 h-6"
+            >
+              <path
+                fillRule="evenodd"
+                d="M5.47 5.47a.75.75 0 011.06 0L12 10.94l5.47-5.47a.75.75 0 111.06 1.06L13.06 12l5.47 5.47a.75.75 0 11-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 01-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 010-1.06z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </button>
+        </div>
+
+        {/* Category label */}
+        {currentCategory && (
+          <div className="text-center mt-2">
+            <span className="inline-block px-3 py-1 rounded-full bg-gray-100 text-xs font-medium text-gray-600 uppercase tracking-wide">
+              {currentCategory.title}
+            </span>
+          </div>
+        )}
+
+        {/* Question title - centered, full width */}
+        <h1 className="text-2xl md:text-3xl font-semibold mt-4 mb-6 text-center px-4">
+          {currentTopic.title}
+        </h1>
+
+        {/* Stances - centered, wider layout */}
+        <div className="flex-1 flex justify-center px-4">
+          <div className="w-full max-w-2xl flex flex-col gap-3 mb-4">
+            {stanceContent}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="sticky bottom-0 bg-white/80 backdrop-blur-sm border-t border-gray-100">
+          <footer className="flex justify-between items-center mx-4 my-3 md:mx-10">
+            <button
+              onClick={handleBack}
+              disabled={currentIndex === 0}
+              className={`px-6 py-2 rounded-full border text-sm font-medium transition-colors duration-200
+              ${
+                currentIndex === 0
+                  ? "bg-gray-200 text-gray-400 border-gray-200 cursor-not-allowed"
+                  : "bg-white text-black border-black hover:bg-gray-100 cursor-pointer"
+              }`}
+            >
+              Back
+            </button>
+
+            <div className="flex flex-col text-center items-center">
+              <div className="w-32 md:w-48 h-1.5 bg-gray-200 rounded-full overflow-hidden mb-1">
+                <div
+                  className="h-full bg-ev-yellow rounded-full transition-all duration-300"
+                  style={{
+                    width: `${((currentIndex + 1) / quizTopicIds.length) * 100}%`,
+                  }}
+                />
+              </div>
+              <p className="text-sm text-gray-600">
+                {currentIndex + 1} of {quizTopicIds.length}
+              </p>
+            </div>
+
+            <button
+              onClick={handleNext}
+              disabled={!selectedAnswer}
+              className={`px-6 py-2 rounded-full border text-sm font-medium transition-colors duration-200
+              ${
+                selectedAnswer
+                  ? "bg-black text-white border-black hover:opacity-90 cursor-pointer"
+                  : "bg-gray-200 text-gray-400 border-gray-200 cursor-not-allowed"
+              }`}
+            >
+              {isLastQuestion ? "Finish" : "Next"}
+            </button>
+          </footer>
+        </div>
+      </div>
+    );
+  }
+
+  // --- CURATED MODE LAYOUT (original) ---
   return (
     <div className="flex flex-col min-h-screen">
       {/* Header */}
@@ -371,83 +579,7 @@ export function Quiz() {
 
           {/* Stances */}
           <div className="md:basis-2/5 flex flex-col gap-3 px-4 overflow-y-auto mb-2 md:mb-0 md:pb-0 justify-center md:mr-6">
-            <h2 className="text-xl md:text-2xl font-semibold mb-2">
-              {currentTopic.start_phrase}...
-            </h2>
-
-            {!showWriteIn ? (
-              <>
-                {ordered.map((stance, i) => (
-                  <button
-                    key={stance.id}
-                    onClick={() => {
-                      setShowWriteIn(false);
-                      setWriteInText("");
-                      selectAnswer(i + 1);
-                    }}
-                    className={`text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm sm:text-base font-medium cursor-pointer
-                  ${
-                    selectedAnswer === i + 1
-                      ? "border-ev-yellow border-2 bg-ev-yellow-light"
-                      : "bg-white text-black border-2 border-gray-300 hover:bg-gray-50"
-                  }`}
-                  >
-                    {stance.text}
-                  </button>
-                ))}
-
-                <button
-                  onClick={() => {
-                    setShowWriteIn(true);
-                    setHasRepositioned(false);
-                    setOrderedItems([
-                      ...ordered.map((s) => s.id),
-                      "write-in",
-                    ]);
-                  }}
-                  className="text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm sm:text-base font-medium cursor-pointer border-2 border-dashed border-gray-400 text-gray-500 hover:border-ev-yellow hover:text-black"
-                >
-                  Write your own...
-                </button>
-              </>
-            ) : (
-              <>
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  modifiers={[restrictToVerticalAxis]}
-                  onDragEnd={handleDragEnd}
-                >
-                  <SortableContext
-                    items={orderedItems}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    <div className="flex flex-col gap-3">
-                      {orderedItems.map((itemId) =>
-                        itemId === "write-in" ? (
-                          <SortableWriteInCard
-                            key="write-in"
-                            id="write-in"
-                            text={writeInText}
-                            onChange={handleWriteInTextChange}
-                            onCancel={handleCancelWriteIn}
-                            showHint={!!writeInText.trim() && !hasRepositioned}
-                          />
-                        ) : (
-                        <SortableStanceLabel
-                          key={itemId}
-                          id={itemId}
-                          text={
-                            ordered.find((s) => s.id === itemId)?.text ?? ""
-                          }
-                        />
-                      )
-                    )}
-                    </div>
-                  </SortableContext>
-                </DndContext>
-              </>
-            )}
+            {stanceContent}
           </div>
         </div>
       </div>
@@ -462,7 +594,7 @@ export function Quiz() {
             ${
               currentIndex === 0
                 ? "bg-gray-200 text-gray-400 border-gray-200 cursor-not-allowed"
-                : "bg-white text-black border-black hover:bg-gray-100"
+                : "bg-white text-black border-black hover:bg-gray-100 cursor-pointer"
             }`}
           >
             Back
@@ -488,7 +620,7 @@ export function Quiz() {
             className={`px-6 py-2 rounded-full border text-sm font-medium transition-colors duration-200
             ${
               selectedAnswer
-                ? "bg-black text-white border-black hover:opacity-90"
+                ? "bg-black text-white border-black hover:opacity-90 cursor-pointer"
                 : "bg-gray-200 text-gray-400 border-gray-200 cursor-not-allowed"
             }`}
           >
