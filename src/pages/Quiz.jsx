@@ -1,15 +1,153 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useCompass } from "../components/CompassContext";
 import { useNavigate } from "react-router";
 import RadarChart from "../components/RadarChart";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
+
+const SMOOTH_TRANSITION = {
+  duration: 300,
+  easing: "cubic-bezier(0.25, 1, 0.5, 1)",
+};
+
+function SortableStanceLabel({ id, text }) {
+  const { setNodeRef, transform, transition } = useSortable({
+    id,
+    disabled: { draggable: true },
+    transition: SMOOTH_TRANSITION,
+  });
+
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="px-4 py-2.5 rounded-lg text-sm sm:text-base font-medium bg-gray-50 text-gray-600 border border-gray-200"
+    >
+      {text}
+    </div>
+  );
+}
+
+function SortableWriteInCard({ id, text, onChange, onCancel, showHint }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id, transition: SMOOTH_TRANSITION });
+
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    transition: isDragging ? undefined : transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      className={`flex items-start gap-2 px-3 py-2.5 rounded-lg
+        ${
+          text.trim()
+            ? "border-2 border-ev-yellow bg-ev-yellow-light"
+            : "border-2 border-dashed border-gray-400"
+        }`}
+    >
+      <div
+        {...listeners}
+        className={`cursor-grab active:cursor-grabbing pt-1.5 shrink-0 rounded p-1 ${
+          showHint
+            ? "animate-pulse bg-ev-yellow/30 text-ev-coral"
+            : ""
+        }`}
+      >
+        <svg
+          viewBox="0 0 24 24"
+          className="w-5 h-5"
+          fill="currentColor"
+        >
+          <circle cx="9" cy="6" r="1.5" />
+          <circle cx="15" cy="6" r="1.5" />
+          <circle cx="9" cy="12" r="1.5" />
+          <circle cx="15" cy="12" r="1.5" />
+          <circle cx="9" cy="18" r="1.5" />
+          <circle cx="15" cy="18" r="1.5" />
+        </svg>
+      </div>
+      <div className="flex-1 flex flex-col gap-1">
+        <textarea
+          autoFocus
+          value={text}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="Write your stance here..."
+          rows={2}
+          className="text-sm sm:text-base font-medium resize-none bg-transparent focus:outline-none"
+        />
+        {showHint && (
+          <p className="text-xs font-medium text-ev-coral">
+            Drag to position on the spectrum
+          </p>
+        )}
+      </div>
+      <button
+        onClick={onCancel}
+        className="text-gray-400 hover:text-black shrink-0 pt-1 cursor-pointer"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+          className="w-4 h-4"
+        >
+          <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+        </svg>
+      </button>
+    </div>
+  );
+}
 
 export function Quiz() {
-  const { topics, selectedTopics, answers, setAnswers } = useCompass();
+  const { topics, selectedTopics, answers, setAnswers, writeIns, setWriteIns } =
+    useCompass();
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [invertedSpokes, setInvertedSpokes] = useState({});
   const [selectedAnswer, setSelectedAnswer] = useState(null);
+  const [showWriteIn, setShowWriteIn] = useState(false);
+  const [writeInText, setWriteInText] = useState("");
+  const [orderedItems, setOrderedItems] = useState([]);
+  const [hasRepositioned, setHasRepositioned] = useState(false);
+  const prevIndexRef = useRef(currentIndex);
   const navigate = useNavigate();
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 3 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 150, tolerance: 5 },
+    })
+  );
 
   if (!selectedTopics.length || !topics.length) {
     return <div>Loading quiz...</div>;
@@ -31,14 +169,37 @@ export function Quiz() {
   }, [selectedTopics, topics, answers]);
 
   useEffect(() => {
+    const isTopicChange = prevIndexRef.current !== currentIndex;
+    prevIndexRef.current = currentIndex;
+
     const topic = topics.find((t) => t.id === selectedTopics[currentIndex]);
     if (!topic) return;
 
     const prev = answers[topic.short_title] || null;
     setSelectedAnswer(prev);
-  }, [currentIndex, selectedTopics, topics, answers]);
 
-  const selectAnswer = (value) => {
+    // Restore write-in state if this topic has a saved write-in
+    const savedWriteIn = writeIns[topic.short_title];
+    if (savedWriteIn && prev && !Number.isInteger(prev)) {
+      setShowWriteIn(true);
+      setWriteInText(savedWriteIn);
+      // Only update hasRepositioned on topic navigation, not on typing
+      if (isTopicChange) setHasRepositioned(true);
+      // Restore orderedItems with write-in at saved position
+      const stanceIds = topic.stances.map((s) => s.id);
+      const writeInIndex = Math.floor(prev);
+      const items = [...stanceIds];
+      items.splice(writeInIndex, 0, "write-in");
+      setOrderedItems(items);
+    } else {
+      setShowWriteIn(false);
+      setWriteInText("");
+      if (isTopicChange) setHasRepositioned(false);
+      setOrderedItems([]);
+    }
+  }, [currentIndex, selectedTopics, topics, answers, writeIns]);
+
+  const selectAnswer = (value, isWriteIn = false) => {
     setSelectedAnswer(value);
 
     const topic = topics.find((t) => t.id === currentTopicId);
@@ -48,9 +209,21 @@ export function Quiz() {
       ...prev,
       [topic.short_title]: value,
     }));
+
+    // Clear write-in data if selecting a regular stance
+    if (!isWriteIn) {
+      setWriteIns((prev) => {
+        const updated = { ...prev };
+        delete updated[topic.short_title];
+        return updated;
+      });
+    }
   };
 
   const handleNext = () => {
+    const topic = topics.find((t) => t.id === currentTopicId);
+    const currentWriteIn = topic ? writeIns[topic.short_title] : undefined;
+
     fetch(`${import.meta.env.VITE_API_URL}/compass/answers`, {
       method: "POST",
       credentials: "include", // REQUIRED for cookie auth
@@ -60,6 +233,7 @@ export function Quiz() {
       body: JSON.stringify({
         topic_id: currentTopicId,
         value: selectedAnswer,
+        ...(currentWriteIn ? { write_in_text: currentWriteIn } : {}),
       }),
     })
       .then((response) => {
@@ -86,12 +260,96 @@ export function Quiz() {
 
   const ordered = currentTopic.stances;
 
+  const selectWriteInPlacement = (midpointValue) => {
+    selectAnswer(midpointValue, true);
+    setWriteIns((prev) => ({
+      ...prev,
+      [currentTopic.short_title]: writeInText,
+    }));
+  };
+
+  const handleDragEnd = ({ active, over }) => {
+    if (!over || active.id === over.id) return;
+    const oldIndex = orderedItems.indexOf(active.id);
+    const newIndex = orderedItems.indexOf(over.id);
+    const reordered = arrayMove(orderedItems, oldIndex, newIndex);
+    setOrderedItems(reordered);
+    setHasRepositioned(true);
+    const writeInIndex = reordered.indexOf("write-in");
+    selectWriteInPlacement(writeInIndex + 0.5);
+  };
+
+  const handleWriteInTextChange = (newText) => {
+    setWriteInText(newText);
+    // Only sync writeIns if already placed via drag
+    if (selectedAnswer && !Number.isInteger(selectedAnswer)) {
+      if (newText.trim()) {
+        setWriteIns((prev) => ({
+          ...prev,
+          [currentTopic.short_title]: newText,
+        }));
+      } else {
+        // Text cleared after placing — remove placement
+        setSelectedAnswer(null);
+        setAnswers((prev) => {
+          const updated = { ...prev };
+          delete updated[currentTopic.short_title];
+          return updated;
+        });
+        setWriteIns((prev) => {
+          const updated = { ...prev };
+          delete updated[currentTopic.short_title];
+          return updated;
+        });
+      }
+    }
+  };
+
+  const handleCancelWriteIn = () => {
+    setShowWriteIn(false);
+    setWriteInText("");
+    setOrderedItems([]);
+    if (selectedAnswer && !Number.isInteger(selectedAnswer)) {
+      setSelectedAnswer(null);
+      setAnswers((prev) => {
+        const updated = { ...prev };
+        delete updated[currentTopic.short_title];
+        return updated;
+      });
+      setWriteIns((prev) => {
+        const updated = { ...prev };
+        delete updated[currentTopic.short_title];
+        return updated;
+      });
+    }
+  };
+
   return (
     <div className="flex flex-col min-h-screen">
       {/* Header */}
+      <div className="flex justify-end px-4 pt-3 md:px-6 md:pt-4">
+        <button
+          onClick={() => navigate("/library")}
+          className="p-2 rounded-full text-gray-400 hover:text-black hover:bg-gray-100 transition-colors duration-200 cursor-pointer"
+          aria-label="Exit quiz"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            className="w-6 h-6"
+          >
+            <path
+              fillRule="evenodd"
+              d="M5.47 5.47a.75.75 0 011.06 0L12 10.94l5.47-5.47a.75.75 0 111.06 1.06L13.06 12l5.47 5.47a.75.75 0 11-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 01-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 010-1.06z"
+              clipRule="evenodd"
+            />
+          </svg>
+        </button>
+      </div>
 
-      <div className="flex flex-col md:mt-6">
-        <h1 className="text-2xl md:text-3xl font-semibold mt-4 md:my-4 text-center">
+      <div className="flex flex-col">
+        <h1 className="text-2xl md:text-3xl font-semibold mt-1 md:my-4 text-center">
           {currentTopic.title}
         </h1>
 
@@ -116,20 +374,80 @@ export function Quiz() {
             <h2 className="text-xl md:text-2xl font-semibold mb-2">
               {currentTopic.start_phrase}...
             </h2>
-            {ordered.map((stance, i) => (
-              <button
-                key={stance.id}
-                onClick={() => selectAnswer(i + 1)}
-                className={`text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm sm:text-base font-medium cursor-pointer
-              ${
-                selectedAnswer === i + 1
-                  ? "border-ev-yellow border-2 bg-ev-yellow-light"
-                  : "bg-white text-black border-2 border-gray-300 hover:bg-gray-50"
-              }`}
-              >
-                {stance.text}
-              </button>
-            ))}
+
+            {!showWriteIn ? (
+              <>
+                {ordered.map((stance, i) => (
+                  <button
+                    key={stance.id}
+                    onClick={() => {
+                      setShowWriteIn(false);
+                      setWriteInText("");
+                      selectAnswer(i + 1);
+                    }}
+                    className={`text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm sm:text-base font-medium cursor-pointer
+                  ${
+                    selectedAnswer === i + 1
+                      ? "border-ev-yellow border-2 bg-ev-yellow-light"
+                      : "bg-white text-black border-2 border-gray-300 hover:bg-gray-50"
+                  }`}
+                  >
+                    {stance.text}
+                  </button>
+                ))}
+
+                <button
+                  onClick={() => {
+                    setShowWriteIn(true);
+                    setHasRepositioned(false);
+                    setOrderedItems([
+                      ...ordered.map((s) => s.id),
+                      "write-in",
+                    ]);
+                  }}
+                  className="text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm sm:text-base font-medium cursor-pointer border-2 border-dashed border-gray-400 text-gray-500 hover:border-ev-yellow hover:text-black"
+                >
+                  Write your own...
+                </button>
+              </>
+            ) : (
+              <>
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  modifiers={[restrictToVerticalAxis]}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={orderedItems}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="flex flex-col gap-3">
+                      {orderedItems.map((itemId) =>
+                        itemId === "write-in" ? (
+                          <SortableWriteInCard
+                            key="write-in"
+                            id="write-in"
+                            text={writeInText}
+                            onChange={handleWriteInTextChange}
+                            onCancel={handleCancelWriteIn}
+                            showHint={!!writeInText.trim() && !hasRepositioned}
+                          />
+                        ) : (
+                        <SortableStanceLabel
+                          key={itemId}
+                          id={itemId}
+                          text={
+                            ordered.find((s) => s.id === itemId)?.text ?? ""
+                          }
+                        />
+                      )
+                    )}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -154,7 +472,9 @@ export function Quiz() {
             <div className="w-32 md:w-48 h-1.5 bg-gray-200 rounded-full overflow-hidden mb-2">
               <div
                 className="h-full bg-ev-yellow rounded-full transition-all duration-300"
-                style={{ width: `${((currentIndex + 1) / selectedTopics.length) * 100}%` }}
+                style={{
+                  width: `${((currentIndex + 1) / selectedTopics.length) * 100}%`,
+                }}
               />
             </div>
             <p className="text-sm text-gray-600">
