@@ -107,7 +107,7 @@ function SortableWriteInCard({ id, text, onChange, onCancel, showHint }) {
         />
         {showHint && (
           <p className="text-xs font-medium text-ev-coral">
-            Drag to position on the spectrum
+            Drag your own view to where it fits among these stances
           </p>
         )}
       </div>

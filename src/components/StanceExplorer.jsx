@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useCompass } from "./CompassContext";
 
 function StanceExplorer({ politician, dropdownValue, setDropdownValue }) {
-  const { topics, setAnswers, answers, compareAnswers } = useCompass();
+  const { topics, setAnswers, answers, compareAnswers, writeIns } =
+    useCompass();
 
   const topicNames = Object.keys(answers);
   const [sliderValue, setSliderValue] = useState(1);
@@ -15,9 +16,13 @@ function StanceExplorer({ politician, dropdownValue, setDropdownValue }) {
   const fullName = politician.first_name + " " + politician.last_name;
 
   const selectedTopic = topics.find((t) => t.short_title === dropdownValue);
+  const answerValue = answers[dropdownValue];
+  const isWriteIn = answerValue && !Number.isInteger(answerValue);
   const selectedStanceText =
-    selectedTopic && answers[dropdownValue]
-      ? selectedTopic.stances[answers[dropdownValue] - 1]?.text
+    selectedTopic && answerValue
+      ? isWriteIn
+        ? writeIns[dropdownValue] || "(Custom stance)"
+        : selectedTopic.stances[answerValue - 1]?.text
       : "";
 
   const updateStance = () => {
@@ -88,7 +93,9 @@ function StanceExplorer({ politician, dropdownValue, setDropdownValue }) {
 
                   <div className="w-full flex flex-col border rounded-lg bg-white">
                     <h1 className="font-semibold pt-2">Your Stance</h1>
-                    <p className="text-gray-500">{answers[dropdownValue]}</p>
+                    <p className="text-gray-500">
+                      {isWriteIn ? "Custom" : answers[dropdownValue]}
+                    </p>
                     <p className="p-3 pb-4">{selectedStanceText}</p>
                   </div>
 
@@ -102,30 +109,38 @@ function StanceExplorer({ politician, dropdownValue, setDropdownValue }) {
               );
             })}
 
-          <div className="w-full">
-            <h2>{sliderValue}</h2>
-            <input
-              type="range"
-              min={1}
-              max={selectedTopic.stances.length}
-              value={sliderValue}
-              onChange={(e) => {
-                const newVal = parseInt(e.target.value);
-                setSliderValue(newVal);
-              }}
-              className="w-3/4 accent-purple-400"
-            />
-          </div>
+          {isWriteIn ? (
+            <p className="text-sm text-gray-400 italic my-4">
+              Slider unavailable for custom stances. Retake the quiz to change
+              this answer.
+            </p>
+          ) : (
+            <>
+              <div className="w-full">
+                <h2>{sliderValue}</h2>
+                <input
+                  type="range"
+                  min={1}
+                  max={selectedTopic.stances.length}
+                  value={sliderValue}
+                  onChange={(e) => {
+                    const newVal = parseInt(e.target.value);
+                    setSliderValue(newVal);
+                  }}
+                  className="w-3/4 accent-purple-400"
+                />
+              </div>
 
-          <div className="flex w-full justify-evenly my-4">
-            {/* <button className="bg-zinc-200 py-2 px-6 rounded-lg">Cancel</button> */}
-            <button
-              className="bg-black py-2 px-6 rounded-lg text-white"
-              onClick={updateStance}
-            >
-              Update Stance
-            </button>
-          </div>
+              <div className="flex w-full justify-evenly my-4">
+                <button
+                  className="bg-black py-2 px-6 rounded-lg text-white"
+                  onClick={updateStance}
+                >
+                  Update Stance
+                </button>
+              </div>
+            </>
+          )}
         </div>
       ) : (
         <div className="p-2 text-center">

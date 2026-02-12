@@ -194,6 +194,8 @@ function Compass() {
     setSelectedTopics,
     answers,
     setAnswers,
+    writeIns,
+    setWriteIns,
     compareAnswers,
     setCompareAnswers,
   } = useCompass();
@@ -279,8 +281,25 @@ function Compass() {
           .filter(Boolean);
 
         setAnswers(Object.fromEntries(mapped));
+
+        // Populate writeIns from saved write_in_text
+        const writeInEntries = selectedTopics
+          .map((id) => {
+            const answer = data.find((a) => a.topic_id === id);
+            const topic = topics.find((t) => t.id === id);
+            if (!answer || !topic || !answer.write_in_text) return null;
+            return [topic.short_title, answer.write_in_text];
+          })
+          .filter(Boolean);
+
+        if (writeInEntries.length > 0) {
+          setWriteIns((prev) => ({
+            ...prev,
+            ...Object.fromEntries(writeInEntries),
+          }));
+        }
       });
-  }, [selectedTopics, topics, hasLoadedFromStorage, setAnswers]);
+  }, [selectedTopics, topics, hasLoadedFromStorage, setAnswers, setWriteIns]);
 
   // -------- Remove inversion if a topic is deleted --------
   const handleRemoveTopic = (idToRemove) => {

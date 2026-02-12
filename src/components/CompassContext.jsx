@@ -20,6 +20,7 @@ export function CompassProvider({ children }) {
     () => safeParse(localStorage.getItem("selectedTopics"), []) // <- load once
   );
   const [answers, setAnswers] = useState({});
+  const [writeIns, setWriteIns] = useState({});
   const [compareAnswers, setCompareAnswers] = useState({});
 
   const refreshData = async () => {
@@ -54,6 +55,8 @@ export function CompassProvider({ children }) {
         setSelectedTopics: setSelected,
         answers,
         setAnswers,
+        writeIns,
+        setWriteIns,
         compareAnswers,
         setCompareAnswers,
         showPrevAnswers,
