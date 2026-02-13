@@ -17,8 +17,8 @@ function ProtectedRoute(props) {
           setAuthStatus("authorized");
         }
       })
-      .catch((error) => {
-        console.error("Error during HTTP request:", error);
+      .catch(() => {
+        setAuthStatus("unauthorized");
       });
   }, []);
 

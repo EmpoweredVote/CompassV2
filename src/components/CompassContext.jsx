@@ -28,16 +28,20 @@ export function CompassProvider({ children }) {
   const serverLoaded = useRef(false);
 
   const refreshData = async () => {
-    const [topicsRes, catsRes] = await Promise.all([
-      fetch(`${API}/compass/topics`, {
-        credentials: "include",
-      }).then((r) => r.json()),
-      fetch(`${API}/compass/categories`, {
-        credentials: "include",
-      }).then((r) => r.json()),
-    ]);
-    setTopics(topicsRes);
-    setCategories(catsRes);
+    try {
+      const [topicsRes, catsRes] = await Promise.all([
+        fetch(`${API}/compass/topics`, {
+          credentials: "include",
+        }).then((r) => r.json()),
+        fetch(`${API}/compass/categories`, {
+          credentials: "include",
+        }).then((r) => r.json()),
+      ]);
+      setTopics(topicsRes);
+      setCategories(catsRes);
+    } catch {
+      // Server unreachable — state stays at defaults
+    }
   };
 
   // Fetch selected topics from server (called on mount + after login)
@@ -66,7 +70,7 @@ export function CompassProvider({ children }) {
       setCatLoaded(true);
       await refreshSelectedTopics();
     };
-    init();
+    init().catch(() => {});
   }, []);
 
   // Sync selectedTopics to localStorage + server when it changes
