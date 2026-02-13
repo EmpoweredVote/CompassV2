@@ -103,12 +103,14 @@ function Library() {
   const chartData = useMemo(() => {
     if (!hasCompass) return {};
     return Object.fromEntries(
-      selectedTopics.map((id) => {
-        const topic = topics.find((t) => t.id === id);
-        const label = topic?.short_title ?? id;
-        const value = answers[label] ?? 0;
-        return [label, value];
-      })
+      selectedTopics
+        .map((id) => {
+          const topic = topics.find((t) => t.id === id);
+          if (!topic) return null;
+          const value = answers[topic.short_title] ?? 0;
+          return [topic.short_title, value];
+        })
+        .filter(Boolean)
     );
   }, [hasCompass, selectedTopics, topics, answers]);
 
