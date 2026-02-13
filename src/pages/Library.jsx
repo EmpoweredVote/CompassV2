@@ -123,10 +123,12 @@ function Library() {
       );
   };
 
+  const MAX_TOPICS = 8;
+
   const toggleTopic = (topic_id) => {
     if (selectedTopics.includes(topic_id)) {
       setSelectedTopics(selectedTopics.filter((t) => t !== topic_id));
-    } else {
+    } else if (selectedTopics.length < MAX_TOPICS) {
       setSelectedTopics((prev) => [...prev, topic_id]);
     }
   };
