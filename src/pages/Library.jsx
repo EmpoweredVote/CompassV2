@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useCompass } from "../components/CompassContext";
 import { useNavigate } from "react-router";
 import RadarChart from "../components/RadarChart";
@@ -44,9 +44,14 @@ function Library() {
       });
   }, []);
 
+  // Keep a ref to topics so the answer-fetch effect can use the latest
+  // without re-firing every time topic metadata is edited in admin
+  const topicsRef = useRef(topics);
+  topicsRef.current = topics;
+
   // Fetch answers for selected topics (to power the compass preview)
   useEffect(() => {
-    if (!selectedTopics.length || !topics.length) return;
+    if (!selectedTopics.length || !topicsRef.current.length) return;
 
     fetch(`${import.meta.env.VITE_API_URL}/compass/answers/batch`, {
       method: "POST",
@@ -56,10 +61,11 @@ function Library() {
     })
       .then((res) => res.json())
       .then((data) => {
+        const currentTopics = topicsRef.current;
         const mapped = selectedTopics
           .map((id) => {
             const answer = data.find((a) => a.topic_id === id);
-            const topic = topics.find((t) => t.id === id);
+            const topic = currentTopics.find((t) => t.id === id);
             if (!answer || !topic) return null;
             return [topic.short_title, answer.value];
           })
@@ -69,7 +75,7 @@ function Library() {
         const writeInEntries = selectedTopics
           .map((id) => {
             const answer = data.find((a) => a.topic_id === id);
-            const topic = topics.find((t) => t.id === id);
+            const topic = currentTopics.find((t) => t.id === id);
             if (!answer || !topic || !answer.write_in_text) return null;
             return [topic.short_title, answer.write_in_text];
           })
@@ -78,7 +84,7 @@ function Library() {
           setWriteIns((prev) => ({ ...prev, ...Object.fromEntries(writeInEntries) }));
         }
       });
-  }, [selectedTopics, topics]);
+  }, [selectedTopics]);
 
   // Does the user have a populated compass?
   const hasCompass =
@@ -119,7 +125,6 @@ function Library() {
 
   const clearSelections = () => {
     setSelectedTopics([]);
-    localStorage.setItem("selectedTopics", JSON.stringify([]));
   };
 
   const totalTopics = topics.length;

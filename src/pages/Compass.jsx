@@ -259,9 +259,14 @@ function Compass() {
     }
   }, [comparePol, hasLoadedFromStorage]);
 
+  // Keep a ref to topics so the answer-fetch effect can use the latest
+  // without re-firing every time topic metadata is edited in admin
+  const topicsRef = useRef(topics);
+  topicsRef.current = topics;
+
   // -------- Keep YOUR answers up to date when selectedTopics change --------
   useEffect(() => {
-    if (!hasLoadedFromStorage || !topics.length || !selectedTopics.length)
+    if (!hasLoadedFromStorage || !topicsRef.current.length || !selectedTopics.length)
       return;
 
     fetch(`${import.meta.env.VITE_API_URL}/compass/answers/batch`, {
@@ -272,10 +277,11 @@ function Compass() {
     })
       .then((res) => res.json())
       .then((data) => {
+        const currentTopics = topicsRef.current;
         const mapped = selectedTopics
           .map((id) => {
             const answer = data.find((a) => a.topic_id === id);
-            const topic = topics.find((t) => t.id === id);
+            const topic = currentTopics.find((t) => t.id === id);
             if (!answer || !topic) return null;
             return [topic.short_title, answer.value];
           })
@@ -287,7 +293,7 @@ function Compass() {
         const writeInEntries = selectedTopics
           .map((id) => {
             const answer = data.find((a) => a.topic_id === id);
-            const topic = topics.find((t) => t.id === id);
+            const topic = currentTopics.find((t) => t.id === id);
             if (!answer || !topic || !answer.write_in_text) return null;
             return [topic.short_title, answer.write_in_text];
           })
@@ -300,7 +306,7 @@ function Compass() {
           }));
         }
       });
-  }, [selectedTopics, topics, hasLoadedFromStorage, setAnswers, setWriteIns]);
+  }, [selectedTopics, hasLoadedFromStorage, setAnswers, setWriteIns]);
 
   // -------- Remove inversion if a topic is deleted --------
   const handleRemoveTopic = (idToRemove) => {

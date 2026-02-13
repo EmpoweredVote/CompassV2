@@ -48,7 +48,6 @@ function BuildCompass() {
 
   const handleViewCompass = () => {
     setSelectedTopics(picked);
-    localStorage.setItem("selectedTopics", JSON.stringify(picked));
     navigate("/results");
   };
 
