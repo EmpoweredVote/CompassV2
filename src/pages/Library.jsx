@@ -49,6 +49,9 @@ function Library() {
   const topicsRef = useRef(topics);
   topicsRef.current = topics;
 
+  // Snapshot of the compass topics (topics with answers) — used by "Clear"
+  const compassTopicsRef = useRef(selectedTopics);
+
   // Fetch answers for selected topics (to power the compass preview)
   useEffect(() => {
     if (!selectedTopics.length || !topicsRef.current.length) return;
@@ -71,6 +74,11 @@ function Library() {
           })
           .filter(Boolean);
         setAnswers(Object.fromEntries(mapped));
+
+        // Save the confirmed compass topics (only those with answers)
+        compassTopicsRef.current = selectedTopics.filter((id) =>
+          data.some((a) => a.topic_id === id)
+        );
 
         const writeInEntries = selectedTopics
           .map((id) => {
@@ -124,7 +132,7 @@ function Library() {
   };
 
   const clearSelections = () => {
-    setSelectedTopics([]);
+    setSelectedTopics(compassTopicsRef.current);
   };
 
   const totalTopics = topics.length;
