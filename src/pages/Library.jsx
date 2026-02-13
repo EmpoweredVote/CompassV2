@@ -139,8 +139,9 @@ function Library() {
     setSelectedTopics(compassTopicsRef.current);
   };
 
+  const activeTopicIDs = useMemo(() => new Set(topics.map((t) => t.id)), [topics]);
   const totalTopics = topics.length;
-  const answeredCount = answeredTopicIDs.length;
+  const answeredCount = answeredTopicIDs.filter((id) => activeTopicIDs.has(id)).length;
   const unansweredCount = totalTopics - answeredCount;
 
   return (
