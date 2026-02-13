@@ -1,6 +1,7 @@
 // CompareModal.jsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import { normalizeOfficeTitle, getPolName } from "../util/name";
+import placeholder from "../assets/placeholder.png";
 
 const normalize = (s = "") =>
   s
@@ -116,9 +117,9 @@ function PoliticianPicker({ politicians = [], onPick }) {
                 <div className="flex flex-row gap-4 items-center">
                   <div className="size-18 rounded-full overflow-hidden shrink-0">
                     <img
-                      src={p.photo_origin_url}
+                      src={p.photo_origin_url || placeholder}
                       loading="lazy"
-                      className="w-full h-full object-cover "
+                      className="w-full h-full object-cover"
                     />
                   </div>
                   <div className="flex flex-col">
@@ -141,12 +142,11 @@ function CompareModal({ onCompare, onClose }) {
   const [politicians, setPoliticians] = useState([]);
 
   useEffect(() => {
-    // Same as AdminDashboard seeding — replace with your “all politicians” endpoint when ready
-    fetch(`${import.meta.env.VITE_API_URL}/essentials/politicians`, {
+    fetch(`${import.meta.env.VITE_API_URL}/compass/politicians`, {
       credentials: "include",
     })
       .then((r) => r.json())
-      .then((r) => setPoliticians(r.filter((p) => p.first_name != "VACANT")))
+      .then((r) => setPoliticians(Array.isArray(r) ? r : []))
       .catch((e) =>
         console.error("[CompareModal] fetch politicians failed", e)
       );

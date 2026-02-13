@@ -79,7 +79,7 @@ function StanceExplorer({ politician, dropdownValue, setDropdownValue }) {
                   key={topic.short_title}
                   className="w-full flex flex-col gap-4"
                 >
-                  <div className="w-full flex flex-col border rounded-lg bg-white">
+                  <div className="w-full flex flex-col border-2 border-[#59b0c4] rounded-lg bg-white">
                     <h1 className="font-semibold pt-2">{fullName}'s Stance</h1>
                     <p className="text-gray-500">
                       {compareAnswers[dropdownValue]}
@@ -91,7 +91,7 @@ function StanceExplorer({ politician, dropdownValue, setDropdownValue }) {
                     </p>
                   </div>
 
-                  <div className="w-full flex flex-col border rounded-lg bg-white">
+                  <div className="w-full flex flex-col border-2 border-[#ff5740] rounded-lg bg-white">
                     <h1 className="font-semibold pt-2">Your Stance</h1>
                     <p className="text-gray-500">
                       {isWriteIn ? "Custom" : answers[dropdownValue]}

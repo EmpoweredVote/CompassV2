@@ -40,28 +40,31 @@ export function CompassProvider({ children }) {
     setCategories(catsRes);
   };
 
+  // Fetch selected topics from server (called on mount + after login)
+  const refreshSelectedTopics = async () => {
+    try {
+      const res = await fetch(`${API}/compass/selected-topics`, {
+        credentials: "include",
+      });
+      if (res.ok) {
+        const ids = await res.json();
+        if (Array.isArray(ids) && ids.length > 0) {
+          setSelected(ids);
+          localStorage.setItem("selectedTopics", JSON.stringify(ids));
+        }
+      }
+    } catch {
+      // Offline or not logged in — keep localStorage value
+    }
+    serverLoaded.current = true;
+  };
+
   // On mount: fetch topics/categories AND restore selectedTopics from server
   useEffect(() => {
     const init = async () => {
       await refreshData();
       setCatLoaded(true);
-
-      // Fetch server-side selectedTopics (authoritative source)
-      try {
-        const res = await fetch(`${API}/compass/selected-topics`, {
-          credentials: "include",
-        });
-        if (res.ok) {
-          const ids = await res.json();
-          if (Array.isArray(ids) && ids.length > 0) {
-            setSelected(ids);
-            localStorage.setItem("selectedTopics", JSON.stringify(ids));
-          }
-        }
-      } catch {
-        // Offline or not logged in — keep localStorage value
-      }
-      serverLoaded.current = true;
+      await refreshSelectedTopics();
     };
     init();
   }, []);
@@ -104,6 +107,7 @@ export function CompassProvider({ children }) {
         showPrevAnswers,
         setShowPrevAnswers,
         refreshData,
+        refreshSelectedTopics,
         catLoaded,
       }}
     >

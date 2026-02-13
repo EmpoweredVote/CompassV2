@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { AuthForm } from "@chrisandrewsedu/ev-ui";
+import { useCompass } from "../components/CompassContext";
 
 function Login() {
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [checking, setChecking] = useState(true);
   const navigate = useNavigate();
+  const { refreshSelectedTopics } = useCompass();
 
   // Check if already logged in
   useEffect(() => {
@@ -55,6 +57,7 @@ function Login() {
       if (!meRes.ok) throw new Error("Failed to fetch user info");
 
       const data = await meRes.json();
+      await refreshSelectedTopics();
       navigate(data.completed_onboarding ? "/library" : "/help");
     } catch (err) {
       console.error("Error during login:", err);

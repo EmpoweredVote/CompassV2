@@ -154,10 +154,10 @@ function Compass() {
       [comparePol.first_name, comparePol.last_name].filter(Boolean).join(" ");
     return (
       <div className="flex gap-4 items-center">
-        <span className="inline-block w-4 h-4 bg-pink-500/40 border border-pink-500 rounded-sm" />
+        <span className="inline-block w-4 h-4 bg-[rgba(255,87,64,0.4)] border border-[#ff5740] rounded-sm" />
         You
         <span
-          className="inline-block w-4 h-4 bg-blue-500/20 border border-blue-500 rounded-sm cursor-pointer"
+          className="inline-block w-4 h-4 bg-[rgba(89,176,196,0.3)] border border-[#59b0c4] rounded-sm cursor-pointer"
           onClick={() => {
             setComparePol(null);
             setCompareAnswers({});

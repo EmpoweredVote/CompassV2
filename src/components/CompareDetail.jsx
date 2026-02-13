@@ -2,7 +2,7 @@ import { useCompass } from "./CompassContext";
 import { useState, useEffect, useRef } from "react";
 import placeholder from "../assets/placeholder.png";
 import Favicon from "./Favicon";
-import { getPolName } from "../util/name";
+import { getPolName, normalizeOfficeTitle } from "../util/name";
 
 function CompareDetail({ politician, dropdownValue, setDropdownValue }) {
   const { topics, answers } = useCompass();
@@ -187,9 +187,14 @@ function CompareDetail({ politician, dropdownValue, setDropdownValue }) {
           />
         </div>
 
-        <h2 className="text-xl font-bold my-6 text-center">
+        <h2 className="text-xl font-bold mt-6 text-center">
           {polName || "Selected Politician"}
         </h2>
+        {politician.office_title && (
+          <p className="text-gray-500 text-sm mb-4 text-center">
+            {normalizeOfficeTitle(politician.office_title)}
+          </p>
+        )}
 
         <div className="flex flex-col w-5/6 justify-center border-b border-black/40 my-4">
           <select
