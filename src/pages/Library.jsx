@@ -151,10 +151,10 @@ function Library() {
             {/* Compass chart — clickable */}
             <div
               onClick={() => navigate("/results")}
-              className="w-52 md:w-60 shrink-0 -mb-4 md:mb-0 cursor-pointer hover:opacity-80 transition-opacity"
+              className="w-60 md:w-72 shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
               title="View your compass"
             >
-              <RadarChart data={chartData} invertedSpokes={{}} labelFontSize={44} padding={220} labelOffset={35} />
+              <RadarChart data={chartData} invertedSpokes={{}} labelFontSize={44} padding={160} labelOffset={35} />
             </div>
 
             {/* Right side: heading + stat cards + actions */}

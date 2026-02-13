@@ -3,7 +3,7 @@ import { RadarChartCore } from "@chrisandrewsedu/ev-ui";
 
 export default function RadarChart(props) {
   const { topics } = useCompass();
-  return <RadarChartCore topics={topics} {...props} />;
+  return <RadarChartCore topics={topics} padding={50} {...props} />;
 }
 
 // function RadarChart({
