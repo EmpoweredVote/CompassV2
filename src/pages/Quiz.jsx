@@ -149,6 +149,37 @@ export function Quiz() {
 
   const quizTopicIds = mode === "full" ? fullQuizTopicIds : selectedTopics;
 
+  // In full mode, fetch ALL user answers so previous responses show up
+  useEffect(() => {
+    if (mode !== "full" || !topics.length) return;
+
+    fetch(`${import.meta.env.VITE_API_URL}/compass/answers`, {
+      credentials: "include",
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        const mapped = data
+          .map((a) => {
+            const topic = topics.find((t) => t.id === a.topic_id);
+            if (!topic) return null;
+            return [topic.short_title, a.value];
+          })
+          .filter(Boolean);
+        setAnswers((prev) => ({ ...prev, ...Object.fromEntries(mapped) }));
+
+        const writeInEntries = data
+          .map((a) => {
+            const topic = topics.find((t) => t.id === a.topic_id);
+            if (!topic || !a.write_in_text) return null;
+            return [topic.short_title, a.write_in_text];
+          })
+          .filter(Boolean);
+        if (writeInEntries.length) {
+          setWriteIns((prev) => ({ ...prev, ...Object.fromEntries(writeInEntries) }));
+        }
+      });
+  }, [mode, topics]);
+
   const [currentIndex, setCurrentIndex] = useState(0);
   const [invertedSpokes, setInvertedSpokes] = useState({});
   const [selectedAnswer, setSelectedAnswer] = useState(null);
