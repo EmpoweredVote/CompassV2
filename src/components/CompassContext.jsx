@@ -23,6 +23,33 @@ export function CompassProvider({ children }) {
   const [answers, setAnswers] = useState({});
   const [writeIns, setWriteIns] = useState({});
   const [compareAnswers, setCompareAnswers] = useState({});
+  const [invertedSpokes, setInvertedSpokesRaw] = useState(
+    () => safeParse(localStorage.getItem("invertedSpokes"), {})
+  );
+
+  const setInvertedSpokes = useCallback((updater) => {
+    setInvertedSpokesRaw((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      localStorage.setItem("invertedSpokes", JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  // Randomly invert ~50% of given topics (only if none of them are already inverted)
+  const initRandomInversions = useCallback((shortTitles) => {
+    setInvertedSpokesRaw((prev) => {
+      const hasExisting = shortTitles.some((st) => st in prev);
+      if (hasExisting) return prev;
+      const next = { ...prev };
+      for (const st of shortTitles) {
+        if (Math.random() < 0.5) {
+          next[st] = true;
+        }
+      }
+      localStorage.setItem("invertedSpokes", JSON.stringify(next));
+      return next;
+    });
+  }, []);
 
   // Track whether we've loaded server-side selectedTopics
   const serverLoaded = useRef(false);
@@ -108,6 +135,9 @@ export function CompassProvider({ children }) {
         setWriteIns,
         compareAnswers,
         setCompareAnswers,
+        invertedSpokes,
+        setInvertedSpokes,
+        initRandomInversions,
         showPrevAnswers,
         setShowPrevAnswers,
         refreshData,

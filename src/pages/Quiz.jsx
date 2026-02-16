@@ -129,7 +129,7 @@ function SortableWriteInCard({ id, text, onChange, onCancel, showHint }) {
 }
 
 export function Quiz() {
-  const { topics, categories, selectedTopics, answers, setAnswers, writeIns, setWriteIns } =
+  const { topics, categories, selectedTopics, answers, setAnswers, writeIns, setWriteIns, invertedSpokes, setInvertedSpokes, initRandomInversions } =
     useCompass();
 
   const [searchParams] = useSearchParams();
@@ -181,7 +181,6 @@ export function Quiz() {
   }, [mode, topics]);
 
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [invertedSpokes, setInvertedSpokes] = useState({});
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [showWriteIn, setShowWriteIn] = useState(false);
   const [writeInText, setWriteInText] = useState("");
@@ -197,27 +196,14 @@ export function Quiz() {
     })
   );
 
-  if (!quizTopicIds.length || !topics.length) {
-    return <div className="flex items-center justify-center min-h-screen text-gray-500">Loading quiz...</div>;
-  }
-
-  const currentTopicId = quizTopicIds[currentIndex];
-  const currentTopic = topics.find((topic) => topic.id == currentTopicId);
-  const isLastQuestion = currentIndex === quizTopicIds.length - 1;
-
-  // For full mode: find which category the current topic belongs to
-  const currentCategory = mode === "full"
-    ? categories.find((cat) => cat.topics.some((t) => t.id === currentTopicId))
-    : null;
-
-  // Check if this is the first topic of a new category (for showing category headers)
-  const isNewCategory = mode === "full" && currentIndex > 0
-    ? (() => {
-        const prevTopicId = quizTopicIds[currentIndex - 1];
-        const prevCat = categories.find((cat) => cat.topics.some((t) => t.id === prevTopicId));
-        return prevCat?.id !== currentCategory?.id;
-      })()
-    : mode === "full";
+  // In curated mode, randomly invert ~50% of spokes on first quiz mount
+  useEffect(() => {
+    if (mode !== "curated" || !topics.length || !selectedTopics.length) return;
+    const shortTitles = selectedTopics
+      .map((id) => topics.find((t) => t.id === id)?.short_title)
+      .filter(Boolean);
+    if (shortTitles.length) initRandomInversions(shortTitles);
+  }, [mode, topics, selectedTopics, initRandomInversions]);
 
   const chartData = useMemo(() => {
     if (mode === "full") return {};
@@ -260,6 +246,28 @@ export function Quiz() {
       setOrderedItems([]);
     }
   }, [currentIndex, quizTopicIds, topics, answers, writeIns]);
+
+  if (!quizTopicIds.length || !topics.length) {
+    return <div className="flex items-center justify-center min-h-screen text-gray-500">Loading quiz...</div>;
+  }
+
+  const currentTopicId = quizTopicIds[currentIndex];
+  const currentTopic = topics.find((topic) => topic.id == currentTopicId);
+  const isLastQuestion = currentIndex === quizTopicIds.length - 1;
+
+  // For full mode: find which category the current topic belongs to
+  const currentCategory = mode === "full"
+    ? categories.find((cat) => cat.topics.some((t) => t.id === currentTopicId))
+    : null;
+
+  // Check if this is the first topic of a new category (for showing category headers)
+  const isNewCategory = mode === "full" && currentIndex > 0
+    ? (() => {
+        const prevTopicId = quizTopicIds[currentIndex - 1];
+        const prevCat = categories.find((cat) => cat.topics.some((t) => t.id === prevTopicId));
+        return prevCat?.id !== currentCategory?.id;
+      })()
+    : mode === "full";
 
   const selectAnswer = (value, isWriteIn = false) => {
     setSelectedAnswer(value);

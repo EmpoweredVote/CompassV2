@@ -8,6 +8,28 @@ import ComparePanel from "../components/ComparePanel";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
 
+function SpokeHint({ onDismiss }) {
+  return (
+    <div className="absolute top-[22%] right-[15%] z-10 flex items-start gap-2 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-lg pl-3 pr-7 py-2.5 text-sm text-gray-600 max-w-[210px] shadow-md">
+      <button onClick={onDismiss} className="absolute top-1.5 right-1.5 text-gray-400 hover:text-black cursor-pointer">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
+          <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+        </svg>
+      </button>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 shrink-0 text-ev-muted-blue mt-0.5">
+        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clipRule="evenodd" />
+      </svg>
+      <div>
+        <span>Click any spoke to invert it.</span>
+        <div className="flex items-center gap-3 mt-1.5 text-gray-400">
+          <span className="flex items-center gap-1"><svg width="20" height="2"><line x1="0" y1="1" x2="20" y2="1" stroke="currentColor" strokeWidth="2"/></svg> normal</span>
+          <span className="flex items-center gap-1"><svg width="20" height="2"><line x1="0" y1="1" x2="20" y2="1" stroke="currentColor" strokeWidth="2" strokeDasharray="4 3"/></svg> inverted</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Compass() {
   function TabBar() {
     const icons = [
@@ -159,11 +181,18 @@ function Compass() {
     setWriteIns,
     compareAnswers,
     setCompareAnswers,
+    invertedSpokes,
+    setInvertedSpokes,
   } = useCompass();
 
   // -------- Local UI State --------
-  const [invertedSpokes, setInvertedSpokes] = useState({});
-  const [hasLoadedFromStorage, setHasLoadedFromStorage] = useState(false);
+  const [showSpokeHint, setShowSpokeHint] = useState(
+    () => !localStorage.getItem("onboarding_spokeFlip")
+  );
+  const dismissSpokeHint = () => {
+    setShowSpokeHint(false);
+    localStorage.setItem("onboarding_spokeFlip", "1");
+  };
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showReplaceModal, setShowReplaceModal] = useState(false);
   const [replacingTopic, setReplacingTopic] = useState(null);
@@ -188,36 +217,24 @@ function Compass() {
     }
   }, [selectedTab]);
 
-  // -------- Load localStorage on first mount --------
+  // -------- Load comparePol from localStorage on mount --------
   useEffect(() => {
-    const savedInversions = localStorage.getItem("invertedSpokes");
     const savedPol = localStorage.getItem("comparePolitician");
-
-    if (savedInversions) setInvertedSpokes(JSON.parse(savedInversions));
     if (savedPol) {
       try {
         setComparePol(JSON.parse(savedPol));
       } catch {}
     }
-
-    setHasLoadedFromStorage(true);
   }, []);
-
-  // -------- Sync invertedSpokes -> localStorage --------
-  useEffect(() => {
-    if (!hasLoadedFromStorage) return;
-    localStorage.setItem("invertedSpokes", JSON.stringify(invertedSpokes));
-  }, [invertedSpokes, hasLoadedFromStorage]);
 
   // -------- Sync compare politician -> localStorage --------
   useEffect(() => {
-    if (!hasLoadedFromStorage) return;
     if (comparePol) {
       localStorage.setItem("comparePolitician", JSON.stringify(comparePol));
     } else {
       localStorage.removeItem("comparePolitician");
     }
-  }, [comparePol, hasLoadedFromStorage]);
+  }, [comparePol]);
 
   // Keep a ref to topics so the answer-fetch effect can use the latest
   // without re-firing every time topic metadata is edited in admin
@@ -226,7 +243,7 @@ function Compass() {
 
   // -------- Keep YOUR answers up to date when selectedTopics change --------
   useEffect(() => {
-    if (!hasLoadedFromStorage || !topicsRef.current.length || !selectedTopics.length)
+    if (!topicsRef.current.length || !selectedTopics.length)
       return;
 
     fetch(`${import.meta.env.VITE_API_URL}/compass/answers/batch`, {
@@ -266,7 +283,7 @@ function Compass() {
           }));
         }
       });
-  }, [selectedTopics, hasLoadedFromStorage, setAnswers, setWriteIns]);
+  }, [selectedTopics, setAnswers, setWriteIns]);
 
   // -------- Remove inversion if a topic is deleted --------
   const handleRemoveTopic = (idToRemove) => {
@@ -354,7 +371,8 @@ function Compass() {
         {/* left: chart */}
         <div className="flex-1 min-w-0 flex flex-col items-center">
           <Legend />
-          <div className="w-[108%]">
+          <div className="w-[108%] relative">
+            {showSpokeHint && <SpokeHint onDismiss={dismissSpokeHint} />}
             <RadarChart
               data={answers}
               compareData={compareAnswers}
@@ -415,21 +433,24 @@ function Compass() {
       {selectedTab === 1 && (
         <div className="w-full max-w-md md:max-w-lg flex flex-col items-center mx-auto lg:hidden">
           <Legend />
-          <RadarChart
-            data={answers}
-            compareData={compareAnswers}
-            invertedSpokes={invertedSpokes}
-            onToggleInversion={(topic) =>
-              setInvertedSpokes((prev) => ({
-                ...prev,
-                [topic]: !prev[topic],
-              }))
-            }
-            onReplaceTopic={(topic) => {
-              setReplacingTopic(topic);
-              setShowReplaceModal(true);
-            }}
-          />
+          <div className="w-full relative">
+            {showSpokeHint && <SpokeHint onDismiss={dismissSpokeHint} />}
+            <RadarChart
+              data={answers}
+              compareData={compareAnswers}
+              invertedSpokes={invertedSpokes}
+              onToggleInversion={(topic) =>
+                setInvertedSpokes((prev) => ({
+                  ...prev,
+                  [topic]: !prev[topic],
+                }))
+              }
+              onReplaceTopic={(topic) => {
+                setReplacingTopic(topic);
+                setShowReplaceModal(true);
+              }}
+            />
+          </div>
           <ActionButtons />
         </div>
       )}
