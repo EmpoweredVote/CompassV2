@@ -183,6 +183,7 @@ function Compass() {
     setCompareAnswers,
     invertedSpokes,
     setInvertedSpokes,
+    isLoggedIn,
   } = useCompass();
 
   // -------- Local UI State --------
@@ -245,6 +246,7 @@ function Compass() {
   useEffect(() => {
     if (!topicsRef.current.length || !selectedTopics.length)
       return;
+    if (!isLoggedIn) return; // Guest answers already in state from localStorage
 
     fetch(`${import.meta.env.VITE_API_URL}/compass/answers/batch`, {
       method: "POST",
@@ -283,7 +285,7 @@ function Compass() {
           }));
         }
       });
-  }, [selectedTopics, setAnswers, setWriteIns]);
+  }, [selectedTopics, setAnswers, setWriteIns, isLoggedIn]);
 
   // -------- Remove inversion if a topic is deleted --------
   const handleRemoveTopic = (idToRemove) => {

@@ -38,44 +38,11 @@ function App() {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/library"
-          element={
-            <ProtectedRoute>
-              <Layout>
-                <Library />
-              </Layout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/quiz"
-          element={
-            <ProtectedRoute>
-              <Quiz />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/build"
-          element={
-            <ProtectedRoute>
-              <Layout>
-                <BuildCompass />
-              </Layout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/results"
-          element={
-            <ProtectedRoute>
-              <Layout>
-                <Compass />
-              </Layout>
-            </ProtectedRoute>
-          }
-        />
+        {/* Guest-accessible routes */}
+        <Route path="/library" element={<Layout><Library /></Layout>} />
+        <Route path="/quiz" element={<Quiz />} />
+        <Route path="/build" element={<Layout><BuildCompass /></Layout>} />
+        <Route path="/results" element={<Layout><Compass /></Layout>} />
         <Route
           path="/admin"
           element={

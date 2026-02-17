@@ -129,7 +129,7 @@ function SortableWriteInCard({ id, text, onChange, onCancel, showHint }) {
 }
 
 export function Quiz() {
-  const { topics, categories, selectedTopics, answers, setAnswers, writeIns, setWriteIns, invertedSpokes, setInvertedSpokes, initRandomInversions } =
+  const { topics, categories, selectedTopics, answers, setAnswers, writeIns, setWriteIns, invertedSpokes, setInvertedSpokes, initRandomInversions, isLoggedIn } =
     useCompass();
 
   const [searchParams] = useSearchParams();
@@ -152,6 +152,7 @@ export function Quiz() {
   // In full mode, fetch ALL user answers so previous responses show up
   useEffect(() => {
     if (mode !== "full" || !topics.length) return;
+    if (!isLoggedIn) return; // Guests already have answers from localStorage
 
     fetch(`${import.meta.env.VITE_API_URL}/compass/answers`, {
       credentials: "include",
@@ -178,7 +179,7 @@ export function Quiz() {
           setWriteIns((prev) => ({ ...prev, ...Object.fromEntries(writeInEntries) }));
         }
       });
-  }, [mode, topics]);
+  }, [mode, topics, isLoggedIn]);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
@@ -293,36 +294,38 @@ export function Quiz() {
     const topic = topics.find((t) => t.id === currentTopicId);
     const currentWriteIn = topic ? writeIns[topic.short_title] : undefined;
 
-    fetch(`${import.meta.env.VITE_API_URL}/compass/answers`, {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        topic_id: currentTopicId,
-        value: selectedAnswer,
-        ...(currentWriteIn ? { write_in_text: currentWriteIn } : {}),
-      }),
-    })
-      .then((response) => {
-        console.log(response);
-        setSelectedAnswer(null);
+    const advanceOrFinish = () => {
+      setSelectedAnswer(null);
+      if (isLastQuestion) {
+        navigate(mode === "full" ? "/build" : "/results");
+      } else {
+        setCurrentIndex((prev) => prev + 1);
+      }
+    };
 
-        if (isLastQuestion) {
-          if (mode === "full") {
-            navigate("/build");
-          } else {
-            navigate("/results");
-          }
-        } else {
-          setCurrentIndex((prev) => prev + 1);
-        }
+    if (isLoggedIn) {
+      fetch(`${import.meta.env.VITE_API_URL}/compass/answers`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topic_id: currentTopicId,
+          value: selectedAnswer,
+          ...(currentWriteIn ? { write_in_text: currentWriteIn } : {}),
+        }),
       })
-      .catch((err) => {
-        alert("Error saving your answer. Please try again.");
-        console.log(err);
-      });
+        .then((response) => {
+          console.log(response);
+          advanceOrFinish();
+        })
+        .catch((err) => {
+          alert("Error saving your answer. Please try again.");
+          console.log(err);
+        });
+    } else {
+      // Guest: localStorage already updated via setAnswers in selectAnswer
+      advanceOrFinish();
+    }
   };
 
   const handleBack = () => {
