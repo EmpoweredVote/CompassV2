@@ -5,6 +5,7 @@ import AddTopicModal from "../components/AddTopicModal";
 import ReplaceTopicModal from "../components/ReplaceTopicModal";
 import CompareModal from "../components/CompareModal";
 import ComparePanel from "../components/ComparePanel";
+import SavePromptModal from "../components/SavePromptModal";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
 
@@ -481,6 +482,9 @@ function Compass() {
           onClose={() => setShowReplaceModal(false)}
         />
       )}
+
+      {/* -------- save prompt for guests -------- */}
+      <SavePromptModal />
     </div>
   );
 }
