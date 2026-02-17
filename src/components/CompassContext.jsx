@@ -20,12 +20,19 @@ export function CompassProvider({ children }) {
   const [selectedTopics, setSelected] = useState(
     () => safeParse(localStorage.getItem("selectedTopics"), [])
   );
-  const [answers, setAnswers] = useState({});
-  const [writeIns, setWriteIns] = useState({});
+  const [answers, setAnswers] = useState(
+    () => safeParse(localStorage.getItem("answers"), {})
+  );
+  const [writeIns, setWriteIns] = useState(
+    () => safeParse(localStorage.getItem("writeIns"), {})
+  );
   const [compareAnswers, setCompareAnswers] = useState({});
   const [invertedSpokes, setInvertedSpokesRaw] = useState(
     () => safeParse(localStorage.getItem("invertedSpokes"), {})
   );
+
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [username, setUsername] = useState(null);
 
   const setInvertedSpokes = useCallback((updater) => {
     setInvertedSpokesRaw((prev) => {
@@ -49,6 +56,29 @@ export function CompassProvider({ children }) {
       localStorage.setItem("invertedSpokes", JSON.stringify(next));
       return next;
     });
+  }, []);
+
+  // Persist answers to localStorage on every change
+  useEffect(() => {
+    localStorage.setItem("answers", JSON.stringify(answers));
+  }, [answers]);
+
+  // Persist writeIns to localStorage on every change
+  useEffect(() => {
+    localStorage.setItem("writeIns", JSON.stringify(writeIns));
+  }, [writeIns]);
+
+  // Check auth state on mount
+  useEffect(() => {
+    fetch(`${API}/auth/me`, { credentials: "include" })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data) {
+          setIsLoggedIn(true);
+          setUsername(data.username || null);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   // Track whether we've loaded server-side selectedTopics
@@ -108,6 +138,9 @@ export function CompassProvider({ children }) {
     // Don't sync back to server until we've loaded from it first
     if (!serverLoaded.current) return;
 
+    // Don't sync to server for guests
+    if (!isLoggedIn) return;
+
     // Debounce server sync to avoid rapid calls during topic toggling
     clearTimeout(syncTimer.current);
     syncTimer.current = setTimeout(() => {
@@ -118,7 +151,7 @@ export function CompassProvider({ children }) {
         body: JSON.stringify({ topic_ids: selectedTopics }),
       }).catch(() => {});
     }, 500);
-  }, [selectedTopics]);
+  }, [selectedTopics, isLoggedIn]);
 
   return (
     <CompassContext.Provider
@@ -143,6 +176,10 @@ export function CompassProvider({ children }) {
         refreshData,
         refreshSelectedTopics,
         catLoaded,
+        isLoggedIn,
+        setIsLoggedIn,
+        username,
+        setUsername,
       }}
     >
       {children}
