@@ -24,6 +24,8 @@ function TopicAccordion({
     setEditedFields({
       title: topic.title,
       short_title: topic.short_title,
+      question_text: topic.question_text || "",
+      level: topic.level || "",
       stances: topic.stances.map((s) => ({ ...s })),
       categories: [...topic.categories.map((c) => c.id)],
     });

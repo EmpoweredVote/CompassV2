@@ -105,6 +105,8 @@ function TopicEditor({
           id: topic.id,
           title: editedFields.title,
           short_title: editedFields.short_title,
+          question_text: editedFields.question_text || "",
+          level: editedFields.level || "",
         }),
       });
 
@@ -188,6 +190,34 @@ function TopicEditor({
             value={editedFields.short_title}
             onChange={(e) => handleFieldChange("short_title", e.target.value)}
           />
+        </div>
+
+        <div>
+          <label className="block font-semibold">Question</label>
+          <textarea
+            className="border rounded p-2 w-full"
+            rows={2}
+            placeholder="What should the government do about…?"
+            value={editedFields.question_text || ""}
+            onChange={(e) => handleFieldChange("question_text", e.target.value)}
+          />
+          <p className="text-xs text-gray-400 mt-1">
+            Replaces the title on issue cards. Leave blank for auto-generated.
+          </p>
+        </div>
+
+        <div>
+          <label className="block font-semibold">Level</label>
+          <select
+            className="border rounded p-1 w-full"
+            value={editedFields.level || ""}
+            onChange={(e) => handleFieldChange("level", e.target.value)}
+          >
+            <option value="">Not set</option>
+            <option value="federal">Federal</option>
+            <option value="state">State</option>
+            <option value="local">Local</option>
+          </select>
         </div>
 
         <div>
