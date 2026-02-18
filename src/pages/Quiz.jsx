@@ -197,13 +197,22 @@ export function Quiz() {
     })
   );
 
-  // In curated mode, randomly invert ~50% of spokes on first quiz mount
+  // Randomly invert ~50% of spokes on first quiz mount (curated and full modes)
   useEffect(() => {
-    if (mode !== "curated" || !topics.length || !selectedTopics.length) return;
-    const shortTitles = selectedTopics
-      .map((id) => topics.find((t) => t.id === id)?.short_title)
-      .filter(Boolean);
-    if (shortTitles.length) initRandomInversions(shortTitles);
+    if (!topics.length) return;
+
+    let topicObjects;
+    if (mode === "curated") {
+      if (!selectedTopics.length) return;
+      topicObjects = selectedTopics
+        .map((id) => topics.find((t) => t.id === id))
+        .filter(Boolean);
+    } else {
+      // Full mode: use all active topics
+      topicObjects = topics;
+    }
+
+    if (topicObjects.length) initRandomInversions(topicObjects);
   }, [mode, topics, selectedTopics, initRandomInversions]);
 
   const chartData = useMemo(() => {
