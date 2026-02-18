@@ -93,6 +93,31 @@ function Library() {
       .then((data) => {
         const ids = data.map((a) => a.topic_id);
         setAnsweredTopicIDs(ids);
+
+        // Hydrate answer values so drawer can highlight the correct stance
+        const answerEntries = data
+          .map((a) => {
+            const topic = topicsRef.current.find((t) => t.id === a.topic_id);
+            if (!topic) return null;
+            return [topic.short_title, a.value];
+          })
+          .filter(Boolean);
+        if (answerEntries.length) {
+          setAnswers((prev) => ({ ...prev, ...Object.fromEntries(answerEntries) }));
+        }
+
+        // Also hydrate write-ins
+        const writeInEntries = data
+          .map((a) => {
+            const topic = topicsRef.current.find((t) => t.id === a.topic_id);
+            if (!topic || !a.write_in_text) return null;
+            return [topic.short_title, a.write_in_text];
+          })
+          .filter(Boolean);
+        if (writeInEntries.length) {
+          setWriteIns((prev) => ({ ...prev, ...Object.fromEntries(writeInEntries) }));
+        }
+
         setAnsweredLoaded(true);
       })
       .catch(() => {
