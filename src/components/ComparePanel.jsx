@@ -139,6 +139,11 @@ function ComparePanel({ politician, dropdownValue, setDropdownValue }) {
       {/* Stance list + reasoning (only when topic selected) */}
       {topicSelected && selectedTopic && (
         <>
+          {/* Question header */}
+          <p className="px-5 pb-3 text-base font-semibold text-neutral-800">
+            {selectedTopic.question_text || `What should the government do about ${selectedTopic.short_title}?`}
+          </p>
+
           {/* Legend */}
           <div className="flex items-center gap-3 text-xs text-neutral-400 px-5 pb-2">
             <span className="flex items-center gap-1">
