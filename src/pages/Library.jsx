@@ -75,8 +75,9 @@ function Library() {
   useEffect(() => {
     if (!isLoggedIn) {
       // Guest: derive answered IDs from localStorage-backed answers in context
+      const cur = answersRef.current;
       const localAnswerIds = topics
-        .filter(t => answers[t.short_title] != null && answers[t.short_title] > 0)
+        .filter(t => cur[t.short_title] != null && cur[t.short_title] > 0)
         .map(t => t.id);
       setAnsweredTopicIDs(localAnswerIds);
       setAnsweredLoaded(true);
@@ -122,18 +123,21 @@ function Library() {
       })
       .catch(() => {
         // Fallback: use localStorage answers if server fetch fails
+        const cur = answersRef.current;
         const localAnswerIds = topics
-          .filter(t => answers[t.short_title] != null && answers[t.short_title] > 0)
+          .filter(t => cur[t.short_title] != null && cur[t.short_title] > 0)
           .map(t => t.id);
         setAnsweredTopicIDs(localAnswerIds);
         setAnsweredLoaded(true);
       });
-  }, [isLoggedIn, topics, answers]);
+  }, [isLoggedIn, topics]);
 
-  // Keep a ref to topics so the answer-fetch effect can use the latest
-  // without re-firing every time topic metadata is edited in admin
+  // Keep refs so the answer-fetch effect can read latest values
+  // without re-firing (answers ref prevents infinite loop — effect calls setAnswers)
   const topicsRef = useRef(topics);
   topicsRef.current = topics;
+  const answersRef = useRef(answers);
+  answersRef.current = answers;
 
   // Snapshot of the compass topics (topics with answers) — used by "Clear"
   const compassTopicsRef = useRef(selectedTopics);
