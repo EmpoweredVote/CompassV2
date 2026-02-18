@@ -443,7 +443,10 @@ function Library() {
                     return (
                       <button
                         key={topic.id}
-                        onClick={() => setDrawerTopic(topic)}
+                        onClick={() => {
+                          const fullTopic = topics.find(t => t.id === topic.id) || topic;
+                          setDrawerTopic(fullTopic);
+                        }}
                         className={`relative text-left px-4 py-3 rounded-xl border-2 transition-all duration-200 cursor-pointer ${
                           isSelected
                             ? `${color.bg} ${color.border} shadow-sm`

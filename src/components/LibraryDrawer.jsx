@@ -7,11 +7,8 @@ function LibraryDrawer({ topic, currentAnswer, onSelectStance, onClose, inverted
 
   // Apply stance flip if this topic is inverted
   const isInverted = topic && invertedSpokes[topic.short_title];
-  const displayStances = topic
-    ? isInverted
-      ? [...topic.stances].reverse()
-      : topic.stances
-    : [];
+  const stances = topic?.stances ?? [];
+  const displayStances = isInverted ? [...stances].reverse() : stances;
 
   return (
     <AnimatePresence>
