@@ -73,16 +73,37 @@ function Library() {
 
   // Fetch answered topic IDs
   useEffect(() => {
+    if (!isLoggedIn) {
+      // Guest: derive answered IDs from localStorage-backed answers in context
+      const localAnswerIds = topics
+        .filter(t => answers[t.short_title] != null && answers[t.short_title] > 0)
+        .map(t => t.id);
+      setAnsweredTopicIDs(localAnswerIds);
+      setAnsweredLoaded(true);
+      return;
+    }
+
     fetch(`${import.meta.env.VITE_API_URL}/compass/answers`, {
       credentials: "include",
     })
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to fetch answers");
+        return res.json();
+      })
       .then((data) => {
         const ids = data.map((a) => a.topic_id);
         setAnsweredTopicIDs(ids);
         setAnsweredLoaded(true);
+      })
+      .catch(() => {
+        // Fallback: use localStorage answers if server fetch fails
+        const localAnswerIds = topics
+          .filter(t => answers[t.short_title] != null && answers[t.short_title] > 0)
+          .map(t => t.id);
+        setAnsweredTopicIDs(localAnswerIds);
+        setAnsweredLoaded(true);
       });
-  }, []);
+  }, [isLoggedIn, topics, answers]);
 
   // Keep a ref to topics so the answer-fetch effect can use the latest
   // without re-firing every time topic metadata is edited in admin
