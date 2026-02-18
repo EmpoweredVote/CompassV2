@@ -12,6 +12,36 @@ const CATEGORY_COLORS = [
   { bg: "bg-cyan-50", border: "border-cyan-400", text: "text-cyan-700", accent: "bg-cyan-400" },
 ];
 
+const LEVEL_CONFIG = {
+  federal: {
+    label: "Federal",
+    icon: (
+      <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor">
+        <path d="M8 0L1 4v1h14V4L8 0zM2 6v6H1v2h14v-2h-1V6h-2v6H9V6H7v6H4V6H2z" />
+      </svg>
+    ),
+  },
+  state: {
+    label: "State",
+    icon: (
+      <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor">
+        <path d="M8 0L2 4v1h1v7H2v1h4v-3h4v3h4v-1h-1V5h1V4L8 0zM5 9V5h2v4H5zm4 0V5h2v4H9z" />
+      </svg>
+    ),
+  },
+  local: {
+    label: "Local",
+    icon: (
+      <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor">
+        <path d="M3 5v9h4v-4h2v4h4V5L8 1 3 5zm3 4V7h4v2H6z" />
+      </svg>
+    ),
+  },
+};
+
+const getQuestion = (topic) =>
+  topic.question_text || `What should the government do about ${topic.short_title}?`;
+
 function Library() {
   const {
     topics,
@@ -121,7 +151,8 @@ function Library() {
     return category.topics
       .filter((t) => !hideAnswered || !answeredTopicIDs.includes(t.id))
       .filter((t) =>
-        t.short_title.toLowerCase().includes(search.toLowerCase())
+        t.short_title.toLowerCase().includes(search.toLowerCase()) ||
+        (t.question_text && t.question_text.toLowerCase().includes(search.toLowerCase()))
       );
   };
 
@@ -387,7 +418,7 @@ function Library() {
                         />
                         <div className="flex items-start justify-between gap-1">
                           <span className="text-sm md:text-base font-medium leading-snug">
-                            {topic.short_title}
+                            {getQuestion(topic)}
                           </span>
                           {isAnswered && (
                             <svg
@@ -404,11 +435,12 @@ function Library() {
                             </svg>
                           )}
                         </div>
-                        <span
-                          className={`text-xs mt-1 block ${color.text} opacity-80`}
-                        >
-                          {category.title}
-                        </span>
+                        {topic.level && LEVEL_CONFIG[topic.level] && (
+                          <div className="flex items-center gap-1 mt-2 text-xs text-gray-400">
+                            {LEVEL_CONFIG[topic.level].icon}
+                            <span>{LEVEL_CONFIG[topic.level].label}</span>
+                          </div>
+                        )}
                       </button>
                     );
                   })}
