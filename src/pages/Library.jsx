@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useCompass } from "../components/CompassContext";
 import { useNavigate } from "react-router";
 import RadarChart from "../components/RadarChart";
+import LibraryDrawer from "../components/LibraryDrawer";
 
 const CATEGORY_COLORS = [
   { bg: "bg-blue-50", border: "border-blue-400", text: "text-blue-700", accent: "bg-blue-400" },
@@ -54,12 +55,15 @@ function Library() {
     setWriteIns,
     showPrevAnswers,
     setShowPrevAnswers,
+    invertedSpokes,
+    isLoggedIn,
   } = useCompass();
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [answeredTopicIDs, setAnsweredTopicIDs] = useState([]);
   const [answeredLoaded, setAnsweredLoaded] = useState(false);
   const [hideAnswered, setHideAnswered] = useState(true);
+  const [drawerTopic, setDrawerTopic] = useState(null);
 
   // Fetch answered topic IDs
   useEffect(() => {
@@ -168,6 +172,39 @@ function Library() {
 
   const clearSelections = () => {
     setSelectedTopics(compassTopicsRef.current);
+  };
+
+  const getAnswer = (topic) => {
+    if (!topic) return undefined;
+    const answerValue = answers[topic.short_title];
+    return typeof answerValue === "number" ? answerValue : undefined;
+  };
+
+  const handleDrawerSelect = async (topic, stanceValue) => {
+    // Update local state (auto-persists to localStorage via CompassContext)
+    setAnswers((prev) => ({ ...prev, [topic.short_title]: stanceValue }));
+
+    // Update answeredTopicIDs if this is a new answer
+    if (!answeredTopicIDs.includes(topic.id)) {
+      setAnsweredTopicIDs((prev) => [...prev, topic.id]);
+    }
+
+    // For logged-in users, also save to server
+    if (isLoggedIn) {
+      try {
+        await fetch(`${import.meta.env.VITE_API_URL}/compass/answers`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            topic_id: topic.id,
+            value: stanceValue,
+          }),
+        });
+      } catch {
+        // Server save failed — localStorage still has the answer
+      }
+    }
   };
 
   const activeTopicIDs = useMemo(() => new Set(topics.map((t) => t.id)), [topics]);
@@ -406,7 +443,7 @@ function Library() {
                     return (
                       <button
                         key={topic.id}
-                        onClick={() => toggleTopic(topic.id)}
+                        onClick={() => setDrawerTopic(topic)}
                         className={`relative text-left px-4 py-3 rounded-xl border-2 transition-all duration-200 cursor-pointer ${
                           isSelected
                             ? `${color.bg} ${color.border} shadow-sm`
@@ -468,6 +505,14 @@ function Library() {
           {selectedTopics.length > 0 && ` (${selectedTopics.length})`}
         </button>
       </div>
+
+      <LibraryDrawer
+        topic={drawerTopic}
+        currentAnswer={getAnswer(drawerTopic)}
+        onSelectStance={handleDrawerSelect}
+        onClose={() => setDrawerTopic(null)}
+        invertedSpokes={invertedSpokes}
+      />
     </>
   );
 }
