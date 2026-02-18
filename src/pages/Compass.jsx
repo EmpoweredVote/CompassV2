@@ -22,10 +22,6 @@ function SpokeHint({ onDismiss }) {
       </svg>
       <div>
         <span>Click any spoke to invert it.</span>
-        <div className="flex items-center gap-3 mt-1.5 text-gray-400">
-          <span className="flex items-center gap-1"><svg width="20" height="2"><line x1="0" y1="1" x2="20" y2="1" stroke="currentColor" strokeWidth="2"/></svg> normal</span>
-          <span className="flex items-center gap-1"><svg width="20" height="2"><line x1="0" y1="1" x2="20" y2="1" stroke="currentColor" strokeWidth="2" strokeDasharray="4 3"/></svg> inverted</span>
-        </div>
       </div>
     </div>
   );
