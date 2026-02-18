@@ -343,7 +343,8 @@ export function Quiz() {
     }
   };
 
-  const ordered = currentTopic.stances;
+  const isFlipped = invertedSpokes[currentTopic.short_title];
+  const ordered = isFlipped ? [...currentTopic.stances].reverse() : currentTopic.stances;
 
   const selectWriteInPlacement = (midpointValue) => {
     selectAnswer(midpointValue, true);
