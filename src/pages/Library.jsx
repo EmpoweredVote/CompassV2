@@ -236,6 +236,13 @@ function Library() {
     // Update local state (auto-persists to localStorage via CompassContext)
     setAnswers((prev) => ({ ...prev, [topic.short_title]: stanceValue }));
 
+    // Clear any existing write-in for this topic (selecting a predefined stance replaces it)
+    setWriteIns((prev) => {
+      const updated = { ...prev };
+      delete updated[topic.short_title];
+      return updated;
+    });
+
     // Update answeredTopicIDs if this is a new answer
     if (!answeredTopicIDs.includes(topic.id)) {
       setAnsweredTopicIDs((prev) => [...prev, topic.id]);
@@ -257,6 +264,53 @@ function Library() {
         // Server save failed — localStorage still has the answer
       }
     }
+  };
+
+  const handleDrawerWriteIn = async (topic, writeInValue, writeInText) => {
+    // Update answer value (fractional = write-in position)
+    setAnswers((prev) => ({ ...prev, [topic.short_title]: writeInValue }));
+
+    // Update write-in text
+    setWriteIns((prev) => ({ ...prev, [topic.short_title]: writeInText }));
+
+    // Update answeredTopicIDs if new
+    if (!answeredTopicIDs.includes(topic.id)) {
+      setAnsweredTopicIDs((prev) => [...prev, topic.id]);
+    }
+
+    // Server save for logged-in users
+    if (isLoggedIn) {
+      try {
+        await fetch(`${import.meta.env.VITE_API_URL}/compass/answers`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            topic_id: topic.id,
+            value: writeInValue,
+            write_in_text: writeInText,
+          }),
+        });
+      } catch {
+        // Server save failed — localStorage still has the answer
+      }
+    }
+  };
+
+  const handleDrawerCancelWriteIn = (topic) => {
+    // Clear the answer
+    setAnswers((prev) => {
+      const updated = { ...prev };
+      delete updated[topic.short_title];
+      return updated;
+    });
+
+    // Clear the write-in text
+    setWriteIns((prev) => {
+      const updated = { ...prev };
+      delete updated[topic.short_title];
+      return updated;
+    });
   };
 
   const activeTopicIDs = useMemo(() => new Set(topics.map((t) => t.id)), [topics]);
@@ -571,6 +625,9 @@ function Library() {
         onSelectStance={handleDrawerSelect}
         onClose={() => setDrawerTopic(null)}
         invertedSpokes={invertedSpokes}
+        writeIns={writeIns}
+        onSelectWriteIn={handleDrawerWriteIn}
+        onCancelWriteIn={handleDrawerCancelWriteIn}
       />
     </>
   );
