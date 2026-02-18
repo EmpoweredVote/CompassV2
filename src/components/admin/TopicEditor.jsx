@@ -97,7 +97,7 @@ function TopicEditor({
     });
 
     try {
-      await fetch(`${import.meta.env.VITE_API_URL}/compass/topics/update`, {
+      const topicRes = await fetch(`${import.meta.env.VITE_API_URL}/compass/topics/update`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -106,9 +106,10 @@ function TopicEditor({
           title: editedFields.title,
           short_title: editedFields.short_title,
           question_text: editedFields.question_text || "",
-          level: editedFields.level || "",
+          level: editedFields.level || [],
         }),
       });
+      if (!topicRes.ok) throw new Error("Failed to update topic");
 
       await fetch(`${import.meta.env.VITE_API_URL}/compass/stances/update`, {
         method: "PATCH",
@@ -152,6 +153,10 @@ function TopicEditor({
           t.id === topic.id
             ? {
                 ...t,
+                title: editedFields.title,
+                short_title: editedFields.short_title,
+                question_text: editedFields.question_text || "",
+                level: editedFields.level || [],
                 stances: seq,
                 categories: allCategories.filter((c) =>
                   editedFields.categories.includes(c.id)
@@ -208,16 +213,25 @@ function TopicEditor({
 
         <div>
           <label className="block font-semibold">Level</label>
-          <select
-            className="border rounded p-1 w-full"
-            value={editedFields.level || ""}
-            onChange={(e) => handleFieldChange("level", e.target.value)}
-          >
-            <option value="">Not set</option>
-            <option value="federal">Federal</option>
-            <option value="state">State</option>
-            <option value="local">Local</option>
-          </select>
+          <div className="flex gap-4 mt-1">
+            {["federal", "state", "local"].map((lvl) => (
+              <label key={lvl} className="flex items-center gap-1.5 text-sm">
+                <input
+                  type="checkbox"
+                  checked={(editedFields.level || []).includes(lvl)}
+                  onChange={() => {
+                    const current = editedFields.level || [];
+                    const updated = current.includes(lvl)
+                      ? current.filter((l) => l !== lvl)
+                      : [...current, lvl];
+                    handleFieldChange("level", updated);
+                  }}
+                  className="accent-[#00657c] w-4 h-4 cursor-pointer"
+                />
+                {lvl.charAt(0).toUpperCase() + lvl.slice(1)}
+              </label>
+            ))}
+          </div>
         </div>
 
         <div>

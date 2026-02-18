@@ -25,7 +25,7 @@ function TopicAccordion({
       title: topic.title,
       short_title: topic.short_title,
       question_text: topic.question_text || "",
-      level: topic.level || "",
+      level: Array.isArray(topic.level) ? topic.level : (topic.level ? [topic.level] : []),
       stances: topic.stances.map((s) => ({ ...s })),
       categories: [...topic.categories.map((c) => c.id)],
     });

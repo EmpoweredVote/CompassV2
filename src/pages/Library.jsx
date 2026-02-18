@@ -43,6 +43,12 @@ const LEVEL_CONFIG = {
 const getQuestion = (topic) =>
   topic.question_text || `What should the government do about ${topic.short_title}?`;
 
+const getLevels = (topic) => {
+  if (Array.isArray(topic.level)) return topic.level;
+  if (typeof topic.level === "string" && topic.level) return [topic.level];
+  return [];
+};
+
 function Library() {
   const {
     topics,
@@ -475,10 +481,14 @@ function Library() {
                             </svg>
                           )}
                         </div>
-                        {topic.level && LEVEL_CONFIG[topic.level] && (
-                          <div className="flex items-center gap-1 mt-2 text-xs text-gray-400">
-                            {LEVEL_CONFIG[topic.level].icon}
-                            <span>{LEVEL_CONFIG[topic.level].label}</span>
+                        {getLevels(topic).filter(lvl => LEVEL_CONFIG[lvl]).length > 0 && (
+                          <div className="flex items-center gap-2 mt-2 flex-wrap">
+                            {getLevels(topic).filter(lvl => LEVEL_CONFIG[lvl]).map(lvl => (
+                              <div key={lvl} className="flex items-center gap-1 text-xs text-gray-400">
+                                {LEVEL_CONFIG[lvl].icon}
+                                <span>{LEVEL_CONFIG[lvl].label}</span>
+                              </div>
+                            ))}
                           </div>
                         )}
                       </button>
