@@ -9,6 +9,24 @@ function safeParse(str, fallback) {
   }
 }
 
+function getOrCreateGuestId() {
+  let id = localStorage.getItem("guestId");
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem("guestId", id);
+  }
+  return id;
+}
+
+function shouldFlip(guestId, topicId) {
+  let hash = 0;
+  const str = guestId + String(topicId);
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash * 31) + str.charCodeAt(i)) >>> 0;
+  }
+  return (hash & 1) === 1;
+}
+
 const API = import.meta.env.VITE_API_URL;
 const CompassContext = createContext();
 
@@ -42,15 +60,17 @@ export function CompassProvider({ children }) {
     });
   }, []);
 
-  // Randomly invert ~50% of given topics (only if none of them are already inverted)
-  const initRandomInversions = useCallback((shortTitles) => {
+  // Deterministically invert ~50% of given topics using guestId + topicId hash
+  // (only if none of them are already inverted — guard prevents re-randomizing)
+  const initRandomInversions = useCallback((topicsArray) => {
     setInvertedSpokesRaw((prev) => {
-      const hasExisting = shortTitles.some((st) => st in prev);
+      const hasExisting = topicsArray.some((t) => t.short_title in prev);
       if (hasExisting) return prev;
+      const guestId = getOrCreateGuestId();
       const next = { ...prev };
-      for (const st of shortTitles) {
-        if (Math.random() < 0.5) {
-          next[st] = true;
+      for (const topic of topicsArray) {
+        if (shouldFlip(guestId, topic.id)) {
+          next[topic.short_title] = true;
         }
       }
       localStorage.setItem("invertedSpokes", JSON.stringify(next));
