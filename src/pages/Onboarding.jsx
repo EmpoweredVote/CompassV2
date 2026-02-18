@@ -1,6 +1,6 @@
-// Only redirect to this page the first time a user logs in.
 import { useState } from "react";
 import { useNavigate } from "react-router";
+import { useCompass } from "../components/CompassContext";
 import Compass from "../assets/compass.jpg";
 import OnboardingGif1 from "../assets/onboarding_gifs/onboarding_1.gif";
 import OnboardingGif2 from "../assets/onboarding_gifs/onboarding_2.gif";
@@ -11,6 +11,7 @@ import OnboardingGif5 from "../assets/onboarding_gifs/onboarding_5.gif";
 export function Onboarding() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const navigate = useNavigate();
+  const { isLoggedIn } = useCompass();
 
   const totalPages = 5;
   const isLastQuestion = currentIndex == totalPages - 1;
@@ -61,25 +62,26 @@ export function Onboarding() {
       return;
     }
 
-    try {
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/auth/complete-onboarding`,
-        {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
+    if (isLoggedIn) {
+      try {
+        const response = await fetch(
+          `${import.meta.env.VITE_API_URL}/auth/complete-onboarding`,
+          {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error("HTTP error " + response.status);
         }
-      );
-
-      if (!response.ok) {
-        throw new Error("HTTP error " + response.status);
+      } catch (err) {
+        console.error("Failed to complete onboarding:", err);
       }
-
-      navigate("/library");
-    } catch (err) {
-      console.error("Failed to complete onboarding:", err);
-      // optional: show a toast / error state
     }
+
+    navigate("/library");
   };
 
   return (
