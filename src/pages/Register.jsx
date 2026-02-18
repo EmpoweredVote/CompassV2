@@ -47,7 +47,16 @@ function Register() {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username, password, guest_state: buildGuestState() }),
+          body: JSON.stringify({
+            username,
+            password,
+            guest_state: topics.length > 0
+              ? buildGuestState()
+              : {
+                  answers: [],
+                  selected_topics: safeParse(localStorage.getItem("selectedTopics"), []),
+                },
+          }),
         }
       );
 
@@ -89,7 +98,7 @@ function Register() {
         appSubtitle="Empowered Compass"
         mode="register"
         onSubmit={handleSubmit}
-        onModeSwitch={() => navigate("/")}
+        onModeSwitch={() => navigate("/login")}
         error={error}
         submitting={submitting}
       />

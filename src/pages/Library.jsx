@@ -145,6 +145,7 @@ function Library() {
   // Fetch answers for selected topics (to power the compass preview)
   useEffect(() => {
     if (!selectedTopics.length || !topicsRef.current.length) return;
+    if (!isLoggedIn) return;  // guests have no server answers to fetch
 
     fetch(`${import.meta.env.VITE_API_URL}/compass/answers/batch`, {
       method: "POST",
@@ -182,7 +183,7 @@ function Library() {
           setWriteIns((prev) => ({ ...prev, ...Object.fromEntries(writeInEntries) }));
         }
       });
-  }, [selectedTopics]);
+  }, [selectedTopics, isLoggedIn]);
 
   // Does the user have a populated compass?
   const hasCompass =
