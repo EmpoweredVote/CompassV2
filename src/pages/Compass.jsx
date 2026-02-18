@@ -374,7 +374,7 @@ function Compass() {
         {/* left: chart */}
         <div className="flex-1 min-w-0 flex flex-col items-center">
           <Legend />
-          <div className="w-[108%] relative">
+          <div className="w-full min-h-[320px] max-h-[calc(100dvh-180px)] aspect-square mx-auto relative">
             {showSpokeHint && <SpokeHint onDismiss={dismissSpokeHint} />}
             <RadarChart
               data={answers}
@@ -436,7 +436,7 @@ function Compass() {
       {selectedTab === 1 && (
         <div className="w-full max-w-md md:max-w-lg flex flex-col items-center mx-auto lg:hidden">
           <Legend />
-          <div className="w-full relative">
+          <div className="w-full min-h-[280px] max-h-[calc(100dvh-240px)] aspect-square mx-auto relative">
             {showSpokeHint && <SpokeHint onDismiss={dismissSpokeHint} />}
             <RadarChart
               data={answers}
