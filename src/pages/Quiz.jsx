@@ -526,8 +526,8 @@ export function Quiz() {
         )}
 
         {/* Question title - centered, full width */}
-        <h1 className="text-2xl md:text-3xl font-semibold mt-4 mb-6 text-center px-4">
-          {currentTopic.title}
+        <h1 className="text-xl md:text-2xl font-semibold mt-4 mb-6 text-center px-4">
+          {currentTopic.question_text || currentTopic.title}
         </h1>
 
         {/* Stances - centered, wider layout */}
@@ -611,8 +611,8 @@ export function Quiz() {
       </div>
 
       <div className="flex flex-col">
-        <h1 className="text-2xl md:text-3xl font-semibold mt-1 md:my-4 text-center">
-          {currentTopic.title}
+        <h1 className="text-xl md:text-2xl font-semibold mt-1 md:my-4 text-center">
+          {currentTopic.question_text || currentTopic.title}
         </h1>
 
         <div className="flex-1 flex flex-col md:flex-row md:pb-0">
