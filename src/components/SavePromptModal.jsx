@@ -12,7 +12,7 @@ function safeParse(str, fallback) {
 }
 
 export default function SavePromptModal() {
-  const { isLoggedIn, setIsLoggedIn, setUsername, topics, refreshSelectedTopics } = useCompass();
+  const { isLoggedIn, setIsLoggedIn, setUsername, topics, answers, refreshSelectedTopics } = useCompass();
   const [showModal, setShowModal] = useState(false);
   const [showBanner, setShowBanner] = useState(false);
 
@@ -23,9 +23,12 @@ export default function SavePromptModal() {
   const [regError, setRegError] = useState(null);
   const [regSubmitting, setRegSubmitting] = useState(false);
 
+  // Check if user has any answers worth saving
+  const hasAnswers = Object.keys(answers || {}).length > 0;
+
   // Determine which prompt to show on mount
   useEffect(() => {
-    if (isLoggedIn) {
+    if (isLoggedIn || !hasAnswers) {
       setShowModal(false);
       setShowBanner(false);
       return;
@@ -41,7 +44,7 @@ export default function SavePromptModal() {
     } else if (bannerCount < 2) {
       setShowBanner(true);
     }
-  }, [isLoggedIn]);
+  }, [isLoggedIn, hasAnswers]);
 
   // Hide prompts when user becomes logged in
   useEffect(() => {

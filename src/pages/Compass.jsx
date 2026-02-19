@@ -28,7 +28,7 @@ function SpokeHint({ onDismiss }) {
   );
 }
 
-function MinimumProgress({ answeredCompassCount, needsMore }) {
+function MinimumProgress({ answeredCompassCount, needsMore, onGoToLibrary }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
       <h2 className="text-xl font-semibold text-gray-800 mb-2">
@@ -38,7 +38,7 @@ function MinimumProgress({ answeredCompassCount, needsMore }) {
         Head to the Library to answer questions on topics you care about
       </p>
       {/* Dot progress indicator: 3 dots */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 mb-6">
         {[0, 1, 2].map((i) => (
           <div
             key={i}
@@ -50,6 +50,12 @@ function MinimumProgress({ answeredCompassCount, needsMore }) {
           />
         ))}
       </div>
+      <button
+        onClick={onGoToLibrary}
+        className="px-6 py-2.5 bg-black text-white rounded-full text-sm font-semibold hover:opacity-90 transition-opacity cursor-pointer"
+      >
+        Browse Topics in Library
+      </button>
     </div>
   );
 }
@@ -233,8 +239,23 @@ function Compass() {
   const [calibrationCompleted, setCalibrationCompleted] = useState(
     () => localStorage.getItem("calibration_completed") === "true"
   );
-  // Show overlay when: <3 answered compass topics AND not skipped AND not already completed onboarding
-  const showCalibration = answeredCompassCount < 3 && !calibrationSkipped && !calibrationCompleted;
+  // calibrationActive: overlay is currently in progress — stays true even if answeredCompassCount changes mid-flow
+  const [calibrationActive, setCalibrationActive] = useState(
+    () => !!localStorage.getItem("calibration_progress")
+  );
+
+  // Determine if calibration needs to start (only when not already active, skipped, or completed)
+  const needsCalibration = answeredCompassCount < 3 && !calibrationSkipped && !calibrationCompleted;
+
+  // Start calibration when needed — but once active, it stays active until onComplete/onSkip
+  useEffect(() => {
+    if (needsCalibration && !calibrationActive) {
+      setCalibrationActive(true);
+    }
+  }, [needsCalibration, calibrationActive]);
+
+  // Show overlay when active (stays shown even as answers change mid-flow)
+  const showCalibration = calibrationActive;
 
   // -------- Local UI State --------
   const [showSpokeHint, setShowSpokeHint] = useState(
@@ -411,6 +432,7 @@ function Compass() {
     localStorage.removeItem("calibration_skipped");
     localStorage.removeItem("calibration_completed");
     localStorage.removeItem("calibration_progress");
+    localStorage.removeItem("savePromptModalDismissed");
     // Clear context state
     setSelectedTopics([]);
     setAnswers({});
@@ -470,11 +492,13 @@ function Compass() {
           localStorage.setItem("calibration_completed", "true");
           setCalibrationSkipped(false);
           setCalibrationCompleted(true);
+          setCalibrationActive(false);
         }}
         onSkip={() => {
           setCalibrationSkipped(true);
           localStorage.setItem("calibration_skipped", "true");
           localStorage.removeItem("calibration_progress");
+          setCalibrationActive(false);
         }}
       />
     ) : (
@@ -551,6 +575,7 @@ function Compass() {
             <MinimumProgress
               answeredCompassCount={answeredCompassCount}
               needsMore={needsMore}
+              onGoToLibrary={() => navigate("/library")}
             />
           )}
           <ActionButtons />
@@ -624,6 +649,7 @@ function Compass() {
             <MinimumProgress
               answeredCompassCount={answeredCompassCount}
               needsMore={needsMore}
+              onGoToLibrary={() => navigate("/library")}
             />
           )}
           <ActionButtons />
@@ -660,6 +686,7 @@ function Compass() {
         isOnCompass={drawerTopic ? selectedTopics.includes(drawerTopic.id) : false}
         onRemoveFromCompass={(topic) => {
           setSelectedTopics(prev => prev.filter(id => id !== topic.id));
+          setDrawerTopic(null);
         }}
         compassTopicCount={selectedTopics.length}
       />
