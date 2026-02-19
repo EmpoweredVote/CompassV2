@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import placeholder from "../assets/placeholder.png";
 import Favicon from "./Favicon";
 import { getPolName, normalizeOfficeTitle } from "../util/name";
+import { getQuestionText } from "../util/topic";
 
 function ComparePanel({ politician, dropdownValue, setDropdownValue }) {
   const { topics, answers, setAnswers, compareAnswers, writeIns } =
@@ -141,7 +142,7 @@ function ComparePanel({ politician, dropdownValue, setDropdownValue }) {
         <>
           {/* Question header */}
           <p className="px-5 pb-3 text-base font-semibold text-neutral-800">
-            {selectedTopic.question_text || `What should the government do about ${selectedTopic.short_title}?`}
+            {getQuestionText(selectedTopic)}
           </p>
 
           {/* Legend */}

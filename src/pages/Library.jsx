@@ -3,6 +3,7 @@ import { useCompass } from "../components/CompassContext";
 import { useNavigate } from "react-router";
 import RadarChart from "../components/RadarChart";
 import LibraryDrawer from "../components/LibraryDrawer";
+import { getQuestionText } from "../util/topic";
 
 const CATEGORY_COLORS = [
   { bg: "bg-blue-50", border: "border-blue-400", text: "text-blue-700", accent: "bg-blue-400" },
@@ -40,8 +41,7 @@ const LEVEL_CONFIG = {
   },
 };
 
-const getQuestion = (topic) =>
-  topic.question_text || `What should the government do about ${topic.short_title}?`;
+const getQuestion = getQuestionText;
 
 const getLevels = (topic) => {
   if (Array.isArray(topic.level)) return topic.level;

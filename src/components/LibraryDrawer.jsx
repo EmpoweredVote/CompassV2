@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { getQuestionText } from "../util/topic";
 import {
   DndContext,
   closestCenter,
@@ -127,9 +128,7 @@ function SortableWriteInCard({ id, text, onChange, onCancel, showHint }) {
 }
 
 function LibraryDrawer({ topic, currentAnswer, onSelectStance, onClose, invertedSpokes, writeIns, onSelectWriteIn, onCancelWriteIn }) {
-  const question = topic
-    ? topic.question_text || `What should the government do about ${topic.short_title}?`
-    : "";
+  const question = getQuestionText(topic);
 
   // Apply stance flip if this topic is inverted
   const isInverted = topic && invertedSpokes[topic.short_title];
