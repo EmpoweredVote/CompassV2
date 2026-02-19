@@ -1,6 +1,7 @@
 // Compass.jsx
 import { useCompass } from "../components/CompassContext";
 import RadarChart from "../components/RadarChart";
+import CalibrationOverlay from "../components/CalibrationOverlay";
 import AddTopicModal from "../components/AddTopicModal";
 import LibraryDrawer from "../components/LibraryDrawer";
 import CompareModal from "../components/CompareModal";
@@ -223,6 +224,18 @@ function Compass() {
   const needsMore = MIN_TOPICS - answeredCompassCount;
   const showChart = answeredCompassCount >= MIN_TOPICS;
 
+  // -------- Calibration overlay state --------
+  // calibrationSkipped: user clicked "Skip for now" — don't show overlay
+  const [calibrationSkipped, setCalibrationSkipped] = useState(
+    () => localStorage.getItem("calibration_skipped") === "true"
+  );
+  // calibrationCompleted: user finished onboarding — don't re-trigger overlay if topics drop below 3 later
+  const [calibrationCompleted, setCalibrationCompleted] = useState(
+    () => localStorage.getItem("calibration_completed") === "true"
+  );
+  // Show overlay when: <3 answered compass topics AND not skipped AND not already completed onboarding
+  const showCalibration = answeredCompassCount < 3 && !calibrationSkipped && !calibrationCompleted;
+
   // -------- Local UI State --------
   const [showSpokeHint, setShowSpokeHint] = useState(
     () => !localStorage.getItem("onboarding_spokeFlip")
@@ -395,11 +408,17 @@ function Compass() {
     localStorage.removeItem("selectedTopics");
     localStorage.removeItem("invertedSpokes");
     localStorage.removeItem("onboarding_spokeFlip");
+    localStorage.removeItem("calibration_skipped");
+    localStorage.removeItem("calibration_completed");
+    localStorage.removeItem("calibration_progress");
     // Clear context state
     setSelectedTopics([]);
     setAnswers({});
     setWriteIns({});
     setInvertedSpokes({});
+    // Reset calibration overlay state so it re-appears
+    setCalibrationSkipped(false);
+    setCalibrationCompleted(false);
     // Server clear for logged-in users
     if (isLoggedIn) {
       fetch(`${import.meta.env.VITE_API_URL}/compass/answers/me`, {
@@ -442,6 +461,23 @@ function Compass() {
   const navigate = useNavigate();
 
   return (
+    <>
+    {showCalibration ? (
+      <CalibrationOverlay
+        onComplete={() => {
+          localStorage.removeItem("calibration_skipped");
+          localStorage.removeItem("calibration_progress");
+          localStorage.setItem("calibration_completed", "true");
+          setCalibrationSkipped(false);
+          setCalibrationCompleted(true);
+        }}
+        onSkip={() => {
+          setCalibrationSkipped(true);
+          localStorage.setItem("calibration_skipped", "true");
+          localStorage.removeItem("calibration_progress");
+        }}
+      />
+    ) : (
     <div className="px-4 py-6 flex flex-col items-center overflow-hidden">
       {/* -------- back button + settings -------- */}
       <div className="self-start flex items-center justify-between w-full lg:px-4">
@@ -631,6 +667,8 @@ function Compass() {
       {/* -------- save prompt for guests -------- */}
       <SavePromptModal />
     </div>
+    )}
+    </>
   );
 }
 
