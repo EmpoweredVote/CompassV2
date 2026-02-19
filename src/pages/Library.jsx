@@ -453,7 +453,7 @@ function Library() {
         >
           <div className="text-left">
             <p className="font-semibold text-base md:text-lg text-black">
-              Take the Full Quiz
+              Take the Full Calibration
             </p>
             <p className="text-sm text-black/60">
               Answer every question, then choose which topics appear on your compass
@@ -699,24 +699,6 @@ function Library() {
           })}
       </div>
 
-      {/* Bottom spacer for fixed button */}
-      <div className="h-24" />
-
-      {/* Start Quiz button (curated flow) */}
-      <div className="fixed bottom-20 md:bottom-4 left-0 right-0 z-50 flex justify-center pointer-events-none">
-        <button
-          onClick={() => navigate("/quiz")}
-          disabled={selectedTopics.length === 0}
-          className={`pointer-events-auto px-6 py-3 rounded-full text-sm font-semibold shadow-lg transition-all duration-200 ${
-            selectedTopics.length > 0
-              ? "bg-black text-white hover:opacity-90 cursor-pointer"
-              : "bg-gray-200 text-gray-400 cursor-not-allowed"
-          }`}
-        >
-          Start Quiz
-          {selectedTopics.length > 0 && ` (${selectedTopics.length})`}
-        </button>
-      </div>
 
       <LibraryDrawer
         topic={drawerTopic}
