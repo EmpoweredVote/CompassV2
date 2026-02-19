@@ -27,6 +27,32 @@ function SpokeHint({ onDismiss }) {
   );
 }
 
+function MinimumProgress({ answeredCompassCount, needsMore }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+      <h2 className="text-xl font-semibold text-gray-800 mb-2">
+        Answer {needsMore} more topic{needsMore !== 1 ? "s" : ""} to see your compass
+      </h2>
+      <p className="text-gray-500 text-sm mb-6">
+        Head to the Library to answer questions on topics you care about
+      </p>
+      {/* Dot progress indicator: 3 dots */}
+      <div className="flex items-center gap-3">
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            className={`w-3 h-3 rounded-full transition-colors duration-300 ${
+              i < answeredCompassCount
+                ? "bg-[#59b0c4]"
+                : "bg-gray-300"
+            }`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Compass() {
   function TabBar() {
     const icons = [
@@ -157,12 +183,14 @@ function Compass() {
         >
           Edit Topics
         </button>
-        <button
-          onClick={() => setIsCompareModal(true)}
-          className="px-4 sm:px-6 py-2 text-sm sm:text-base bg-black text-white rounded-full hover:bg-ev-yellow-dark hover:text-black transition-colors cursor-pointer"
-        >
-          Compare
-        </button>
+        {showChart && (
+          <button
+            onClick={() => setIsCompareModal(true)}
+            className="px-4 sm:px-6 py-2 text-sm sm:text-base bg-black text-white rounded-full hover:bg-ev-yellow-dark hover:text-black transition-colors cursor-pointer"
+          >
+            Compare
+          </button>
+        )}
       </div>
     );
   }
@@ -182,6 +210,18 @@ function Compass() {
     setInvertedSpokes,
     isLoggedIn,
   } = useCompass();
+
+  // -------- Minimum topic gate --------
+  const answeredCompassTopics = selectedTopics.filter((id) => {
+    const topic = topics.find((t) => t.id === id);
+    if (!topic) return false;
+    const val = answers[topic.short_title];
+    return val != null && val > 0;
+  });
+  const answeredCompassCount = answeredCompassTopics.length;
+  const MIN_TOPICS = 3;
+  const needsMore = MIN_TOPICS - answeredCompassCount;
+  const showChart = answeredCompassCount >= MIN_TOPICS;
 
   // -------- Local UI State --------
   const [showSpokeHint, setShowSpokeHint] = useState(
@@ -367,32 +407,41 @@ function Compass() {
 
       {/* -------- desktop 2-column layout (centered, max-width container) -------- */}
       <div className="hidden lg:flex lg:items-start lg:gap-6 xl:gap-8 w-full max-w-6xl mx-auto">
-        {/* left: chart */}
+        {/* left: chart or minimum progress */}
         <div className="flex-1 min-w-0 flex flex-col items-center">
-          <Legend />
-          <div className="w-full min-h-[320px] max-h-[calc(100dvh-180px)] aspect-square mx-auto relative">
-            {showSpokeHint && <SpokeHint onDismiss={dismissSpokeHint} />}
-            <RadarChart
-              data={answers}
-              compareData={compareAnswers}
-              invertedSpokes={invertedSpokes}
-              onToggleInversion={(topic) =>
-                setInvertedSpokes((prev) => ({
-                  ...prev,
-                  [topic]: !prev[topic],
-                }))
-              }
-              onReplaceTopic={(topic) => {
-                setReplacingTopic(topic);
-                setShowReplaceModal(true);
-              }}
+          {showChart ? (
+            <>
+              <Legend />
+              <div className="w-full min-h-[320px] max-h-[calc(100dvh-180px)] aspect-square mx-auto relative">
+                {showSpokeHint && <SpokeHint onDismiss={dismissSpokeHint} />}
+                <RadarChart
+                  data={answers}
+                  compareData={compareAnswers}
+                  invertedSpokes={invertedSpokes}
+                  onToggleInversion={(topic) =>
+                    setInvertedSpokes((prev) => ({
+                      ...prev,
+                      [topic]: !prev[topic],
+                    }))
+                  }
+                  onReplaceTopic={(topic) => {
+                    setReplacingTopic(topic);
+                    setShowReplaceModal(true);
+                  }}
+                />
+              </div>
+            </>
+          ) : (
+            <MinimumProgress
+              answeredCompassCount={answeredCompassCount}
+              needsMore={needsMore}
             />
-          </div>
+          )}
           <ActionButtons />
         </div>
 
         {/* right: compare panel */}
-        {comparePol && (
+        {showChart && comparePol && (
           <div className="flex-1 min-w-[320px]">
             <ComparePanel
               politician={comparePol}
@@ -417,12 +466,14 @@ function Compass() {
               <h1 className="text-xl font-semibold">
                 Select a politician to compare with
               </h1>
-              <button
-                onClick={() => setIsCompareModal(true)}
-                className="px-6 py-2 bg-black text-white rounded-full hover:bg-opacity-90"
-              >
-                Compare
-              </button>
+              {showChart && (
+                <button
+                  onClick={() => setIsCompareModal(true)}
+                  className="px-6 py-2 bg-black text-white rounded-full hover:bg-opacity-90"
+                >
+                  Compare
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -431,25 +482,34 @@ function Compass() {
       {/* -------- mobile: tab 1 (Graph) -------- */}
       {selectedTab === 1 && (
         <div className="w-full max-w-md md:max-w-lg flex flex-col items-center mx-auto lg:hidden">
-          <Legend />
-          <div className="w-full min-h-[280px] max-h-[calc(100dvh-240px)] aspect-square mx-auto relative">
-            {showSpokeHint && <SpokeHint onDismiss={dismissSpokeHint} />}
-            <RadarChart
-              data={answers}
-              compareData={compareAnswers}
-              invertedSpokes={invertedSpokes}
-              onToggleInversion={(topic) =>
-                setInvertedSpokes((prev) => ({
-                  ...prev,
-                  [topic]: !prev[topic],
-                }))
-              }
-              onReplaceTopic={(topic) => {
-                setReplacingTopic(topic);
-                setShowReplaceModal(true);
-              }}
+          {showChart ? (
+            <>
+              <Legend />
+              <div className="w-full min-h-[280px] max-h-[calc(100dvh-240px)] aspect-square mx-auto relative">
+                {showSpokeHint && <SpokeHint onDismiss={dismissSpokeHint} />}
+                <RadarChart
+                  data={answers}
+                  compareData={compareAnswers}
+                  invertedSpokes={invertedSpokes}
+                  onToggleInversion={(topic) =>
+                    setInvertedSpokes((prev) => ({
+                      ...prev,
+                      [topic]: !prev[topic],
+                    }))
+                  }
+                  onReplaceTopic={(topic) => {
+                    setReplacingTopic(topic);
+                    setShowReplaceModal(true);
+                  }}
+                />
+              </div>
+            </>
+          ) : (
+            <MinimumProgress
+              answeredCompassCount={answeredCompassCount}
+              needsMore={needsMore}
             />
-          </div>
+          )}
           <ActionButtons />
         </div>
       )}
