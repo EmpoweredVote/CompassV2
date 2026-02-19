@@ -24,6 +24,7 @@ function TopicAccordion({
     setEditedFields({
       title: topic.title,
       short_title: topic.short_title,
+      short_name: topic.short_name || "",
       question_text: topic.question_text || "",
       level: Array.isArray(topic.level) ? topic.level : (topic.level ? [topic.level] : []),
       stances: topic.stances.map((s) => ({ ...s })),

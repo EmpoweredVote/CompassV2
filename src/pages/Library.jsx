@@ -68,7 +68,7 @@ function Library() {
   const [search, setSearch] = useState("");
   const [answeredTopicIDs, setAnsweredTopicIDs] = useState([]);
   const [answeredLoaded, setAnsweredLoaded] = useState(false);
-  const [hideAnswered, setHideAnswered] = useState(true);
+  const [showAll, setShowAll] = useState(true);
   const [drawerTopic, setDrawerTopic] = useState(null);
 
   // Fetch answered topic IDs
@@ -210,7 +210,7 @@ function Library() {
 
   const getVisibleTopics = (category) => {
     return category.topics
-      .filter((t) => !hideAnswered || !answeredTopicIDs.includes(t.id))
+      .filter((t) => showAll || !answeredTopicIDs.includes(t.id))
       .filter((t) =>
         t.short_title.toLowerCase().includes(search.toLowerCase()) ||
         (t.question_text && t.question_text.toLowerCase().includes(search.toLowerCase()))
@@ -510,15 +510,23 @@ function Library() {
             />
           </div>
           <div className="flex items-center gap-3">
-            <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={hideAnswered}
-                onChange={() => setHideAnswered(!hideAnswered)}
-                className="accent-green-600 w-4 h-4 cursor-pointer"
-              />
-              Unanswered only
-            </label>
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <span className={showAll ? "font-medium text-gray-900" : "text-gray-400"}>All</span>
+              <button
+                onClick={() => setShowAll(!showAll)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 cursor-pointer ${
+                  showAll ? "bg-gray-300" : "bg-[#00657c]"
+                }`}
+                aria-label="Toggle between all topics and unanswered only"
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                    showAll ? "translate-x-1" : "translate-x-6"
+                  }`}
+                />
+              </button>
+              <span className={!showAll ? "font-medium text-gray-900" : "text-gray-400"}>Unanswered</span>
+            </div>
             {selectedTopics.length > 0 && (
               <button
                 onClick={clearSelections}
