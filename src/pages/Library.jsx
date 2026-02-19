@@ -70,6 +70,7 @@ function Library() {
   const [answeredLoaded, setAnsweredLoaded] = useState(false);
   const [showAll, setShowAll] = useState(true);
   const [drawerTopic, setDrawerTopic] = useState(null);
+  const [removeConfirm, setRemoveConfirm] = useState(null); // topic.id or null
 
   // Fetch answered topic IDs
   useEffect(() => {
@@ -476,9 +477,14 @@ function Library() {
       {/* ── Topic Selection Section ── */}
       <div className="px-4 md:px-6 max-w-5xl mx-auto">
         <div className="mb-4">
-          <h2 className="text-xl md:text-2xl font-semibold mb-1">
-            Or, pick your own topics
-          </h2>
+          <div className="flex items-center gap-3 mb-1">
+            <h2 className="text-xl md:text-2xl font-semibold">
+              Or, pick your own topics
+            </h2>
+            <span className="text-sm text-gray-500 font-medium bg-gray-100 rounded-full px-2.5 py-0.5">
+              {selectedTopics.length}/8
+            </span>
+          </div>
           <p className="text-gray-500 text-sm md:text-base">
             Choose the issues you care about most, then answer a question on each one to plot your position on the compass.
           </p>
@@ -556,55 +562,135 @@ function Library() {
                 </h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                   {visible.map((topic) => {
-                    const isSelected = selectedTopics.includes(topic.id);
+                    const isOnCompass = selectedTopics.includes(topic.id);
                     const isAnswered = answeredTopicIDs.includes(topic.id);
+                    const atCap = selectedTopics.length >= MAX_TOPICS;
+                    const wouldDropBelow3 = isOnCompass && selectedTopics.length <= 3;
 
                     return (
-                      <button
+                      <div
                         key={topic.id}
-                        onClick={() => {
-                          const fullTopic = topics.find(t => t.id === topic.id) || topic;
-                          setDrawerTopic(fullTopic);
-                        }}
-                        className={`relative text-left px-4 py-3 rounded-xl border-2 transition-all duration-200 cursor-pointer ${
-                          isSelected
-                            ? `${color.bg} ${color.border} shadow-sm`
-                            : "bg-white border-gray-200 hover:border-gray-300 hover:shadow-sm"
-                        }`}
+                        className="relative"
                       >
-                        <div
-                          className={`absolute top-0 left-0 w-1 h-full rounded-l-xl ${color.accent}`}
-                        />
-                        <div className="flex items-start justify-between gap-1">
-                          <span className="text-sm md:text-base font-medium leading-snug">
-                            {getQuestion(topic)}
-                          </span>
-                          {isAnswered && (
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              viewBox="0 0 20 20"
-                              fill="currentColor"
-                              className="w-4 h-4 shrink-0 mt-0.5 text-green-500"
-                            >
-                              <path
-                                fillRule="evenodd"
-                                d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
+                        <button
+                          onClick={() => {
+                            // Dismiss any open popover first
+                            if (removeConfirm !== null) {
+                              setRemoveConfirm(null);
+                              return;
+                            }
+                            const fullTopic = topics.find(t => t.id === topic.id) || topic;
+                            setDrawerTopic(fullTopic);
+                          }}
+                          className={`w-full relative text-left px-4 py-3 rounded-xl border-2 transition-all duration-200 cursor-pointer ${
+                            isOnCompass
+                              ? "bg-sky-50/50 border-[#59b0c4] shadow-sm"
+                              : "bg-white border-gray-200 hover:border-gray-300 hover:shadow-sm"
+                          }`}
+                        >
+                          <div
+                            className={`absolute top-0 left-0 w-1 h-full rounded-l-xl ${color.accent}`}
+                          />
+                          <div className="flex items-start justify-between gap-1">
+                            <span className="text-sm md:text-base font-medium leading-snug pr-5">
+                              {getQuestion(topic)}
+                            </span>
+                            {isAnswered && (
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 20 20"
+                                fill="currentColor"
+                                className="w-4 h-4 shrink-0 mt-0.5 text-green-500"
+                              >
+                                <path
+                                  fillRule="evenodd"
+                                  d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z"
+                                  clipRule="evenodd"
+                                />
+                              </svg>
+                            )}
+                          </div>
+                          {getLevels(topic).filter(lvl => LEVEL_CONFIG[lvl]).length > 0 && (
+                            <div className="flex items-center gap-2 mt-2 flex-wrap">
+                              {getLevels(topic).filter(lvl => LEVEL_CONFIG[lvl]).map(lvl => (
+                                <div key={lvl} className="flex items-center gap-1 text-xs text-gray-400">
+                                  {LEVEL_CONFIG[lvl].icon}
+                                  <span>{LEVEL_CONFIG[lvl].label}</span>
+                                </div>
+                              ))}
+                            </div>
                           )}
-                        </div>
-                        {getLevels(topic).filter(lvl => LEVEL_CONFIG[lvl]).length > 0 && (
-                          <div className="flex items-center gap-2 mt-2 flex-wrap">
-                            {getLevels(topic).filter(lvl => LEVEL_CONFIG[lvl]).map(lvl => (
-                              <div key={lvl} className="flex items-center gap-1 text-xs text-gray-400">
-                                {LEVEL_CONFIG[lvl].icon}
-                                <span>{LEVEL_CONFIG[lvl].label}</span>
-                              </div>
-                            ))}
+                        </button>
+
+                        {/* Add / Remove toggle button */}
+                        {isOnCompass ? (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setRemoveConfirm(topic.id);
+                            }}
+                            className="absolute top-2 right-2 w-6 h-6 rounded-full bg-[#59b0c4] text-white hover:bg-red-400 transition-colors flex items-center justify-center cursor-pointer"
+                            title="Remove from compass"
+                            aria-label="Remove from compass"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
+                              <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+                            </svg>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!atCap) {
+                                setSelectedTopics(prev => [...prev, topic.id]);
+                              }
+                            }}
+                            disabled={atCap}
+                            className={`absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center transition-colors ${
+                              atCap
+                                ? "bg-gray-100 text-gray-300 cursor-not-allowed"
+                                : "bg-gray-200 text-gray-500 hover:bg-[#59b0c4] hover:text-white cursor-pointer"
+                            }`}
+                            title={atCap ? "Compass is full (max 8 topics)" : "Add to compass"}
+                            aria-label="Add to compass"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
+                              <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
+                            </svg>
+                          </button>
+                        )}
+
+                        {/* Confirmation popover for removal */}
+                        {removeConfirm === topic.id && (
+                          <div className="absolute z-20 top-10 right-0 bg-white rounded-lg shadow-lg border border-gray-200 p-3 min-w-[180px]">
+                            <p className="text-sm font-medium text-gray-800 mb-1">Remove from compass?</p>
+                            {wouldDropBelow3 && (
+                              <p className="text-xs text-amber-600 mb-2">Your compass needs 3+ topics to display</p>
+                            )}
+                            <div className="flex gap-2">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedTopics(prev => prev.filter(id => id !== topic.id));
+                                  setRemoveConfirm(null);
+                                }}
+                                className="text-sm px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 cursor-pointer"
+                              >
+                                Yes
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setRemoveConfirm(null);
+                                }}
+                                className="text-sm px-3 py-1 bg-gray-100 text-gray-600 rounded hover:bg-gray-200 cursor-pointer"
+                              >
+                                Cancel
+                              </button>
+                            </div>
                           </div>
                         )}
-                      </button>
+                      </div>
                     );
                   })}
                 </div>
