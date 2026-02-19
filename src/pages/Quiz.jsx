@@ -259,7 +259,7 @@ export function Quiz() {
   }, [currentIndex, quizTopicIds, topics, answers, writeIns]);
 
   if (!quizTopicIds.length || !topics.length) {
-    return <div className="flex items-center justify-center min-h-screen text-gray-500">Loading quiz...</div>;
+    return <div className="flex items-center justify-center min-h-screen text-gray-500">Loading calibration...</div>;
   }
 
   const currentTopicId = quizTopicIds[currentIndex];
@@ -500,7 +500,7 @@ export function Quiz() {
           <button
             onClick={() => navigate("/library")}
             className="p-2 rounded-full text-gray-400 hover:text-black hover:bg-gray-100 transition-colors duration-200 cursor-pointer"
-            aria-label="Exit quiz"
+            aria-label="Exit calibration"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -594,7 +594,7 @@ export function Quiz() {
         <button
           onClick={() => navigate("/library")}
           className="p-2 rounded-full text-gray-400 hover:text-black hover:bg-gray-100 transition-colors duration-200 cursor-pointer"
-          aria-label="Exit quiz"
+          aria-label="Exit calibration"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
