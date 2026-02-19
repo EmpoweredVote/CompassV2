@@ -31,17 +31,27 @@ function AddTopicModal({
     selectedTopics.includes(t.id)
   );
 
+  const isAtCap = selectedTopics.length + selected.length >= 8;
+
   const toggleSelect = (id) => {
-    setSelected((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
+    setSelected((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      // Cap check: selectedTopics already on compass + newly selected must not exceed 8
+      if (selectedTopics.length + prev.length >= 8) return prev;
+      return [...prev, id];
+    });
     setHasChanges(true);
   };
 
   return (
     <div className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center z-50">
       <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
-        <h2 className="text-xl font-semibold mb-4">Manage Topics</h2>
+        <h2 className="text-xl font-semibold mb-4">
+          Manage Topics{" "}
+          <span className="text-sm font-normal text-gray-500">
+            ({selectedTopics.length}/8 on compass)
+          </span>
+        </h2>
 
         <div className="space-y-4 max-h-80 overflow-y-auto">
           {selectedTopicObjects.length > 0 && (
@@ -82,9 +92,12 @@ function AddTopicModal({
                   <span>{topic.short_title}</span>
                   <button
                     onClick={() => toggleSelect(topic.id)}
+                    disabled={isAtCap && !selected.includes(topic.id)}
                     className={`px-3 py-1 rounded cursor-pointer ${
                       selected.includes(topic.id)
                         ? "bg-black text-white"
+                        : isAtCap
+                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                         : "bg-gray-200"
                     }`}
                   >

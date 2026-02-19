@@ -727,6 +727,12 @@ function Library() {
         writeIns={writeIns}
         onSelectWriteIn={handleDrawerWriteIn}
         onCancelWriteIn={handleDrawerCancelWriteIn}
+        isOnCompass={drawerTopic ? selectedTopics.includes(drawerTopic.id) : false}
+        onRemoveFromCompass={(topic) => {
+          setSelectedTopics((prev) => prev.filter((id) => id !== topic.id));
+          // Do NOT clear answers — preserves stance data per locked decision
+        }}
+        compassTopicCount={selectedTopics.length}
       />
     </>
   );

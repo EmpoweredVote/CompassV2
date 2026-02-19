@@ -127,7 +127,19 @@ function SortableWriteInCard({ id, text, onChange, onCancel, showHint }) {
   );
 }
 
-function LibraryDrawer({ topic, currentAnswer, onSelectStance, onClose, invertedSpokes, writeIns, onSelectWriteIn, onCancelWriteIn }) {
+function LibraryDrawer({
+  topic,
+  currentAnswer,
+  onSelectStance,
+  onClose,
+  invertedSpokes,
+  writeIns,
+  onSelectWriteIn,
+  onCancelWriteIn,
+  isOnCompass,
+  onRemoveFromCompass,
+  compassTopicCount,
+}) {
   const question = getQuestionText(topic);
 
   // Apply stance flip if this topic is inverted
@@ -139,21 +151,24 @@ function LibraryDrawer({ topic, currentAnswer, onSelectStance, onClose, inverted
   const [writeInText, setWriteInText] = useState("");
   const [orderedItems, setOrderedItems] = useState([]);
   const [hasRepositioned, setHasRepositioned] = useState(false);
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 3 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } })
   );
 
-  // Reset write-in state when topic changes, restoring existing write-in if present
+  // Reset write-in state and remove confirm when topic changes
   useEffect(() => {
     if (!topic) {
       setShowWriteIn(false);
       setWriteInText("");
       setOrderedItems([]);
       setHasRepositioned(false);
+      setShowRemoveConfirm(false);
       return;
     }
+    setShowRemoveConfirm(false);
     // Check if this topic has an existing write-in
     const existingWriteIn = writeIns?.[topic.short_title];
     if (existingWriteIn && currentAnswer != null && !Number.isInteger(currentAnswer)) {
@@ -246,6 +261,48 @@ function LibraryDrawer({ topic, currentAnswer, onSelectStance, onClose, inverted
                 </svg>
               </button>
             </div>
+
+            {/* Remove from compass action (only shown when topic is on compass) */}
+            {isOnCompass && (
+              <div className="px-4 pt-2">
+                <button
+                  onClick={() => setShowRemoveConfirm(true)}
+                  className="flex items-center gap-2 text-sm text-gray-500 hover:text-red-500 transition-colors cursor-pointer"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
+                  </svg>
+                  Remove from compass
+                </button>
+              </div>
+            )}
+
+            {/* Remove confirmation inline panel */}
+            {showRemoveConfirm && (
+              <div className="mx-4 mt-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <p className="text-sm font-medium text-gray-700 mb-1">Remove from compass?</p>
+                {compassTopicCount <= 3 && (
+                  <p className="text-xs text-amber-600 mb-2">Your compass needs 3+ topics to display</p>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      onRemoveFromCompass(topic);
+                      setShowRemoveConfirm(false);
+                    }}
+                    className="text-sm px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 cursor-pointer"
+                  >
+                    Yes
+                  </button>
+                  <button
+                    onClick={() => setShowRemoveConfirm(false)}
+                    className="text-sm px-3 py-1 bg-gray-100 text-gray-600 rounded hover:bg-gray-200 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Question */}
             <p className="px-4 pt-4 pb-2 text-lg font-semibold text-neutral-800">
