@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Routes, Router, Route } from "react-router";
+import { Routes, Router, Route, Navigate, useLocation } from "react-router";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Home from "./pages/Home";
@@ -15,27 +15,34 @@ import { CompassProvider } from "./components/CompassContext";
 import AdminDashboard from "./components/admin/AdminDashboard";
 import { Onboarding } from "./pages/Onboarding";
 
+// Routes that should bypass the help guard
+const HELP_GUARD_BYPASS = ["/help", "/login", "/register", "/admin", "/401"];
+
+function HelpGuard({ children }) {
+  const location = useLocation();
+  const helpSeen = localStorage.getItem("help_seen");
+  const isBypass = HELP_GUARD_BYPASS.some(
+    (path) => location.pathname === path || location.pathname.startsWith("/admin")
+  );
+
+  if (!helpSeen && !isBypass) {
+    return <Navigate to="/help" replace />;
+  }
+
+  return children;
+}
+
 function App() {
   return (
     <>
       <Routes>
-        <Route path="/" element={<Layout><Library /></Layout>} />
+        {/* Public routes that bypass the help guard */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/help" element={<Onboarding />} />
-        <Route
-          path="/home"
-          element={
-            <ProtectedRoute>
-              <Home />
-            </ProtectedRoute>
-          }
-        />
-        {/* Guest-accessible routes */}
-        <Route path="/library" element={<Layout><Library /></Layout>} />
-        <Route path="/quiz" element={<Quiz />} />
-        <Route path="/build" element={<Layout><BuildCompass /></Layout>} />
-        <Route path="/results" element={<Layout><Compass /></Layout>} />
+        <Route path="/401" element={<Unauthorized />} />
+
+        {/* Protected admin route */}
         <Route
           path="/admin"
           element={
@@ -48,7 +55,58 @@ function App() {
             </ProtectedRoute>
           }
         />
-        <Route path="/401" element={<Unauthorized />} />
+
+        {/* Guest-accessible routes guarded by HelpGuard */}
+        <Route
+          path="/"
+          element={
+            <HelpGuard>
+              <Layout><Library /></Layout>
+            </HelpGuard>
+          }
+        />
+        <Route
+          path="/library"
+          element={
+            <HelpGuard>
+              <Layout><Library /></Layout>
+            </HelpGuard>
+          }
+        />
+        <Route
+          path="/quiz"
+          element={
+            <HelpGuard>
+              <Quiz />
+            </HelpGuard>
+          }
+        />
+        <Route
+          path="/build"
+          element={
+            <HelpGuard>
+              <Layout><BuildCompass /></Layout>
+            </HelpGuard>
+          }
+        />
+        <Route
+          path="/results"
+          element={
+            <HelpGuard>
+              <Layout><Compass /></Layout>
+            </HelpGuard>
+          }
+        />
+        <Route
+          path="/home"
+          element={
+            <ProtectedRoute>
+              <HelpGuard>
+                <Home />
+              </HelpGuard>
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </>
   );

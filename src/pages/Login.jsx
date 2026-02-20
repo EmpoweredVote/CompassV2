@@ -22,7 +22,7 @@ function Login() {
         throw new Error("Not logged in");
       })
       .then((data) => {
-        navigate(data.completed_onboarding ? "/library" : "/help", {
+        navigate(data.completed_onboarding ? "/results" : "/help", {
           replace: true,
         });
       })
@@ -76,10 +76,10 @@ function Login() {
       if (hadLocalAnswers) {
         setShowRestoredToast(true);
         setTimeout(() => {
-          navigate(data.completed_onboarding ? "/library" : "/help");
+          navigate(data.completed_onboarding ? "/results" : "/help");
         }, 2000); // Show toast for 2 seconds then navigate
       } else {
-        navigate(data.completed_onboarding ? "/library" : "/help");
+        navigate(data.completed_onboarding ? "/results" : "/help");
       }
     } catch (err) {
       console.error("Error during login:", err);
