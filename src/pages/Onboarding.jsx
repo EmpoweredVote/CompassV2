@@ -1,12 +1,20 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { useCompass } from "../components/CompassContext";
-import Compass from "../assets/compass.jpg";
-import OnboardingGif1 from "../assets/onboarding_gifs/onboarding_1.gif";
-import OnboardingGif2 from "../assets/onboarding_gifs/onboarding_2.gif";
-import OnboardingGif3 from "../assets/onboarding_gifs/onboarding_3.gif";
-import OnboardingGif4 from "../assets/onboarding_gifs/onboarding_4.gif";
-import OnboardingGif5 from "../assets/onboarding_gifs/onboarding_5.gif";
+
+// Desktop screenshots
+import Welcome_Desktop from "../assets/help/help_1_welcome_desktop.png";
+import Calibrate_Desktop from "../assets/help/help_2_calibrate_desktop.png";
+import Library_Desktop from "../assets/help/help_3_library_desktop.png";
+import Compare_Desktop from "../assets/help/help_4_compare_desktop.png";
+import Compass_Desktop from "../assets/help/help_5_compass_desktop.png";
+
+// Mobile screenshots
+import Welcome_Mobile from "../assets/help/help_1_welcome_mobile.png";
+import Calibrate_Mobile from "../assets/help/help_2_calibrate_mobile.png";
+import Library_Mobile from "../assets/help/help_3_library_mobile.png";
+import Compare_Mobile from "../assets/help/help_4_compare_mobile.png";
+import Compass_Mobile from "../assets/help/help_5_compass_mobile.png";
 
 export function Onboarding() {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -20,33 +28,38 @@ export function Onboarding() {
   const pageContent = [
     {
       title: "Welcome to the Empowered Compass!",
-      desc: "Visualize your political stance. Map your alignment on key issues and easily compare your beliefs with leaders.",
-      contentSrc: OnboardingGif1,
-      alt: "GIF demonstrating the Empowered Compass",
+      desc: "Visualize your political stance and discover where you stand on key issues. Your compass is personal, interactive, and built by you.",
+      desktopSrc: Welcome_Desktop,
+      mobileSrc: Welcome_Mobile,
+      alt: "Screenshot of the Empowered Compass welcome screen",
     },
     {
-      title: "Choose your Topics",
-      desc: "Select up to 8 Topics (e.g. Healthcare, Foreign Policy, etc). These choices build the structure of your personal Compass.",
-      contentSrc: OnboardingGif2,
-      alt: "GIF showing a user selecting topics",
+      title: "Calibrate Your Compass",
+      desc: "A guided flow walks you through picking topics and answering questions. Watch your compass take shape in real time as you share your views.",
+      desktopSrc: Calibrate_Desktop,
+      mobileSrc: Calibrate_Mobile,
+      alt: "Screenshot of the calibration topic picker",
     },
     {
-      title: "Define your Position & Build your Compass",
-      desc: "Select a stance on the spectrum. Your choice immediately builds and updates your Compass.",
-      contentSrc: OnboardingGif3,
-      alt: "GIF showing a user picking their stance",
+      title: "Explore the Topic Library",
+      desc: "Browse all available topics in the Library. Open any topic drawer to read more, adjust your stance, or add it to your compass anytime.",
+      desktopSrc: Library_Desktop,
+      mobileSrc: Library_Mobile,
+      alt: "Screenshot of the Library with a topic drawer open",
     },
     {
       title: "Compare with Candidates",
-      desc: "Select any politician to see their stances overlayed onto your map. Instantly see where you align and diverge.",
-      contentSrc: OnboardingGif4,
-      alt: "GIF comparing your compass with a politicians",
+      desc: "Select any politician to see their stances overlaid on your compass. Instantly see where you align and where you diverge.",
+      desktopSrc: Compare_Desktop,
+      mobileSrc: Compare_Mobile,
+      alt: "Screenshot of the compass compare view with a politician",
     },
     {
-      title: "Let's get started!",
-      desc: "You're ready to begin! Select your first topics and watch your Empowered Compass build instantly with every stance you choose.",
-      contentSrc: OnboardingGif5,
-      alt: "Celebration GIF",
+      title: "You're ready to begin!",
+      desc: "Start the calibration flow and watch your Empowered Compass come to life. It only takes a few minutes to build.",
+      desktopSrc: Compass_Desktop,
+      mobileSrc: Compass_Mobile,
+      alt: "Screenshot of a completed compass",
     },
   ];
 
@@ -56,11 +69,18 @@ export function Onboarding() {
     }
   };
 
+  const handleClose = () => {
+    localStorage.setItem("help_seen", "true");
+    navigate("/results");
+  };
+
   const handleNext = async () => {
     if (!isLastQuestion) {
       setCurrentIndex((i) => i + 1);
       return;
     }
+
+    localStorage.setItem("help_seen", "true");
 
     if (isLoggedIn) {
       try {
@@ -81,8 +101,10 @@ export function Onboarding() {
       }
     }
 
-    navigate("/library");
+    navigate("/results");
   };
+
+  const current = pageContent[currentIndex];
 
   return (
     <>
@@ -90,7 +112,7 @@ export function Onboarding() {
         {/* Close button */}
         <div className="flex justify-end px-4 pt-3 md:px-6 md:pt-4">
           <button
-            onClick={() => navigate("/library")}
+            onClick={handleClose}
             className="p-2 rounded-full text-gray-400 hover:text-black hover:bg-gray-100 transition-colors duration-200 cursor-pointer"
             aria-label="Close"
           >
@@ -108,16 +130,24 @@ export function Onboarding() {
             </svg>
           </button>
         </div>
+
         {/* Main content area */}
         <main className="flex-1 flex flex-col items-center justify-center md:justify-end px-4">
           <div className="flex flex-col w-full max-w-2xl gap-4">
-            {/* Image / GIF area */}
+            {/* Screenshot area — responsive swap via CSS */}
             <div className="w-full flex justify-center mb-4 md:mb-8">
               <div className="w-full max-w-[320px] md:max-w-[600px] lg:max-w-[1000px] aspect-[4/3]">
+                {/* Mobile screenshot (hidden on md+) */}
                 <img
-                  src={pageContent[currentIndex].contentSrc}
-                  alt={pageContent[currentIndex].alt}
-                  className="w-full h-full object-contain"
+                  src={current.mobileSrc}
+                  alt={current.alt}
+                  className="w-full h-full object-contain md:hidden"
+                />
+                {/* Desktop screenshot (hidden below md) */}
+                <img
+                  src={current.desktopSrc}
+                  alt={current.alt}
+                  className="w-full h-full object-contain hidden md:block"
                 />
               </div>
             </div>
@@ -125,11 +155,9 @@ export function Onboarding() {
             {/* Text area */}
             <div className="mt-2 md:mt-4 text-center shrink-0">
               <h1 className="font-bold text-3xl sm:text-3xl md:text-4xl text-[#006678] mb-2">
-                {pageContent[currentIndex].title}
+                {current.title}
               </h1>
-              <p className="text-lg md:text-xl font-medium">
-                {pageContent[currentIndex].desc}
-              </p>
+              <p className="text-lg md:text-xl font-medium">{current.desc}</p>
             </div>
           </div>
         </main>
@@ -187,7 +215,7 @@ export function Onboarding() {
               onClick={handleNext}
               className={`px-5 py-2 rounded-full border text-sm font-medium transition-colors duration-200 bg-black text-white border-black hover:opacity-90 cursor-pointer`}
             >
-              {isLastQuestion ? "Done" : "Next"}
+              {isLastQuestion ? "Calibrate Your Compass" : "Next"}
             </button>
           </div>
         </footer>
