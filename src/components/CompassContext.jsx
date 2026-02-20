@@ -96,6 +96,10 @@ export function CompassProvider({ children }) {
         if (data) {
           setIsLoggedIn(true);
           setUsername(data.username || null);
+          // Seed help_seen from DB: if user completed onboarding, don't show /help again
+          if (data.completed_onboarding) {
+            localStorage.setItem("help_seen", "true");
+          }
         }
       })
       .catch(() => {});
