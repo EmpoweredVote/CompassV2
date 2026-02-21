@@ -461,10 +461,22 @@ export default function CalibrationOverlay({ onComplete, onSkip }) {
           </button>
         </div>
 
-        {/* Question title */}
-        <h1 className="text-xl md:text-2xl font-semibold text-center px-4 mt-2 mb-3 shrink-0">
-          {getQuestionText(currentTopic)}
-        </h1>
+        {/* Question title — two-line tension title */}
+        {(() => {
+          const { name, poles } = parseTensionTitle(currentTopic);
+          const question = getQuestionText(currentTopic);
+          return (
+            <div className="shrink-0 px-4 mt-2 mb-1 text-center">
+              <p className="text-xl md:text-2xl font-semibold">{name}</p>
+              {poles && (
+                <p className="text-base text-gray-500 font-normal mt-1">{poles}</p>
+              )}
+              {question && (
+                <p className="text-center italic font-medium text-gray-600 text-sm px-4 mt-2 mb-3">{question}</p>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Main content: compass + stances */}
         <div className="flex-1 flex flex-col md:flex-row md:pb-4">
@@ -486,9 +498,6 @@ export default function CalibrationOverlay({ onComplete, onSkip }) {
 
           {/* Stance buttons */}
           <div className="md:basis-2/5 flex flex-col gap-3 px-4 pb-4 md:pb-0 md:justify-center md:mr-4">
-            <h2 className="text-lg md:text-xl font-semibold mb-1">
-              {currentTopic.start_phrase}...
-            </h2>
             {orderedStances.map((stance, i) => {
               const stanceValue = i + 1;
               return (

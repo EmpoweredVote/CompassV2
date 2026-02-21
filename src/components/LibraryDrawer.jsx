@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { getQuestionText } from "../util/topic";
+import { getQuestionText, parseTensionTitle } from "../util/topic";
 import {
   DndContext,
   closestCenter,
@@ -248,13 +248,23 @@ function LibraryDrawer({
             transition={{ type: "spring", damping: 30, stiffness: 300 }}
           >
             {/* Header with close button */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-100">
-              <span className="text-xs font-medium text-gray-400 uppercase tracking-wide">
-                {topic.short_title}
-              </span>
+            <div className="flex items-start justify-between p-4 border-b border-gray-100">
+              <div className="flex-1 min-w-0 pr-2">
+                {(() => {
+                  const { name, poles } = parseTensionTitle(topic);
+                  return (
+                    <>
+                      <p className="text-base font-semibold text-neutral-800 leading-snug">{name}</p>
+                      {poles && (
+                        <p className="text-sm text-gray-500 font-normal mt-0.5">{poles}</p>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
               <button
                 onClick={onClose}
-                className="p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer"
+                className="p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer shrink-0"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -304,10 +314,12 @@ function LibraryDrawer({
               </div>
             )}
 
-            {/* Question */}
-            <p className="px-4 pt-4 pb-2 text-lg font-semibold text-neutral-800">
-              {question}
-            </p>
+            {/* QuestionText — between title and stances */}
+            {question && (
+              <p className="italic font-medium text-gray-600 text-sm px-4 pt-2 pb-3">
+                {question}
+              </p>
+            )}
 
             {/* Stances — with write-in support */}
             <div className="flex-1 overflow-y-auto px-4 pb-4 flex flex-col gap-3">
