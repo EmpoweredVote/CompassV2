@@ -45,7 +45,7 @@ function GhostRadar({ size = "w-64 md:w-80" }) {
   );
 }
 
-export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = false }) {
+export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = false, startAtPick = false }) {
   const {
     topics,
     categories,
@@ -59,8 +59,18 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     isLoggedIn,
   } = useCompass();
 
-  // Load persisted progress on mount, honouring resumeMode
+  // Load persisted progress on mount, honouring resumeMode and startAtPick
   const getInitialState = () => {
+    // startAtPick: enter at pick step with existing selectedTopics pre-selected
+    // (used from below-3 overlay — does NOT reset calibration_completed/skipped)
+    if (startAtPick) {
+      return {
+        step: "pick",
+        pickedTopics: [...selectedTopics],
+        currentIndex: 0,
+      };
+    }
+
     // In resume mode: skip welcome/pick, go straight to answer from selectedTopics
     if (resumeMode) {
       // Find first unanswered topic index to start at
@@ -102,18 +112,18 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
 
-  // Initialize state once topics are loaded (needed because resumeMode reads selectedTopics + answers)
+  // Initialize state once topics are loaded (needed because resumeMode/startAtPick reads selectedTopics + answers)
   useEffect(() => {
     if (initializedRef.current) return;
-    // Wait until topics are available for a meaningful resume
-    if (resumeMode && topics.length === 0) return;
+    // Wait until topics are available for a meaningful resume or startAtPick
+    if ((resumeMode || startAtPick) && topics.length === 0) return;
     const initial = getInitialState();
     setStep(initial.step);
     setPickedTopics(initial.pickedTopics);
     setCurrentIndex(initial.currentIndex);
     initializedRef.current = true;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [topics, resumeMode]);
+  }, [topics, resumeMode, startAtPick]);
 
   // Persist progress on every state change (skip welcome and complete steps)
   useEffect(() => {
@@ -238,27 +248,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
         });
       } catch {}
     }
-
-    // Auto-advance to next unanswered topic after a brief delay
-    setTimeout(() => {
-      const nextUnanswered = pickedTopics.findIndex((id, idx) => {
-        if (idx <= currentIndex) return false;
-        const topic = topics.find((t) => t.id === id);
-        if (!topic) return false;
-        // Check the answer that will exist after this state update settles:
-        // the current topic just got answered (value), others use answers map
-        if (id === currentTopic.id) return false;
-        const val = answers[topic.short_title];
-        return !(val != null && val > 0);
-      });
-      if (nextUnanswered !== -1) {
-        setCurrentIndex(nextUnanswered);
-        setSelectedAnswer(null);
-      } else {
-        // No more unanswered topics ahead — finish
-        handleFinish();
-      }
-    }, 300);
+    // No auto-advance — user clicks Next manually
   };
 
   // handleNext: find the next UNANSWERED topic, not just next index
@@ -308,6 +298,16 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
       });
     }
     localStorage.removeItem(STORAGE_KEY);
+
+    // Count how many topics will be answered after removing unanswered ones
+    const finalAnsweredCount = pickedTopics.length - unansweredIds.length;
+    if (finalAnsweredCount < MIN_TOPICS) {
+      // Skip the "Your compass is ready" celebration — it's misleading when chart won't render.
+      // Dismiss overlay directly; user will see grayed chart with below-3 overlay.
+      onComplete();
+      return;
+    }
+
     setStep("complete");
   };
 
@@ -397,9 +397,9 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
         <div className="sticky top-0 bg-white border-b border-gray-100 z-10 px-4 pt-4 pb-3">
           <div className="flex items-center gap-3 max-w-2xl mx-auto">
             <button
-              onClick={() => setStep("welcome")}
+              onClick={() => startAtPick ? onSkip() : setStep("welcome")}
               className="p-1.5 rounded-full text-gray-400 hover:text-black hover:bg-gray-100 transition-colors cursor-pointer shrink-0"
-              aria-label="Back to welcome"
+              aria-label={startAtPick ? "Close" : "Back to welcome"}
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
                 <path fillRule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clipRule="evenodd" />

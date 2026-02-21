@@ -28,34 +28,50 @@ function SpokeHint({ onDismiss }) {
   );
 }
 
-function MinimumProgress({ answeredCompassCount, needsMore, onStartCalibration }) {
+function BelowThresholdChart({ answeredCompassCount, needsMore, onStartCalibration, chartData, unansweredSpokesMap, invertedSpokes }) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-      <h2 className="text-xl font-semibold text-gray-800 mb-2">
-        Answer {needsMore} more topic{needsMore !== 1 ? "s" : ""} to see your compass
-      </h2>
-      <p className="text-gray-500 text-sm mb-6">
-        Answer questions on topics you care about to build your political compass
-      </p>
-      {/* Dot progress indicator: 3 dots */}
-      <div className="flex items-center gap-3 mb-6">
-        {[0, 1, 2].map((i) => (
-          <div
-            key={i}
-            className={`w-3 h-3 rounded-full transition-colors duration-300 ${
-              i < answeredCompassCount
-                ? "bg-[#59b0c4]"
-                : "bg-gray-300"
-            }`}
-          />
-        ))}
+    <div
+      className="relative w-full cursor-pointer"
+      onClick={onStartCalibration}
+    >
+      {/* Grayed, non-interactive chart */}
+      <div className="w-full min-h-[280px] max-h-[calc(100dvh-240px)] aspect-square mx-auto opacity-25 pointer-events-none select-none">
+        <RadarChart
+          data={chartData}
+          unansweredSpokes={unansweredSpokesMap}
+          invertedSpokes={invertedSpokes}
+        />
       </div>
-      <button
-        onClick={onStartCalibration}
-        className="px-6 py-2.5 bg-black text-white rounded-full text-sm font-semibold hover:opacity-90 transition-opacity cursor-pointer"
-      >
-        Start Calibration
-      </button>
+      {/* Overlay message centered on top of chart */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center px-4 text-center">
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl px-6 py-5 shadow-lg max-w-xs">
+          {/* Dot progress indicator: 3 dots */}
+          <div className="flex items-center justify-center gap-3 mb-3">
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
+                className={`w-3 h-3 rounded-full transition-colors duration-300 ${
+                  i < answeredCompassCount
+                    ? "bg-[#59b0c4]"
+                    : "bg-gray-300"
+                }`}
+              />
+            ))}
+          </div>
+          <h2 className="text-base font-semibold text-gray-800 mb-1">
+            Answer {needsMore} more topic{needsMore !== 1 ? "s" : ""} to see your compass
+          </h2>
+          <p className="text-gray-500 text-xs mb-4">
+            Build your political compass by answering a few more topics
+          </p>
+          <button
+            onClick={(e) => { e.stopPropagation(); onStartCalibration(); }}
+            className="px-5 py-2 bg-black text-white rounded-full text-sm font-semibold hover:opacity-90 transition-opacity cursor-pointer"
+          >
+            Start Calibration
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -271,12 +287,24 @@ function Compass() {
   // resumeMode: user has some answered topics already — skip welcome/pick steps
   const resumeMode = answeredCompassCount > 0 && unansweredCompassTopics.length > 0;
 
-  // handleStartCalibration: called by MinimumProgress CTA to re-enter calibration
+  // startAtPick: when true, CalibrationOverlay opens directly at the pick step
+  const [startAtPick, setStartAtPick] = useState(false);
+
+  // handleStartCalibration: full reset — used for first-time entry points
   const handleStartCalibration = () => {
     localStorage.removeItem("calibration_skipped");
     localStorage.removeItem("calibration_completed");
     setCalibrationSkipped(false);
     setCalibrationCompleted(false);
+    setStartAtPick(false);
+    setCalibrationActive(true);
+  };
+
+  // handleStartCalibrationFromBelow3: enter calibration at pick step WITHOUT resetting state.
+  // Used from the below-3 grayed chart overlay. Does not clear calibration_completed or
+  // calibration_skipped — just opens the overlay at the pick step with existing topics pre-selected.
+  const handleStartCalibrationFromBelow3 = () => {
+    setStartAtPick(true);
     setCalibrationActive(true);
   };
 
@@ -516,6 +544,7 @@ function Compass() {
     {showCalibration ? (
       <CalibrationOverlay
         resumeMode={resumeMode}
+        startAtPick={startAtPick}
         onComplete={() => {
           localStorage.removeItem("calibration_skipped");
           localStorage.removeItem("calibration_progress");
@@ -523,12 +552,14 @@ function Compass() {
           setCalibrationSkipped(false);
           setCalibrationCompleted(true);
           setCalibrationActive(false);
+          setStartAtPick(false);
         }}
         onSkip={() => {
           setCalibrationSkipped(true);
           localStorage.setItem("calibration_skipped", "true");
           localStorage.removeItem("calibration_progress");
           setCalibrationActive(false);
+          setStartAtPick(false);
         }}
       />
     ) : (
@@ -551,7 +582,7 @@ function Compass() {
 
       {/* -------- desktop 2-column layout (centered, max-width container) -------- */}
       <div className="hidden lg:flex lg:items-start lg:gap-6 xl:gap-8 w-full max-w-6xl mx-auto">
-        {/* left: chart or minimum progress */}
+        {/* left: chart or below-threshold overlay */}
         <div className="flex-1 min-w-0 flex flex-col items-center">
           {showChart ? (
             <>
@@ -574,10 +605,13 @@ function Compass() {
               </div>
             </>
           ) : (
-            <MinimumProgress
+            <BelowThresholdChart
               answeredCompassCount={answeredCompassCount}
               needsMore={needsMore}
-              onStartCalibration={handleStartCalibration}
+              onStartCalibration={handleStartCalibrationFromBelow3}
+              chartData={chartData}
+              unansweredSpokesMap={unansweredSpokesMap}
+              invertedSpokes={invertedSpokes}
             />
           )}
           <ActionButtons />
@@ -646,10 +680,13 @@ function Compass() {
               </div>
             </>
           ) : (
-            <MinimumProgress
+            <BelowThresholdChart
               answeredCompassCount={answeredCompassCount}
               needsMore={needsMore}
-              onStartCalibration={handleStartCalibration}
+              onStartCalibration={handleStartCalibrationFromBelow3}
+              chartData={chartData}
+              unansweredSpokesMap={unansweredSpokesMap}
+              invertedSpokes={invertedSpokes}
             />
           )}
           <ActionButtons />
