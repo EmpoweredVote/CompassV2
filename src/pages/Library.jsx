@@ -322,6 +322,9 @@ function Library() {
   const totalTopics = topics.length;
   const answeredCount = answeredTopicIDs.filter((id) => activeTopicIDs.has(id)).length;
   const unansweredCount = totalTopics - answeredCount;
+  const MIN_TOPICS = 3;
+  const belowThreshold = hasCompass && answeredCount < MIN_TOPICS;
+  const needsMore = MIN_TOPICS - answeredCount;
 
   return (
     <>
@@ -330,13 +333,22 @@ function Library() {
         {hasCompass ? (
           /* ── Active compass ── */
           <div className="flex flex-col md:flex-row gap-0 md:gap-8 items-center">
-            {/* Compass chart — clickable */}
+            {/* Compass chart — clickable; grayed when below threshold */}
             <div
               onClick={() => navigate("/results")}
-              className="w-60 md:w-72 shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
-              title="View your compass"
+              className={`w-60 md:w-72 shrink-0 cursor-pointer transition-opacity relative ${belowThreshold ? "" : "hover:opacity-80"}`}
+              title={belowThreshold ? "Add more topics to see your compass" : "View your compass"}
             >
-              <RadarChart data={chartData} invertedSpokes={{}} labelFontSize={44} padding={160} labelOffset={35} />
+              <div className={belowThreshold ? "opacity-25 pointer-events-none select-none" : ""}>
+                <RadarChart data={chartData} invertedSpokes={{}} labelFontSize={44} padding={160} labelOffset={35} />
+              </div>
+              {belowThreshold && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <p className="text-sm font-medium text-gray-500 text-center px-4">
+                    Add {needsMore} more topic{needsMore !== 1 ? "s" : ""} to see your compass
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Right side: heading + stat cards + actions */}
