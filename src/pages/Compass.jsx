@@ -28,14 +28,14 @@ function SpokeHint({ onDismiss }) {
   );
 }
 
-function MinimumProgress({ answeredCompassCount, needsMore, onGoToLibrary }) {
+function MinimumProgress({ answeredCompassCount, needsMore, onStartCalibration }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
       <h2 className="text-xl font-semibold text-gray-800 mb-2">
         Answer {needsMore} more topic{needsMore !== 1 ? "s" : ""} to see your compass
       </h2>
       <p className="text-gray-500 text-sm mb-6">
-        Head to the Library to answer questions on topics you care about
+        Answer questions on topics you care about to build your political compass
       </p>
       {/* Dot progress indicator: 3 dots */}
       <div className="flex items-center gap-3 mb-6">
@@ -51,10 +51,10 @@ function MinimumProgress({ answeredCompassCount, needsMore, onGoToLibrary }) {
         ))}
       </div>
       <button
-        onClick={onGoToLibrary}
+        onClick={onStartCalibration}
         className="px-6 py-2.5 bg-black text-white rounded-full text-sm font-semibold hover:opacity-90 transition-opacity cursor-pointer"
       >
-        Browse Topics in Library
+        Start Calibration
       </button>
     </div>
   );
@@ -230,6 +230,14 @@ function Compass() {
   const needsMore = MIN_TOPICS - answeredCompassCount;
   const showChart = answeredCompassCount >= MIN_TOPICS;
 
+  // Unanswered selected topics (selected but no valid answer yet)
+  const unansweredCompassTopics = selectedTopics.filter((id) => {
+    const topic = topics.find((t) => t.id === id);
+    if (!topic) return false;
+    const val = answers[topic.short_title];
+    return !(val != null && val > 0);
+  });
+
   // -------- Calibration overlay state --------
   // calibrationSkipped: user clicked "Skip for now" — don't show overlay
   const [calibrationSkipped, setCalibrationSkipped] = useState(
@@ -244,8 +252,11 @@ function Compass() {
     () => !!localStorage.getItem("calibration_progress")
   );
 
-  // Determine if calibration needs to start (only when not already active, skipped, or completed)
-  const needsCalibration = answeredCompassCount < 3 && !calibrationSkipped && !calibrationCompleted;
+  // Determine if calibration needs to start:
+  // Trigger when ANY selected topics are unanswered and user hasn't skipped or completed calibration.
+  // Note: when calibrationCompleted is true and user deselects topics to drop below 3,
+  // needsCalibration stays false — they see MinimumProgress inline prompt instead.
+  const needsCalibration = unansweredCompassTopics.length > 0 && !calibrationSkipped && !calibrationCompleted;
 
   // Start calibration when needed — but once active, it stays active until onComplete/onSkip
   useEffect(() => {
@@ -256,6 +267,18 @@ function Compass() {
 
   // Show overlay when active (stays shown even as answers change mid-flow)
   const showCalibration = calibrationActive;
+
+  // resumeMode: user has some answered topics already — skip welcome/pick steps
+  const resumeMode = answeredCompassCount > 0 && unansweredCompassTopics.length > 0;
+
+  // handleStartCalibration: called by MinimumProgress CTA to re-enter calibration
+  const handleStartCalibration = () => {
+    localStorage.removeItem("calibration_skipped");
+    localStorage.removeItem("calibration_completed");
+    setCalibrationSkipped(false);
+    setCalibrationCompleted(false);
+    setCalibrationActive(true);
+  };
 
   // -------- Local UI State --------
   const [showSpokeHint, setShowSpokeHint] = useState(
@@ -454,6 +477,7 @@ function Compass() {
     <>
     {showCalibration ? (
       <CalibrationOverlay
+        resumeMode={resumeMode}
         onComplete={() => {
           localStorage.removeItem("calibration_skipped");
           localStorage.removeItem("calibration_progress");
@@ -517,7 +541,7 @@ function Compass() {
             <MinimumProgress
               answeredCompassCount={answeredCompassCount}
               needsMore={needsMore}
-              onGoToLibrary={() => navigate("/library")}
+              onStartCalibration={handleStartCalibration}
             />
           )}
           <ActionButtons />
@@ -591,7 +615,7 @@ function Compass() {
             <MinimumProgress
               answeredCompassCount={answeredCompassCount}
               needsMore={needsMore}
-              onGoToLibrary={() => navigate("/library")}
+              onStartCalibration={handleStartCalibration}
             />
           )}
           <ActionButtons />
