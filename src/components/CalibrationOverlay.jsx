@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useCompass } from "./CompassContext";
 import RadarChart from "./RadarChart";
-import { getQuestionText } from "../util/topic";
+import { getQuestionText, parseTensionTitle } from "../util/topic";
 
 const STORAGE_KEY = "calibration_progress";
 const MAX_TOPICS = 8;
@@ -367,9 +367,19 @@ export default function CalibrationOverlay({ onComplete, onSkip }) {
                             : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm"
                         }`}
                       >
-                        <span className="text-sm font-medium leading-snug">
-                          {getQuestionText(fullTopic)}
-                        </span>
+                        <div className="text-left">
+                          {(() => {
+                            const { name, poles } = parseTensionTitle(fullTopic);
+                            return (
+                              <>
+                                <p className="text-sm font-medium leading-snug">{name}</p>
+                                {poles && (
+                                  <p className="text-xs text-gray-500 font-normal mt-0.5">{poles}</p>
+                                )}
+                              </>
+                            );
+                          })()}
+                        </div>
                         {isSelected && (
                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5 shrink-0 text-[#59b0c4]">
                             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />

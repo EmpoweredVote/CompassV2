@@ -3,7 +3,7 @@ import { useCompass } from "../components/CompassContext";
 import { useNavigate } from "react-router";
 import RadarChart from "../components/RadarChart";
 import LibraryDrawer from "../components/LibraryDrawer";
-import { getQuestionText } from "../util/topic";
+import { getQuestionText, parseTensionTitle } from "../util/topic";
 
 const CATEGORY_COLORS = [
   { bg: "bg-blue-50", border: "border-blue-400", text: "text-blue-700", accent: "bg-blue-400" },
@@ -40,8 +40,6 @@ const LEVEL_CONFIG = {
     ),
   },
 };
-
-const getQuestion = getQuestionText;
 
 const getLevels = (topic) => {
   if (Array.isArray(topic.level)) return topic.level;
@@ -214,7 +212,8 @@ function Library() {
       .filter((t) => showAll || !answeredTopicIDs.includes(t.id))
       .filter((t) =>
         t.short_title.toLowerCase().includes(search.toLowerCase()) ||
-        (t.question_text && t.question_text.toLowerCase().includes(search.toLowerCase()))
+        (t.question_text && t.question_text.toLowerCase().includes(search.toLowerCase())) ||
+        (t.title && t.title.toLowerCase().includes(search.toLowerCase()))
       );
   };
 
@@ -592,9 +591,19 @@ function Library() {
                             className={`absolute top-0 left-0 w-1 h-full rounded-l-xl ${color.accent}`}
                           />
                           <div className="flex items-start justify-between gap-1">
-                            <span className="text-sm md:text-base font-medium leading-snug pr-5">
-                              {getQuestion(topic)}
-                            </span>
+                            <div className="text-left pr-5">
+                              {(() => {
+                                const { name, poles } = parseTensionTitle(topic);
+                                return (
+                                  <>
+                                    <p className="text-sm md:text-base font-medium leading-snug">{name}</p>
+                                    {poles && (
+                                      <p className="text-xs text-gray-500 font-normal mt-0.5">{poles}</p>
+                                    )}
+                                  </>
+                                );
+                              })()}
+                            </div>
                             {isAnswered && (
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
