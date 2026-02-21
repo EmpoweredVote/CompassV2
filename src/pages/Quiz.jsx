@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useCompass } from "../components/CompassContext";
 import { useNavigate, useSearchParams } from "react-router";
-import { getQuestionText } from "../util/topic";
+import { getQuestionText, parseTensionTitle } from "../util/topic";
 import RadarChart from "../components/RadarChart";
 import {
   DndContext,
@@ -412,10 +412,6 @@ export function Quiz() {
   // Stance buttons (shared between both modes)
   const stanceContent = (
     <>
-      <h2 className="text-xl md:text-2xl font-semibold mb-2">
-        {currentTopic.start_phrase}...
-      </h2>
-
       {!showWriteIn ? (
         <>
           {ordered.map((stance, i) => (
@@ -526,10 +522,22 @@ export function Quiz() {
           </div>
         )}
 
-        {/* Question title - centered, full width */}
-        <h1 className="text-xl md:text-2xl font-semibold mt-4 mb-6 text-center px-4">
-          {getQuestionText(currentTopic)}
-        </h1>
+        {/* Question title - two-line tension title, centered, full width */}
+        {(() => {
+          const { name: topicName, poles } = parseTensionTitle(currentTopic);
+          const question = getQuestionText(currentTopic);
+          return (
+            <div className="text-center px-4 mt-4 mb-2">
+              <h1 className="text-xl md:text-2xl font-semibold">{topicName}</h1>
+              {poles && (
+                <p className="text-base text-gray-500 font-normal mt-1">{poles}</p>
+              )}
+              {question && (
+                <p className="text-center italic font-medium text-gray-600 text-sm mt-2 mb-4 px-4">{question}</p>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Stances - centered, wider layout */}
         <div className="flex-1 flex justify-center px-4">
@@ -612,9 +620,21 @@ export function Quiz() {
       </div>
 
       <div className="flex flex-col">
-        <h1 className="text-xl md:text-2xl font-semibold mt-1 md:my-4 text-center">
-          {getQuestionText(currentTopic)}
-        </h1>
+        {(() => {
+          const { name: topicName, poles } = parseTensionTitle(currentTopic);
+          const question = getQuestionText(currentTopic);
+          return (
+            <div className="text-center mt-1 md:mt-4 px-4">
+              <h1 className="text-xl md:text-2xl font-semibold">{topicName}</h1>
+              {poles && (
+                <p className="text-base text-gray-500 font-normal mt-1">{poles}</p>
+              )}
+              {question && (
+                <p className="text-center italic font-medium text-gray-600 text-sm mt-2 mb-4 px-4">{question}</p>
+              )}
+            </div>
+          );
+        })()}
 
         <div className="flex-1 flex flex-col md:flex-row md:pb-0">
           <div className="md:basis-3/5 flex justify-center">

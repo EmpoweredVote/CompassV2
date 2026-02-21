@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import placeholder from "../assets/placeholder.png";
 import Favicon from "./Favicon";
 import { getPolName, normalizeOfficeTitle } from "../util/name";
-import { getQuestionText } from "../util/topic";
+import { getQuestionText, parseTensionTitle } from "../util/topic";
 
 function ComparePanel({ politician, dropdownValue, setDropdownValue }) {
   const { topics, answers, setAnswers, compareAnswers, writeIns } =
@@ -129,21 +129,38 @@ function ComparePanel({ politician, dropdownValue, setDropdownValue }) {
           className="w-full font-semibold text-base py-2 px-3 rounded-lg bg-neutral-50 border border-neutral-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#59b0c4]/40 focus:border-[#59b0c4] transition-colors"
         >
           <option value="default">Select a topic...</option>
-          {topicNames.map((topic) => (
-            <option value={topic} key={topic}>
-              {topic}
-            </option>
-          ))}
+          {topicNames.map((topic) => {
+            const fullTopic = topics.find((t) => t.short_title === topic);
+            return (
+              <option value={topic} key={topic}>
+                {fullTopic ? parseTensionTitle(fullTopic).name : topic}
+              </option>
+            );
+          })}
         </select>
       </div>
 
       {/* Stance list + reasoning (only when topic selected) */}
       {topicSelected && selectedTopic && (
         <>
-          {/* Question header */}
-          <p className="px-5 pb-3 text-base font-semibold text-neutral-800">
-            {getQuestionText(selectedTopic)}
-          </p>
+          {/* Tension title heading + QuestionText */}
+          {(() => {
+            const { name, poles } = parseTensionTitle(selectedTopic);
+            const question = getQuestionText(selectedTopic);
+            return (
+              <>
+                <div className="px-5 pb-1">
+                  <h3 className="text-base font-semibold text-neutral-800">{name}</h3>
+                  {poles && (
+                    <p className="text-sm text-gray-500 mt-0.5">{poles}</p>
+                  )}
+                </div>
+                {question && (
+                  <p className="px-5 pb-3 text-sm italic font-medium text-gray-600">{question}</p>
+                )}
+              </>
+            );
+          })()}
 
           {/* Legend */}
           <div className="flex items-center gap-3 text-xs text-neutral-400 px-5 pb-2">
