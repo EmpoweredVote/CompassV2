@@ -7,7 +7,7 @@ import LibraryDrawer from "../components/LibraryDrawer";
 import CompareModal from "../components/CompareModal";
 import ComparePanel from "../components/ComparePanel";
 import SavePromptModal from "../components/SavePromptModal";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router";
 
 function SpokeHint({ onDismiss }) {
@@ -280,6 +280,44 @@ function Compass() {
     setCalibrationActive(true);
   };
 
+  // -------- Chart data including all selected topics (unanswered = 0) --------
+  const chartData = useMemo(() => {
+    const data = {};
+    for (const id of selectedTopics) {
+      const topic = topics.find(t => t.id === id);
+      if (!topic) continue;
+      const val = answers[topic.short_title];
+      data[topic.short_title] = (val != null && val > 0) ? val : 0;
+    }
+    return data;
+  }, [selectedTopics, topics, answers]);
+
+  // Set of unanswered spoke short_titles for RadarChartCore gray rendering
+  const unansweredSpokesMap = useMemo(() => {
+    const set = {};
+    for (const id of selectedTopics) {
+      const topic = topics.find(t => t.id === id);
+      if (!topic) continue;
+      const val = answers[topic.short_title];
+      if (!(val != null && val > 0)) {
+        set[topic.short_title] = true;
+      }
+    }
+    return set;
+  }, [selectedTopics, topics, answers]);
+
+  // -------- Spoke click handler: calibration for unanswered, drawer for answered --------
+  const handleSpokeClick = (shortTitle) => {
+    const val = answers[shortTitle];
+    const isUnanswered = !(val != null && val > 0);
+    if (isUnanswered) {
+      handleStartCalibration();
+    } else {
+      const topic = topics.find(t => t.short_title === shortTitle);
+      if (topic) setDrawerTopic(topic);
+    }
+  };
+
   // -------- Local UI State --------
   const [showSpokeHint, setShowSpokeHint] = useState(
     () => !localStorage.getItem("onboarding_spokeFlip")
@@ -521,7 +559,8 @@ function Compass() {
               <div className="w-full min-h-[320px] max-h-[calc(100dvh-180px)] aspect-square mx-auto relative">
                 {showSpokeHint && <SpokeHint onDismiss={dismissSpokeHint} />}
                 <RadarChart
-                  data={answers}
+                  data={chartData}
+                  unansweredSpokes={unansweredSpokesMap}
                   compareData={compareAnswers}
                   invertedSpokes={invertedSpokes}
                   onToggleInversion={(topic) =>
@@ -530,10 +569,7 @@ function Compass() {
                       [topic]: !prev[topic],
                     }))
                   }
-                  onReplaceTopic={(shortTitle) => {
-                    const topic = topics.find(t => t.short_title === shortTitle);
-                    if (topic) setDrawerTopic(topic);
-                  }}
+                  onReplaceTopic={handleSpokeClick}
                 />
               </div>
             </>
@@ -595,7 +631,8 @@ function Compass() {
               <div className="w-full min-h-[280px] max-h-[calc(100dvh-240px)] aspect-square mx-auto relative">
                 {showSpokeHint && <SpokeHint onDismiss={dismissSpokeHint} />}
                 <RadarChart
-                  data={answers}
+                  data={chartData}
+                  unansweredSpokes={unansweredSpokesMap}
                   compareData={compareAnswers}
                   invertedSpokes={invertedSpokes}
                   onToggleInversion={(topic) =>
@@ -604,10 +641,7 @@ function Compass() {
                       [topic]: !prev[topic],
                     }))
                   }
-                  onReplaceTopic={(shortTitle) => {
-                    const topic = topics.find(t => t.short_title === shortTitle);
-                    if (topic) setDrawerTopic(topic);
-                  }}
+                  onReplaceTopic={handleSpokeClick}
                 />
               </div>
             </>
