@@ -1,5 +1,5 @@
 // CalibrationOverlay.jsx
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useCompass } from "./CompassContext";
 import RadarChart from "./RadarChart";
 import { getQuestionText, parseTensionTitle } from "../util/topic";
@@ -45,7 +45,7 @@ function GhostRadar({ size = "w-64 md:w-80" }) {
   );
 }
 
-export default function CalibrationOverlay({ onComplete, onSkip }) {
+export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = false }) {
   const {
     topics,
     categories,
@@ -59,8 +59,25 @@ export default function CalibrationOverlay({ onComplete, onSkip }) {
     isLoggedIn,
   } = useCompass();
 
-  // Load persisted progress on mount
+  // Load persisted progress on mount, honouring resumeMode
   const getInitialState = () => {
+    // In resume mode: skip welcome/pick, go straight to answer from selectedTopics
+    if (resumeMode) {
+      // Find first unanswered topic index to start at
+      const firstUnanswered = selectedTopics.findIndex((id) => {
+        const topic = topics.find((t) => t.id === id);
+        if (!topic) return false;
+        const val = answers[topic.short_title];
+        return !(val != null && val > 0);
+      });
+      return {
+        step: "answer",
+        pickedTopics: [...selectedTopics],
+        currentIndex: firstUnanswered !== -1 ? firstUnanswered : 0,
+      };
+    }
+
+    // Standard first-time flow: check localStorage for in-progress session
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
@@ -77,18 +94,35 @@ export default function CalibrationOverlay({ onComplete, onSkip }) {
     return { step: "welcome", pickedTopics: [], currentIndex: 0 };
   };
 
-  const initial = getInitialState();
-  const [step, setStep] = useState(initial.step);
-  const [pickedTopics, setPickedTopics] = useState(initial.pickedTopics);
-  const [currentIndex, setCurrentIndex] = useState(initial.currentIndex);
+  // We use a ref to track whether initial state has been computed so it only
+  // runs once even though selectedTopics/topics/answers may not be loaded yet.
+  const initializedRef = useRef(false);
+  const [step, setStep] = useState("welcome");
+  const [pickedTopics, setPickedTopics] = useState([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
 
-  // Persist progress on every state change
+  // Initialize state once topics are loaded (needed because resumeMode reads selectedTopics + answers)
+  useEffect(() => {
+    if (initializedRef.current) return;
+    // Wait until topics are available for a meaningful resume
+    if (resumeMode && topics.length === 0) return;
+    const initial = getInitialState();
+    setStep(initial.step);
+    setPickedTopics(initial.pickedTopics);
+    setCurrentIndex(initial.currentIndex);
+    initializedRef.current = true;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topics, resumeMode]);
+
+  // Persist progress on every state change (skip welcome and complete steps)
   useEffect(() => {
     if (step === "welcome" || step === "complete") return;
+    // Don't persist resume-mode sessions — they always re-derive from selectedTopics
+    if (resumeMode) return;
     const progress = { step, pickedTopics, currentIndex };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
-  }, [step, pickedTopics, currentIndex]);
+  }, [step, pickedTopics, currentIndex, resumeMode]);
 
   // Load current answer when index changes in answer step
   useEffect(() => {
@@ -139,6 +173,16 @@ export default function CalibrationOverlay({ onComplete, onSkip }) {
       if (!topic) return false;
       const val = answers[topic.short_title];
       return val != null && val > 0;
+    }).length;
+  }, [pickedTopics, topics, answers]);
+
+  // Count unanswered topics among picked
+  const unansweredCount = useMemo(() => {
+    return pickedTopics.filter((id) => {
+      const topic = topics.find((t) => t.id === id);
+      if (!topic) return true;
+      const val = answers[topic.short_title];
+      return !(val != null && val > 0);
     }).length;
   }, [pickedTopics, topics, answers]);
 
@@ -194,13 +238,42 @@ export default function CalibrationOverlay({ onComplete, onSkip }) {
         });
       } catch {}
     }
+
+    // Auto-advance to next unanswered topic after a brief delay
+    setTimeout(() => {
+      const nextUnanswered = pickedTopics.findIndex((id, idx) => {
+        if (idx <= currentIndex) return false;
+        const topic = topics.find((t) => t.id === id);
+        if (!topic) return false;
+        // Check the answer that will exist after this state update settles:
+        // the current topic just got answered (value), others use answers map
+        if (id === currentTopic.id) return false;
+        const val = answers[topic.short_title];
+        return !(val != null && val > 0);
+      });
+      if (nextUnanswered !== -1) {
+        setCurrentIndex(nextUnanswered);
+        setSelectedAnswer(null);
+      } else {
+        // No more unanswered topics ahead — finish
+        handleFinish();
+      }
+    }, 300);
   };
 
+  // handleNext: find the next UNANSWERED topic, not just next index
   const handleNext = () => {
-    if (currentIndex < pickedTopics.length - 1) {
-      setCurrentIndex((i) => i + 1);
+    const nextUnanswered = pickedTopics.findIndex((id, idx) => {
+      if (idx <= currentIndex) return false;
+      const topic = topics.find((t) => t.id === id);
+      if (!topic) return false;
+      const val = answers[topic.short_title];
+      return !(val != null && val > 0);
+    });
+    if (nextUnanswered !== -1) {
+      setCurrentIndex(nextUnanswered);
+      setSelectedAnswer(null);
     } else {
-      // Last topic — go to complete if enough answered, else finish anyway
       handleFinish();
     }
   };
@@ -208,9 +281,10 @@ export default function CalibrationOverlay({ onComplete, onSkip }) {
   const handleBack = () => {
     if (currentIndex > 0) {
       setCurrentIndex((i) => i - 1);
-    } else {
+    } else if (!resumeMode) {
       setStep("pick");
     }
+    // In resumeMode, back at index 0 does nothing (no pick step to return to)
   };
 
   const handleFinish = () => {
@@ -237,33 +311,30 @@ export default function CalibrationOverlay({ onComplete, onSkip }) {
     setStep("complete");
   };
 
+  // Exit during answer step — gated on answeredCount >= MIN_TOPICS
+  // Only shows "View Compass" button when enough topics answered; otherwise hidden
   const handleExitDuringAnswer = () => {
-    if (answeredCount >= MIN_TOPICS) {
-      const unansweredIds = pickedTopics.filter((id) => {
-        const topic = topics.find((t) => t.id === id);
-        if (!topic) return true;
-        const val = answers[topic.short_title];
-        return !(val != null && val > 0);
+    if (answeredCount < MIN_TOPICS) return; // Button should not be visible, but guard anyway
+    const unansweredIds = pickedTopics.filter((id) => {
+      const topic = topics.find((t) => t.id === id);
+      if (!topic) return true;
+      const val = answers[topic.short_title];
+      return !(val != null && val > 0);
+    });
+    if (unansweredIds.length > 0) {
+      if (!window.confirm("You have unanswered topics. They'll be removed from your compass. Continue?")) return;
+      setSelectedTopics((prev) => prev.filter((id) => !unansweredIds.includes(id)));
+      setInvertedSpokes((prev) => {
+        const updated = { ...prev };
+        for (const id of unansweredIds) {
+          const topic = topics.find((t) => t.id === id);
+          if (topic) delete updated[topic.short_title];
+        }
+        return updated;
       });
-      if (unansweredIds.length > 0) {
-        if (!window.confirm("You have unanswered topics. They'll be removed from your compass. Continue?")) return;
-        setSelectedTopics((prev) => prev.filter((id) => !unansweredIds.includes(id)));
-        setInvertedSpokes((prev) => {
-          const updated = { ...prev };
-          for (const id of unansweredIds) {
-            const topic = topics.find((t) => t.id === id);
-            if (topic) delete updated[topic.short_title];
-          }
-          return updated;
-        });
-      }
-      localStorage.removeItem(STORAGE_KEY);
-      setStep("complete");
-    } else {
-      if (!window.confirm("You need at least 3 answered topics for the compass. Exit anyway?")) return;
-      localStorage.removeItem(STORAGE_KEY);
-      onSkip();
     }
+    localStorage.removeItem(STORAGE_KEY);
+    setStep("complete");
   };
 
   // --- Render helpers ---
@@ -276,7 +347,15 @@ export default function CalibrationOverlay({ onComplete, onSkip }) {
         : currentTopic.stances
       : [];
 
-  const isLastTopic = currentIndex === pickedTopics.length - 1;
+  // Whether all remaining topics after current are answered (used for footer button label)
+  const allRemainingAnswered = pickedTopics.every((id, idx) => {
+    if (idx <= currentIndex) return true;
+    const topic = topics.find((t) => t.id === id);
+    if (!topic) return false;
+    const val = answers[topic.short_title];
+    return val != null && val > 0;
+  });
+  const isLastUnanswered = allRemainingAnswered;
 
   // ============================
   // STEP: WELCOME
@@ -342,7 +421,7 @@ export default function CalibrationOverlay({ onComplete, onSkip }) {
 
         {/* Topic list */}
         <div className="px-4 py-4 max-w-2xl mx-auto pb-32">
-          {categories.map((category, catIdx) => {
+          {categories.map((category) => {
             if (!category.topics || category.topics.length === 0) return null;
             return (
               <div key={category.id} className="mb-6">
@@ -442,23 +521,50 @@ export default function CalibrationOverlay({ onComplete, onSkip }) {
             <div className="w-32 md:w-48 h-1.5 bg-gray-200 rounded-full overflow-hidden mb-1">
               <div
                 className="h-full bg-ev-yellow rounded-full transition-all duration-300"
-                style={{ width: `${((currentIndex + 1) / pickedTopics.length) * 100}%` }}
+                style={{ width: `${(answeredCount / pickedTopics.length) * 100}%` }}
               />
             </div>
             <p className="text-xs text-gray-500">
-              {currentIndex + 1} of {pickedTopics.length}
+              {answeredCount} of {pickedTopics.length} answered
             </p>
           </div>
 
-          <button
-            onClick={handleExitDuringAnswer}
-            className="p-1.5 rounded-full text-gray-400 hover:text-black hover:bg-gray-100 transition-colors cursor-pointer"
-            aria-label="Exit calibration"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-              <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 011.06 0L12 10.94l5.47-5.47a.75.75 0 111.06 1.06L13.06 12l5.47 5.47a.75.75 0 11-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 01-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 010-1.06z" clipRule="evenodd" />
-            </svg>
-          </button>
+          {/* Exit button: hidden until 3+ answered, then shows "View Compass" */}
+          {answeredCount >= MIN_TOPICS ? (
+            <button
+              onClick={handleExitDuringAnswer}
+              className="text-sm font-medium text-[#59b0c4] hover:text-[#00657c] transition-colors cursor-pointer px-2 py-1"
+            >
+              View Compass
+            </button>
+          ) : (
+            <div className="w-9" aria-hidden="true" />
+          )}
+        </div>
+
+        {/* Topic pill list — scrollable horizontal strip showing all topics */}
+        <div className="flex gap-2 px-4 py-2 overflow-x-auto shrink-0">
+          {pickedTopics.map((id, idx) => {
+            const topic = topics.find((t) => t.id === id);
+            const isAnswered = topic && answers[topic.short_title] != null && answers[topic.short_title] > 0;
+            const isCurrent = idx === currentIndex;
+            return (
+              <button
+                key={id}
+                onClick={() => { setCurrentIndex(idx); setSelectedAnswer(null); }}
+                className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer ${
+                  isCurrent
+                    ? "border-2 border-[#59b0c4] bg-sky-50 text-[#00657c]"
+                    : isAnswered
+                    ? "bg-gray-100 text-gray-400"
+                    : "bg-white border border-gray-200 text-gray-700"
+                }`}
+              >
+                {isAnswered && !isCurrent && <span className="mr-1 text-green-500">&#10003;</span>}
+                {topic ? parseTensionTitle(topic).name : "..."}
+              </button>
+            );
+          })}
         </div>
 
         {/* Question title — two-line tension title */}
@@ -527,14 +633,14 @@ export default function CalibrationOverlay({ onComplete, onSkip }) {
               Back
             </button>
             <button
-              onClick={isLastTopic ? handleFinish : handleNext}
+              onClick={isLastUnanswered ? handleFinish : handleNext}
               className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
                 selectedAnswer
                   ? "bg-black text-white cursor-pointer hover:opacity-90"
                   : "bg-gray-100 text-gray-500 cursor-pointer hover:bg-gray-200"
               }`}
             >
-              {isLastTopic
+              {isLastUnanswered
                 ? "Finish"
                 : selectedAnswer
                 ? "Next"
@@ -580,7 +686,7 @@ export default function CalibrationOverlay({ onComplete, onSkip }) {
     );
   }
 
-  // Fallback (loading)
+  // Fallback (loading / initializing)
   return (
     <div className="fixed inset-0 z-50 bg-white flex items-center justify-center">
       <p className="text-gray-400">Loading...</p>
