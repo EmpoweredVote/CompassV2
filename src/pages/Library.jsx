@@ -323,8 +323,15 @@ function Library() {
   const answeredCount = answeredTopicIDs.filter((id) => activeTopicIDs.has(id)).length;
   const unansweredCount = totalTopics - answeredCount;
   const MIN_TOPICS = 3;
-  const belowThreshold = hasCompass && answeredCount < MIN_TOPICS;
-  const needsMore = MIN_TOPICS - answeredCount;
+  // Count how many SELECTED (compass) topics have answers — not all answered topics
+  const answeredCompassCount = selectedTopics.filter((id) => {
+    const topic = topics.find((t) => t.id === id);
+    if (!topic) return false;
+    const val = answers[topic.short_title];
+    return val != null && val > 0;
+  }).length;
+  const belowThreshold = hasCompass && answeredCompassCount < MIN_TOPICS;
+  const needsMore = MIN_TOPICS - answeredCompassCount;
 
   return (
     <>
