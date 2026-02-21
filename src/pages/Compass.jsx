@@ -534,7 +534,7 @@ function Compass() {
         const mapped = selectedTopics
           .map((id) => {
             const a = allAnswers.find((x) => x.topic_id === id);
-            const t = topics.find((tt) => tt.id === id);
+            const t = topicsRef.current.find((tt) => tt.id === id);
             if (!t) return null;
             return [t.short_title, a ? a.value : 0];
           })
@@ -545,7 +545,7 @@ function Compass() {
         console.error("[Compass] compare fetch failed", e);
         setCompareAnswers({});
       });
-  }, [comparePol, selectedTopics, topics, setCompareAnswers]);
+  }, [comparePol, selectedTopics, setCompareAnswers]);
 
   const navigate = useNavigate();
 
