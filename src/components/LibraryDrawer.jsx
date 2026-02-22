@@ -250,17 +250,10 @@ function LibraryDrawer({
             {/* Header with close button */}
             <div className="flex items-start justify-between p-4 border-b border-gray-100">
               <div className="flex-1 min-w-0 pr-2">
-                {(() => {
-                  const { name, poles } = parseTensionTitle(topic);
-                  return (
-                    <>
-                      <p className="text-base font-semibold text-neutral-800 leading-snug">{name}</p>
-                      {poles && (
-                        <p className="text-sm text-gray-500 font-normal mt-0.5">{poles}</p>
-                      )}
-                    </>
-                  );
-                })()}
+                <p className="text-base font-semibold text-neutral-800 leading-snug">{getQuestionText(topic) || parseTensionTitle(topic).name}</p>
+                {getQuestionText(topic) && (
+                  <p className="text-sm text-gray-500 font-normal mt-0.5">{parseTensionTitle(topic).name}</p>
+                )}
               </div>
               <button
                 onClick={onClose}
@@ -312,13 +305,6 @@ function LibraryDrawer({
                   </button>
                 </div>
               </div>
-            )}
-
-            {/* QuestionText — between title and stances */}
-            {question && (
-              <p className="italic font-medium text-gray-600 text-sm px-4 pt-2 pb-3">
-                {question}
-              </p>
             )}
 
             {/* Stances — with write-in support */}

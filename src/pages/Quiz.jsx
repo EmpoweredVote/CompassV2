@@ -522,18 +522,15 @@ export function Quiz() {
           </div>
         )}
 
-        {/* Question title - two-line tension title, centered, full width */}
+        {/* Question title - question text first, topic name as subtitle */}
         {(() => {
-          const { name: topicName, poles } = parseTensionTitle(currentTopic);
+          const { name: topicName } = parseTensionTitle(currentTopic);
           const question = getQuestionText(currentTopic);
           return (
             <div className="text-center px-4 mt-4 mb-2">
-              <h1 className="text-xl md:text-2xl font-semibold">{topicName}</h1>
-              {poles && (
-                <p className="text-base text-gray-500 font-normal mt-1">{poles}</p>
-              )}
+              <h1 className="text-xl md:text-2xl font-semibold">{question || topicName}</h1>
               {question && (
-                <p className="text-center italic font-medium text-gray-600 text-sm mt-2 mb-4 px-4">{question}</p>
+                <p className="text-base text-gray-500 font-normal mt-1">{topicName}</p>
               )}
             </div>
           );
@@ -621,16 +618,13 @@ export function Quiz() {
 
       <div className="flex flex-col">
         {(() => {
-          const { name: topicName, poles } = parseTensionTitle(currentTopic);
+          const { name: topicName } = parseTensionTitle(currentTopic);
           const question = getQuestionText(currentTopic);
           return (
             <div className="text-center mt-1 md:mt-4 px-4">
-              <h1 className="text-xl md:text-2xl font-semibold">{topicName}</h1>
-              {poles && (
-                <p className="text-base text-gray-500 font-normal mt-1">{poles}</p>
-              )}
+              <h1 className="text-xl md:text-2xl font-semibold">{question || topicName}</h1>
               {question && (
-                <p className="text-center italic font-medium text-gray-600 text-sm mt-2 mb-4 px-4">{question}</p>
+                <p className="text-base text-gray-500 font-normal mt-1">{topicName}</p>
               )}
             </div>
           );
