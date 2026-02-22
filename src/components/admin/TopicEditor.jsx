@@ -105,7 +105,6 @@ function TopicEditor({
           id: topic.id,
           title: editedFields.title,
           short_title: editedFields.short_title,
-          short_name: editedFields.short_name || "",
           question_text: editedFields.question_text || "",
           level: editedFields.level || [],
         }),
@@ -156,7 +155,6 @@ function TopicEditor({
                 ...t,
                 title: editedFields.title,
                 short_title: editedFields.short_title,
-                short_name: editedFields.short_name || "",
                 question_text: editedFields.question_text || "",
                 level: editedFields.level || [],
                 stances: seq,
@@ -197,19 +195,6 @@ function TopicEditor({
             value={editedFields.short_title}
             onChange={(e) => handleFieldChange("short_title", e.target.value)}
           />
-        </div>
-
-        <div>
-          <label className="block font-semibold">Radar Chart Label</label>
-          <input
-            className="border px-2 py-1 text-sm rounded w-full"
-            placeholder="Leave blank to use short title"
-            value={editedFields.short_name || ""}
-            onChange={(e) => handleFieldChange("short_name", e.target.value)}
-          />
-          <p className="text-xs text-gray-400 mt-1">
-            Override the label shown on the radar chart spokes. Defaults to short title.
-          </p>
         </div>
 
         <div>
