@@ -597,7 +597,7 @@ function Compass() {
           {showChart ? (
             <>
               <Legend />
-              <div className="w-full min-h-[320px] max-h-[calc(100dvh-180px)] aspect-square mx-auto relative">
+              <div className="w-full min-h-[320px] max-h-[calc(100dvh-180px)] max-w-2xl aspect-square mx-auto relative">
                 {showSpokeHint && <SpokeHint onDismiss={dismissSpokeHint} />}
                 <RadarChart
                   data={chartData}
