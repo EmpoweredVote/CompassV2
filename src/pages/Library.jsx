@@ -347,7 +347,7 @@ function Library() {
             </div>
 
             {/* Right side: heading + stat cards + actions */}
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 w-full">
               <div className="flex items-center gap-3 mb-4">
                 <h1 className="text-xl md:text-2xl font-semibold">
                   Your Compass
@@ -365,7 +365,7 @@ function Library() {
 
               {/* Stat cards */}
               {answeredLoaded && (
-                <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="grid grid-cols-2 gap-3 mb-4 w-full">
                   <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3">
                     <p className="text-2xl font-bold text-green-700">{answeredCount}</p>
                     <p className="text-xs text-green-600 font-medium">Answered</p>
@@ -403,7 +403,7 @@ function Library() {
             </div>
 
             {/* Right side: heading + stat cards + help */}
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 w-full">
               <div className="flex items-center gap-3 mb-1">
                 <h1 className="text-xl md:text-2xl font-semibold">
                   Calibrate Your Compass
@@ -424,7 +424,7 @@ function Library() {
 
               {/* Stat cards */}
               {answeredLoaded && (
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-3 w-full">
                   <div className={`rounded-xl border px-4 py-3 ${
                     answeredCount > 0
                       ? "border-green-200 bg-green-50"
