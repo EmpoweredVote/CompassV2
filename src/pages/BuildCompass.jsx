@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useCompass } from "../components/CompassContext";
 import { useNavigate } from "react-router";
 
@@ -15,25 +15,52 @@ const MAX_TOPICS = 8;
 const MIN_TOPICS = 3;
 
 function BuildCompass() {
-  const { topics, categories, selectedTopics, setSelectedTopics } = useCompass();
+  const { topics, categories, selectedTopics, setSelectedTopics, answers, isLoggedIn } = useCompass();
   const navigate = useNavigate();
 
   const [answeredTopicIDs, setAnsweredTopicIDs] = useState([]);
   const [loaded, setLoaded] = useState(false);
   const [picked, setPicked] = useState([]);
 
-  // Fetch which topics have been answered
+  // Keep ref so the effect can read latest answers without adding to dependency array
+  const answersRef = useRef(answers);
+  answersRef.current = answers;
+
+  // Fetch which topics have been answered (guest-safe)
   useEffect(() => {
+    if (!isLoggedIn) {
+      // Guest: derive answered IDs from localStorage-backed answers in context
+      const cur = answersRef.current;
+      const ids = topics
+        .filter(t => cur[t.short_title] != null && cur[t.short_title] > 0)
+        .map(t => t.id);
+      setAnsweredTopicIDs(ids);
+      setLoaded(true);
+      return;
+    }
+
     fetch(`${import.meta.env.VITE_API_URL}/compass/answers`, {
       credentials: "include",
     })
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to fetch answers");
+        return res.json();
+      })
       .then((data) => {
         const ids = data.map((a) => a.topic_id);
         setAnsweredTopicIDs(ids);
         setLoaded(true);
+      })
+      .catch(() => {
+        // Fallback: use localStorage answers if server fetch fails
+        const cur = answersRef.current;
+        const ids = topics
+          .filter(t => cur[t.short_title] != null && cur[t.short_title] > 0)
+          .map(t => t.id);
+        setAnsweredTopicIDs(ids);
+        setLoaded(true);
       });
-  }, []);
+  }, [isLoggedIn, topics]);
 
   const getCategoryColor = (index) =>
     CATEGORY_COLORS[index % CATEGORY_COLORS.length];
