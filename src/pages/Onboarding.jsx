@@ -101,7 +101,9 @@ export function Onboarding() {
       }
     }
 
-    navigate("/results");
+    // Redirect to calibration flow so users immediately pick topics and build their compass.
+    // The ?calibrate=1 param signals Compass.jsx to auto-start the CalibrationOverlay.
+    navigate("/results?calibrate=1");
   };
 
   const current = pageContent[currentIndex];

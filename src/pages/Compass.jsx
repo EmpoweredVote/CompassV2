@@ -7,7 +7,7 @@ import CompareModal from "../components/CompareModal";
 import ComparePanel from "../components/ComparePanel";
 import SavePromptModal from "../components/SavePromptModal";
 import { useState, useEffect, useRef, useMemo } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 
 function SpokeHint({ onDismiss }) {
   return (
@@ -227,6 +227,9 @@ function Compass() {
     isLoggedIn,
   } = useCompass();
 
+  // Check for ?calibrate=1 param (set by Onboarding after completion)
+  const [searchParams, setSearchParams] = useSearchParams();
+
   // -------- Minimum topic gate --------
   const answeredCompassTopics = selectedTopics.filter((id) => {
     const topic = topics.find((t) => t.id === id);
@@ -310,6 +313,17 @@ function Compass() {
     setStartAtPick(true);
     setCalibrationActive(true);
   };
+
+  // Auto-start calibration when arriving from onboarding (?calibrate=1).
+  // Clears the param from the URL after triggering so browser back works cleanly.
+  useEffect(() => {
+    if (searchParams.get("calibrate") === "1") {
+      setSearchParams({}, { replace: true });
+      handleStartCalibration();
+    }
+  // handleStartCalibration is stable (no deps change it), searchParams drives the trigger
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   // -------- Chart data including all selected topics (unanswered = 0) --------
   const chartData = useMemo(() => {

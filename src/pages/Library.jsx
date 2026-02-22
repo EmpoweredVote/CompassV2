@@ -200,10 +200,10 @@ function Library() {
     CATEGORY_COLORS[index % CATEGORY_COLORS.length];
 
   const getVisibleTopics = (category) => {
-    return category.topics
+    return (category.topics || [])
       .filter((t) => showAll || !answeredTopicIDs.includes(t.id))
       .filter((t) =>
-        t.short_title.toLowerCase().includes(search.toLowerCase()) ||
+        (t.short_title || "").toLowerCase().includes(search.toLowerCase()) ||
         (t.question_text && t.question_text.toLowerCase().includes(search.toLowerCase())) ||
         (t.title && t.title.toLowerCase().includes(search.toLowerCase()))
       );
