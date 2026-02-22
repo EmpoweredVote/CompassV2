@@ -138,9 +138,6 @@ function Library() {
   const answersRef = useRef(answers);
   answersRef.current = answers;
 
-  // Snapshot of the compass topics (topics with answers) — used by "Clear"
-  const compassTopicsRef = useRef(selectedTopics);
-
   // Fetch answers for selected topics (to power the compass preview)
   useEffect(() => {
     if (!selectedTopics.length || !topicsRef.current.length) return;
@@ -164,11 +161,6 @@ function Library() {
           })
           .filter(Boolean);
         setAnswers(Object.fromEntries(mapped));
-
-        // Save the confirmed compass topics (only those with answers)
-        compassTopicsRef.current = selectedTopics.filter((id) =>
-          data.some((a) => a.topic_id === id)
-        );
 
         const writeInEntries = selectedTopics
           .map((id) => {
@@ -225,10 +217,6 @@ function Library() {
     } else if (selectedTopics.length < MAX_TOPICS) {
       setSelectedTopics((prev) => [...prev, topic_id]);
     }
-  };
-
-  const clearSelections = () => {
-    setSelectedTopics(compassTopicsRef.current);
   };
 
   const getAnswer = (topic) => {
@@ -551,14 +539,6 @@ function Library() {
               </button>
               <span className={!showAll ? "font-medium text-gray-900" : "text-gray-400"}>Unanswered</span>
             </div>
-            {selectedTopics.length > 0 && (
-              <button
-                onClick={clearSelections}
-                className="text-sm text-gray-400 hover:text-gray-600 underline cursor-pointer"
-              >
-                Clear
-              </button>
-            )}
           </div>
         </div>
 

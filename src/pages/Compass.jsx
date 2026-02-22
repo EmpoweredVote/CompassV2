@@ -2,7 +2,6 @@
 import { useCompass } from "../components/CompassContext";
 import RadarChart from "../components/RadarChart";
 import CalibrationOverlay from "../components/CalibrationOverlay";
-import AddTopicModal from "../components/AddTopicModal";
 import LibraryDrawer from "../components/LibraryDrawer";
 import CompareModal from "../components/CompareModal";
 import ComparePanel from "../components/ComparePanel";
@@ -200,12 +199,6 @@ function Compass() {
   function ActionButtons() {
     return (
       <div className="flex gap-4 mt-4">
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="px-4 sm:px-6 py-2 text-sm sm:text-base bg-black text-white rounded-full hover:bg-ev-yellow-dark hover:text-black transition-colors cursor-pointer"
-        >
-          Edit Topics
-        </button>
         {showChart && (
           <button
             onClick={() => setIsCompareModal(true)}
@@ -364,7 +357,6 @@ function Compass() {
     setShowSpokeHint(false);
     localStorage.setItem("onboarding_spokeFlip", "1");
   };
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [drawerTopic, setDrawerTopic] = useState(null);
   const [isCompareModal, setIsCompareModal] = useState(false);
 
@@ -711,15 +703,6 @@ function Compass() {
           onClose={() => setIsCompareModal(false)}
         />
       )}
-      {isModalOpen && (
-        <AddTopicModal
-          selectedTopics={selectedTopics}
-          onAddTopics={(ids) => setSelectedTopics([...selectedTopics, ...ids])}
-          onRemoveTopic={handleRemoveTopic}
-          onClose={() => setIsModalOpen(false)}
-        />
-      )}
-
       {/* -------- LibraryDrawer (spoke-click-to-drawer) -------- */}
       <LibraryDrawer
         topic={drawerTopic}
