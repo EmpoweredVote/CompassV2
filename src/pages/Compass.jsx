@@ -265,10 +265,13 @@ function Compass() {
   );
 
   // Determine if calibration needs to start:
-  // Trigger when ANY selected topics are unanswered and user hasn't skipped or completed calibration.
+  // Trigger when ANY selected topics are unanswered AND user hasn't skipped or completed calibration.
+  // Also trigger for fresh users with NO selected topics (returning uncalibrated users, first-time
+  // after clearing state, etc.) — captures the "never started" scenario.
   // Note: when calibrationCompleted is true and user deselects topics to drop below 3,
   // needsCalibration stays false — they see MinimumProgress inline prompt instead.
-  const needsCalibration = unansweredCompassTopics.length > 0 && !calibrationSkipped && !calibrationCompleted;
+  const needsCalibration = (!calibrationSkipped && !calibrationCompleted) &&
+    (unansweredCompassTopics.length > 0 || selectedTopics.length === 0);
 
   // Start calibration when needed — but once active, it stays active until onComplete/onSkip
   useEffect(() => {
