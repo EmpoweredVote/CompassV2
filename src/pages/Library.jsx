@@ -591,17 +591,10 @@ function Library() {
                           />
                           <div className="flex items-start justify-between gap-1">
                             <div className="text-left pr-5">
-                              {(() => {
-                                const { name, poles } = parseTensionTitle(topic);
-                                return (
-                                  <>
-                                    <p className="text-sm md:text-base font-medium leading-snug">{name}</p>
-                                    {poles && (
-                                      <p className="text-xs text-gray-500 font-normal mt-0.5">{poles}</p>
-                                    )}
-                                  </>
-                                );
-                              })()}
+                              <p className="text-sm md:text-base font-medium leading-snug">{parseTensionTitle(topic).name}</p>
+                              {getQuestionText(topic) && (
+                                <p className="text-xs text-gray-500 font-normal mt-0.5">{getQuestionText(topic)}</p>
+                              )}
                             </div>
                             {isAnswered && (
                               <svg

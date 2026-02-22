@@ -447,17 +447,10 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
                         }`}
                       >
                         <div className="text-left">
-                          {(() => {
-                            const { name, poles } = parseTensionTitle(fullTopic);
-                            return (
-                              <>
-                                <p className="text-sm font-medium leading-snug">{name}</p>
-                                {poles && (
-                                  <p className="text-xs text-gray-500 font-normal mt-0.5">{poles}</p>
-                                )}
-                              </>
-                            );
-                          })()}
+                          <p className="text-sm font-medium leading-snug">{parseTensionTitle(fullTopic).name}</p>
+                          {getQuestionText(fullTopic) && (
+                            <p className="text-xs text-gray-500 font-normal mt-0.5">{getQuestionText(fullTopic)}</p>
+                          )}
                         </div>
                         {isSelected && (
                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5 shrink-0 text-[#59b0c4]">
@@ -567,22 +560,13 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
           })}
         </div>
 
-        {/* Question title — two-line tension title */}
-        {(() => {
-          const { name, poles } = parseTensionTitle(currentTopic);
-          const question = getQuestionText(currentTopic);
-          return (
-            <div className="shrink-0 px-4 mt-2 mb-1 text-center">
-              <p className="text-xl md:text-2xl font-semibold">{name}</p>
-              {poles && (
-                <p className="text-base text-gray-500 font-normal mt-1">{poles}</p>
-              )}
-              {question && (
-                <p className="text-center italic font-medium text-gray-600 text-sm px-4 mt-2 mb-3">{question}</p>
-              )}
-            </div>
-          );
-        })()}
+        {/* Question title — question text first, topic name as subtitle */}
+        <div className="shrink-0 px-4 mt-2 mb-1 text-center">
+          <p className="text-xl md:text-2xl font-semibold">{getQuestionText(currentTopic) || parseTensionTitle(currentTopic).name}</p>
+          {getQuestionText(currentTopic) && (
+            <p className="text-base text-gray-500 font-normal mt-1">{parseTensionTitle(currentTopic).name}</p>
+          )}
+        </div>
 
         {/* Main content: compass + stances */}
         <div className="flex-1 flex flex-col md:flex-row md:pb-4">
