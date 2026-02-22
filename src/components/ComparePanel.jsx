@@ -143,22 +143,17 @@ function ComparePanel({ politician, dropdownValue, setDropdownValue }) {
       {/* Stance list + reasoning (only when topic selected) */}
       {topicSelected && selectedTopic && (
         <>
-          {/* Tension title heading + QuestionText */}
+          {/* Topic heading: question_text first, tension name as subtitle (mirrors LibraryDrawer/Quiz) */}
           {(() => {
-            const { name, poles } = parseTensionTitle(selectedTopic);
+            const { name } = parseTensionTitle(selectedTopic);
             const question = getQuestionText(selectedTopic);
             return (
-              <>
-                <div className="px-5 pb-1">
-                  <h3 className="text-base font-semibold text-neutral-800">{name}</h3>
-                  {poles && (
-                    <p className="text-sm text-gray-500 mt-0.5">{poles}</p>
-                  )}
-                </div>
+              <div className="px-5 pb-3">
+                <h3 className="text-base font-semibold text-neutral-800">{question || name}</h3>
                 {question && (
-                  <p className="px-5 pb-3 text-sm italic font-medium text-gray-600">{question}</p>
+                  <p className="text-sm text-gray-500 font-normal mt-0.5">{name}</p>
                 )}
-              </>
+              </div>
             );
           })()}
 
