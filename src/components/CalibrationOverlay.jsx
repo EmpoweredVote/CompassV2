@@ -560,19 +560,11 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
           })}
         </div>
 
-        {/* Question title — question text first, topic name as subtitle */}
-        <div className="shrink-0 px-4 mt-2 mb-1 text-center">
-          <p className="text-xl md:text-2xl font-semibold">{getQuestionText(currentTopic) || parseTensionTitle(currentTopic).name}</p>
-          {getQuestionText(currentTopic) && (
-            <p className="text-base text-gray-500 font-normal mt-1">{parseTensionTitle(currentTopic).name}</p>
-          )}
-        </div>
-
         {/* Main content: compass + stances */}
         <div className="flex-1 flex flex-col md:flex-row md:pb-4">
-          {/* Compass (live updating) */}
-          <div className="md:basis-3/5 flex justify-center px-2">
-            <div className="w-full max-w-[500px] aspect-square">
+          {/* Compass (live updating) — left 50%, vertically centered */}
+          <div className="md:basis-1/2 flex items-center justify-center px-2">
+            <div className="w-full max-w-[280px] md:max-w-[400px] aspect-square">
               <RadarChart
                 data={chartData}
                 invertedSpokes={invertedSpokes}
@@ -586,8 +578,19 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
             </div>
           </div>
 
-          {/* Stance buttons */}
-          <div className="md:basis-2/5 flex flex-col gap-3 px-4 pb-4 md:pb-0 md:justify-center md:mr-4">
+          {/* Question + Stance buttons — right 50%, stacked from top */}
+          <div className="md:basis-1/2 flex flex-col gap-3 px-4 pb-4 md:pb-0 md:py-4 md:pr-6">
+            {/* Question text anchored above stances */}
+            <div className="mb-3">
+              <p className="text-xl md:text-2xl font-semibold">
+                {getQuestionText(currentTopic) || parseTensionTitle(currentTopic).name}
+              </p>
+              {getQuestionText(currentTopic) && (
+                <p className="text-base text-gray-500 font-normal mt-1">
+                  {parseTensionTitle(currentTopic).name}
+                </p>
+              )}
+            </div>
             {orderedStances.map((stance, i) => {
               const stanceValue = i + 1;
               return (
