@@ -3,6 +3,22 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useCompass } from "./CompassContext";
 import RadarChart from "./RadarChart";
 import { getQuestionText, parseTensionTitle } from "../util/topic";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 
 const STORAGE_KEY = "calibration_progress";
 const MAX_TOPICS = 8;
@@ -45,6 +61,115 @@ function GhostRadar({ size = "w-64 md:w-80" }) {
   );
 }
 
+const SMOOTH_TRANSITION = {
+  duration: 300,
+  easing: "cubic-bezier(0.25, 1, 0.5, 1)",
+};
+
+function SortableStanceLabel({ id, text }) {
+  const { setNodeRef, transform, transition } = useSortable({
+    id,
+    disabled: { draggable: true },
+    transition: SMOOTH_TRANSITION,
+  });
+
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="px-4 py-2.5 rounded-lg text-sm sm:text-base font-medium bg-gray-50 text-gray-600 border border-gray-200"
+    >
+      {text}
+    </div>
+  );
+}
+
+function SortableWriteInCard({ id, text, onChange, onCancel, showHint }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id, transition: SMOOTH_TRANSITION });
+
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    transition: isDragging ? undefined : transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      className={`flex items-start gap-2 px-3 py-2.5 rounded-lg
+        ${
+          text.trim()
+            ? "border-2 border-ev-yellow bg-ev-yellow-light"
+            : "border-2 border-dashed border-gray-400"
+        }`}
+    >
+      <div
+        {...listeners}
+        className={`cursor-grab active:cursor-grabbing pt-1.5 shrink-0 rounded p-1 ${
+          showHint
+            ? "animate-pulse bg-ev-yellow/30 text-ev-coral"
+            : ""
+        }`}
+      >
+        <svg
+          viewBox="0 0 24 24"
+          className="w-5 h-5"
+          fill="currentColor"
+        >
+          <circle cx="9" cy="6" r="1.5" />
+          <circle cx="15" cy="6" r="1.5" />
+          <circle cx="9" cy="12" r="1.5" />
+          <circle cx="15" cy="12" r="1.5" />
+          <circle cx="9" cy="18" r="1.5" />
+          <circle cx="15" cy="18" r="1.5" />
+        </svg>
+      </div>
+      <div className="flex-1 flex flex-col gap-1">
+        <textarea
+          autoFocus
+          value={text}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="Write your stance here..."
+          rows={2}
+          className="text-sm sm:text-base font-medium resize-none bg-transparent focus:outline-none"
+        />
+        {showHint && (
+          <p className="text-xs font-medium text-ev-coral">
+            Drag your own view to where it fits among these stances
+          </p>
+        )}
+      </div>
+      <button
+        onClick={onCancel}
+        className="text-gray-400 hover:text-black shrink-0 pt-1 cursor-pointer"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+          className="w-4 h-4"
+        >
+          <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
 export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = false, startAtPick = false }) {
   const {
     topics,
@@ -53,6 +178,8 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     setSelectedTopics,
     answers,
     setAnswers,
+    writeIns,
+    setWriteIns,
     invertedSpokes,
     setInvertedSpokes,
     initRandomInversions,
@@ -111,6 +238,17 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
   const [pickedTopics, setPickedTopics] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
+  const [showWriteIn, setShowWriteIn] = useState(false);
+  const [writeInText, setWriteInText] = useState("");
+  const [orderedItems, setOrderedItems] = useState([]);
+  const [hasRepositioned, setHasRepositioned] = useState(false);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 3 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 150, tolerance: 5 },
+    })
+  );
 
   // Initialize state once topics are loaded (needed because resumeMode/startAtPick reads selectedTopics + answers)
   useEffect(() => {
