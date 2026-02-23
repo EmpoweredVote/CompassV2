@@ -801,8 +801,8 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
         {/* Main content: compass + stances */}
         <div className="flex-1 flex flex-col md:flex-row md:pb-4">
           {/* Compass (live updating) — left 50%, vertically centered */}
-          <div className="md:basis-1/2 flex items-center justify-center px-2">
-            <div className="w-full max-w-[280px] md:max-w-[400px] aspect-square">
+          <div className="md:basis-1/2 flex items-start justify-center px-2 md:pt-6">
+            <div className="w-full max-w-[340px] md:max-w-xl aspect-[1/0.75] md:aspect-square">
               <RadarChart
                 data={chartData}
                 invertedSpokes={invertedSpokes}
@@ -817,14 +817,14 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
           </div>
 
           {/* Question + Stance buttons — right 50%, stacked from top */}
-          <div className="md:basis-1/2 flex flex-col gap-3 px-4 pb-4 md:pb-0 md:py-4 md:pr-6">
+          <div className="md:basis-1/2 flex flex-col gap-1.5 px-3 pb-4 md:pb-0 md:pt-6 md:pr-6 max-w-md mx-auto md:mx-0">
             {/* Question text anchored above stances */}
-            <div className="mb-3">
-              <p className="text-xl md:text-2xl font-semibold">
+            <div className="mb-2">
+              <p className="text-base md:text-lg font-semibold leading-snug">
                 {getQuestionText(currentTopic) || parseTensionTitle(currentTopic).name}
               </p>
               {getQuestionText(currentTopic) && (
-                <p className="text-base text-gray-500 font-normal mt-1">
+                <p className="text-sm text-gray-500 font-normal mt-0.5">
                   {parseTensionTitle(currentTopic).name}
                 </p>
               )}
@@ -841,7 +841,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
                         setWriteInText("");
                         handleSelectStance(stanceValue);
                       }}
-                      className={`text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm md:text-base font-medium cursor-pointer ${
+                      className={`text-left px-3 py-2.5 rounded-lg transition-all duration-200 text-sm leading-snug font-medium cursor-pointer ${
                         selectedAnswer === stanceValue
                           ? "border-ev-yellow border-2 bg-ev-yellow-light"
                           : "bg-white text-black border-2 border-gray-300 hover:bg-gray-50"
@@ -857,7 +857,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
                     setHasRepositioned(false);
                     setOrderedItems([...orderedStances.map((s) => s.id), "write-in"]);
                   }}
-                  className="text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm md:text-base font-medium cursor-pointer border-2 border-dashed border-gray-400 text-gray-500 hover:border-ev-yellow hover:text-black"
+                  className="text-left px-3 py-2.5 rounded-lg transition-all duration-200 text-sm leading-snug font-medium cursor-pointer border-2 border-dashed border-gray-400 text-gray-500 hover:border-ev-yellow hover:text-black"
                 >
                   Write your own...
                 </button>
@@ -870,7 +870,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
                 onDragEnd={handleDragEnd}
               >
                 <SortableContext items={orderedItems} strategy={verticalListSortingStrategy}>
-                  <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-1.5">
                     {orderedItems.map((itemId) =>
                       itemId === "write-in" ? (
                         <SortableWriteInCard
