@@ -272,7 +272,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
   }, [step, pickedTopics, currentIndex, resumeMode]);
 
-  // Load current answer when index changes in answer step
+  // Load current answer when index changes in answer step (also restores write-in state)
   useEffect(() => {
     if (step !== "answer") return;
     const topicId = pickedTopics[currentIndex];
@@ -280,7 +280,29 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     if (!topic) return;
     const val = answers[topic.short_title];
     setSelectedAnswer(typeof val === "number" && val > 0 ? val : null);
-  }, [currentIndex, step, pickedTopics, topics, answers]);
+
+    // Derive stances inside effect to avoid stale closure
+    const isFlippedInEffect = invertedSpokes[topic.short_title];
+    const effectStances = topic.stances
+      ? isFlippedInEffect ? [...topic.stances].reverse() : topic.stances
+      : [];
+
+    // Restore or reset write-in state
+    const savedWriteIn = writeIns?.[topic.short_title];
+    if (savedWriteIn && val != null && !Number.isInteger(val)) {
+      setShowWriteIn(true);
+      setWriteInText(savedWriteIn);
+      setHasRepositioned(true);
+      const items = [...effectStances.map((s) => s.id)];
+      items.splice(Math.floor(val), 0, "write-in");
+      setOrderedItems(items);
+    } else {
+      setShowWriteIn(false);
+      setWriteInText("");
+      setOrderedItems([]);
+      setHasRepositioned(false);
+    }
+  }, [currentIndex, step, pickedTopics, topics, answers, writeIns, invertedSpokes]);
 
   // Auto-transition from complete screen after 3 seconds
   useEffect(() => {
@@ -374,6 +396,14 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
 
   const handleSelectStance = async (value) => {
     if (!currentTopic) return;
+    // Clear any active write-in when selecting a predefined stance
+    if (writeIns?.[currentTopic?.short_title]) {
+      setWriteIns((prev) => {
+        const updated = { ...prev };
+        delete updated[currentTopic.short_title];
+        return updated;
+      });
+    }
     setSelectedAnswer(value);
     setAnswers((prev) => ({ ...prev, [currentTopic.short_title]: value }));
     if (isLoggedIn) {
@@ -473,6 +503,76 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     }
     localStorage.removeItem(STORAGE_KEY);
     setStep("complete");
+  };
+
+  const selectWriteInPlacement = (midpointValue) => {
+    if (!currentTopic) return;
+    setAnswers((prev) => ({ ...prev, [currentTopic.short_title]: midpointValue }));
+    setWriteIns((prev) => ({ ...prev, [currentTopic.short_title]: writeInText }));
+    setSelectedAnswer(midpointValue);
+    if (isLoggedIn) {
+      fetch(`${import.meta.env.VITE_API_URL}/compass/answers`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topic_id: currentTopic.id,
+          value: midpointValue,
+          write_in_text: writeInText,
+        }),
+      }).catch(() => {});
+    }
+  };
+
+  const handleDragEnd = ({ active, over }) => {
+    if (!over || active.id === over.id) return;
+    const oldIndex = orderedItems.indexOf(active.id);
+    const newIndex = orderedItems.indexOf(over.id);
+    const reordered = arrayMove(orderedItems, oldIndex, newIndex);
+    setOrderedItems(reordered);
+    setHasRepositioned(true);
+    const writeInIndex = reordered.indexOf("write-in");
+    selectWriteInPlacement(writeInIndex + 0.5);
+  };
+
+  const handleWriteInTextChange = (newText) => {
+    setWriteInText(newText);
+    if (selectedAnswer && !Number.isInteger(selectedAnswer)) {
+      if (newText.trim()) {
+        setWriteIns((prev) => ({ ...prev, [currentTopic.short_title]: newText }));
+      } else {
+        setSelectedAnswer(null);
+        setAnswers((prev) => {
+          const updated = { ...prev };
+          delete updated[currentTopic.short_title];
+          return updated;
+        });
+        setWriteIns((prev) => {
+          const updated = { ...prev };
+          delete updated[currentTopic.short_title];
+          return updated;
+        });
+      }
+    }
+  };
+
+  const handleCancelWriteIn = () => {
+    setShowWriteIn(false);
+    setWriteInText("");
+    setOrderedItems([]);
+    if (selectedAnswer && !Number.isInteger(selectedAnswer)) {
+      setSelectedAnswer(null);
+      setAnswers((prev) => {
+        const updated = { ...prev };
+        delete updated[currentTopic.short_title];
+        return updated;
+      });
+      setWriteIns((prev) => {
+        const updated = { ...prev };
+        delete updated[currentTopic.short_title];
+        return updated;
+      });
+    }
   };
 
   // --- Render helpers ---
@@ -729,22 +829,70 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
                 </p>
               )}
             </div>
-            {orderedStances.map((stance, i) => {
-              const stanceValue = i + 1;
-              return (
+            {!showWriteIn ? (
+              <>
+                {orderedStances.map((stance, i) => {
+                  const stanceValue = i + 1;
+                  return (
+                    <button
+                      key={stance.id}
+                      onClick={() => {
+                        setShowWriteIn(false);
+                        setWriteInText("");
+                        handleSelectStance(stanceValue);
+                      }}
+                      className={`text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm md:text-base font-medium cursor-pointer ${
+                        selectedAnswer === stanceValue
+                          ? "border-ev-yellow border-2 bg-ev-yellow-light"
+                          : "bg-white text-black border-2 border-gray-300 hover:bg-gray-50"
+                      }`}
+                    >
+                      {stance.text}
+                    </button>
+                  );
+                })}
                 <button
-                  key={stance.id}
-                  onClick={() => handleSelectStance(stanceValue)}
-                  className={`text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm md:text-base font-medium cursor-pointer ${
-                    selectedAnswer === stanceValue
-                      ? "border-ev-yellow border-2 bg-ev-yellow-light"
-                      : "bg-white text-black border-2 border-gray-300 hover:bg-gray-50"
-                  }`}
+                  onClick={() => {
+                    setShowWriteIn(true);
+                    setHasRepositioned(false);
+                    setOrderedItems([...orderedStances.map((s) => s.id), "write-in"]);
+                  }}
+                  className="text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm md:text-base font-medium cursor-pointer border-2 border-dashed border-gray-400 text-gray-500 hover:border-ev-yellow hover:text-black"
                 >
-                  {stance.text}
+                  Write your own...
                 </button>
-              );
-            })}
+              </>
+            ) : (
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                modifiers={[restrictToVerticalAxis]}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext items={orderedItems} strategy={verticalListSortingStrategy}>
+                  <div className="flex flex-col gap-3">
+                    {orderedItems.map((itemId) =>
+                      itemId === "write-in" ? (
+                        <SortableWriteInCard
+                          key="write-in"
+                          id="write-in"
+                          text={writeInText}
+                          onChange={handleWriteInTextChange}
+                          onCancel={handleCancelWriteIn}
+                          showHint={!!writeInText.trim() && !hasRepositioned}
+                        />
+                      ) : (
+                        <SortableStanceLabel
+                          key={itemId}
+                          id={itemId}
+                          text={orderedStances.find((s) => s.id === itemId)?.text ?? ""}
+                        />
+                      )
+                    )}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            )}
           </div>
         </div>
 
