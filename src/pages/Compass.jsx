@@ -185,10 +185,7 @@ function Compass() {
         You
         <span
           className="inline-block w-4 h-4 bg-[rgba(89,176,196,0.3)] border border-[#59b0c4] rounded-sm cursor-pointer"
-          onClick={() => {
-            setComparePol(null);
-            setCompareAnswers({});
-          }}
+          onClick={handleClearComparison}
           title="Clear comparison"
         />
         {name || "Selected Politician"}
@@ -379,6 +376,23 @@ function Compass() {
 
   // NEW: selected comparison politician
   const [comparePol, setComparePol] = useState(null); // { id, full_name/first/last, ... }
+
+  // -------- Compare switching callbacks --------
+  const handleSwitchPolitician = (newPol) => {
+    // Do NOT clear compareAnswers here — keep old data visible on radar chart.
+    // The useEffect on comparePol change (lines ~530-557) fetches new answers and
+    // calls setCompareAnswers, which triggers react-spring morph animation.
+    setComparePol(newPol);
+  };
+
+  const handleClearComparison = () => {
+    setComparePol(null);
+    setCompareAnswers({});
+  };
+
+  const handleOpenFullModal = () => {
+    setIsCompareModal(true);
+  };
 
   // Compare Details & Stance Explorer state
   const [dropdownValue, setDropdownValue] = useState("");
@@ -643,6 +657,9 @@ function Compass() {
               politician={comparePol}
               dropdownValue={dropdownValue}
               setDropdownValue={setDropdownValue}
+              onSwitchPolitician={handleSwitchPolitician}
+              onClearComparison={handleClearComparison}
+              onOpenFullModal={handleOpenFullModal}
             />
           </div>
         )}
@@ -656,6 +673,9 @@ function Compass() {
               politician={comparePol}
               dropdownValue={dropdownValue}
               setDropdownValue={setDropdownValue}
+              onSwitchPolitician={handleSwitchPolitician}
+              onClearComparison={handleClearComparison}
+              onOpenFullModal={handleOpenFullModal}
             />
           ) : (
             <div className="flex flex-col gap-6 w-full items-center mt-8">
