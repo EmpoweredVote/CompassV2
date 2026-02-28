@@ -261,8 +261,8 @@ function ComparePanel({
               )}
             </>
           ) : (
-            <div className="px-5 pb-5">
-              <p className="text-xs text-neutral-400 text-center pt-1">
+            <div className="px-5 py-6">
+              <p className="text-sm text-neutral-500 text-center italic">
                 {polName} hasn&apos;t answered this topic yet.
               </p>
             </div>
