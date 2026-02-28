@@ -3,6 +3,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { normalizeOfficeTitle, getPolName, getOfficeSubtitle } from "../util/name";
 import placeholder from "../assets/placeholder.png";
 import usePoliticianList from "../hooks/usePoliticianList";
+import { useFilteredPoliticians } from "../hooks/useFilteredPoliticians";
+import PoliticianFilters from "./PoliticianFilters";
 
 const normalize = (s = "") =>
   s
@@ -20,15 +22,22 @@ function PoliticianPicker({ politicians = [], onPick }) {
   const boxRef = useRef(null);
   const listRef = useRef(null);
 
+  const {
+    level, setLevel,
+    stateFilter, setStateFilter,
+    clearAll, hasActiveFilters,
+    levelCounts, availableStates, filtered,
+  } = useFilteredPoliticians(politicians);
+
   const options = useMemo(() => {
     const q = normalize(query);
-    if (!q) return politicians;
-    return politicians.filter((p) => {
+    if (!q) return filtered;
+    return filtered.filter((p) => {
       const name = normalize(displayName(p));
       const office = normalize(getOfficeSubtitle(p));
       return name.includes(q) || office.includes(q);
     });
-  }, [politicians, query]);
+  }, [filtered, query]);
 
   useEffect(() => {
     const onDocClick = (e) => {
@@ -94,13 +103,27 @@ function PoliticianPicker({ politicians = [], onPick }) {
           }
         }}
       />
+      <PoliticianFilters
+        level={level}
+        onLevelChange={setLevel}
+        levelCounts={levelCounts}
+        stateFilter={stateFilter}
+        onStateChange={setStateFilter}
+        availableStates={availableStates}
+        hasActiveFilters={hasActiveFilters}
+        onClearAll={clearAll}
+      />
       {open && (
         <div
           ref={listRef}
           className="absolute z-10 mt-1 w-full max-h-64 overflow-auto rounded-md border bg-white shadow"
         >
           {options.length === 0 && (
-            <div className="px-3 py-2 text-sm text-gray-500">No results</div>
+            <div className="px-3 py-2 text-sm text-gray-500">
+              {hasActiveFilters
+                ? "No politicians match the current filters"
+                : "No results"}
+            </div>
           )}
           {options.map((p, i) => {
             const active = i === highlight;
