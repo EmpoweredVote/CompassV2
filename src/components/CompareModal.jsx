@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { normalizeOfficeTitle, getPolName } from "../util/name";
 import placeholder from "../assets/placeholder.png";
+import usePoliticianList from "../hooks/usePoliticianList";
 
 const normalize = (s = "") =>
   s
@@ -139,18 +140,7 @@ function PoliticianPicker({ politicians = [], onPick }) {
 }
 
 function CompareModal({ onCompare, onClose }) {
-  const [politicians, setPoliticians] = useState([]);
-
-  useEffect(() => {
-    fetch(`${import.meta.env.VITE_API_URL}/compass/politicians`, {
-      credentials: "include",
-    })
-      .then((r) => r.json())
-      .then((r) => setPoliticians(Array.isArray(r) ? r : []))
-      .catch((e) =>
-        console.error("[CompareModal] fetch politicians failed", e)
-      );
-  }, []);
+  const { politicians } = usePoliticianList();
 
   return (
     <div className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center z-50">
