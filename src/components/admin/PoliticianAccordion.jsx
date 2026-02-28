@@ -1,5 +1,5 @@
 import PoliticianTopicContext from "./PoliticianTopicContext";
-import { getPolName, normalizeOfficeTitle } from "../../util/name";
+import { getPolName, getOfficeSubtitle } from "../../util/name";
 
 function PoliticianAccordion({
   politician,
@@ -38,7 +38,7 @@ function PoliticianAccordion({
         <div className="flex flex-col">
           <h2 className="text-xl font-semibold">{fullName}</h2>
           <span className="text-sm text-gray-600">
-            {normalizeOfficeTitle(politician.office_title)}
+            {getOfficeSubtitle(politician)}
           </span>
         </div>
       </div>

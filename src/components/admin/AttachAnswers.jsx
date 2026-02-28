@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { getPolName, normalizeOfficeTitle } from "../../util/name";
+import { getPolName, normalizeOfficeTitle, getOfficeSubtitle } from "../../util/name";
 
 // --- Small utilities ---
 const normalize = (s) =>
@@ -29,7 +29,7 @@ function PoliticianPicker({
     if (!q) return politicians;
     return politicians.filter((p) => {
       const name = normalize(displayName(p));
-      const office = normalize(p.office_title);
+      const office = normalize(getOfficeSubtitle(p));
       return name.includes(q) || office.includes(q);
     });
   }, [politicians, query]);
@@ -145,7 +145,7 @@ function PoliticianPicker({
                   <div className="flex flex-col">
                     <div className="font-medium">{displayName(p)}</div>
                     <div className="text-gray-500">
-                      {normalizeOfficeTitle(p.office_title)}
+                      {getOfficeSubtitle(p)}
                     </div>
                   </div>
                 </div>

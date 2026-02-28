@@ -6,7 +6,7 @@
 //   onClear() - called when user chooses "Clear comparison"
 //   onOpenFullModal() - called when user clicks the browse/expand button
 import { useEffect, useMemo, useRef, useState } from "react";
-import { getPolName, normalizeOfficeTitle } from "../util/name";
+import { getPolName, normalizeOfficeTitle, getOfficeSubtitle } from "../util/name";
 import placeholder from "../assets/placeholder.png";
 import usePoliticianList from "../hooks/usePoliticianList";
 
@@ -31,6 +31,15 @@ export default function InlinePoliticianPicker({
   const containerRef = useRef(null);
   const listRef = useRef(null);
   const inputRef = useRef(null);
+
+  // Hydrate stale localStorage politician with fresh API data (new fields)
+  useEffect(() => {
+    if (!currentPolitician || !politicians.length) return;
+    const fresh = politicians.find((p) => p.id === currentPolitician.id);
+    if (fresh && fresh.district_type && !currentPolitician.district_type) {
+      onSelect?.(fresh);
+    }
+  }, [politicians, currentPolitician, onSelect]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -59,7 +68,7 @@ export default function InlinePoliticianPicker({
     if (!q) return politicians;
     return politicians.filter((p) => {
       const name = normalize(getPolName(p));
-      const office = normalize(p.office_title);
+      const office = normalize(getOfficeSubtitle(p));
       return name.includes(q) || office.includes(q);
     });
   }, [politicians, query]);
@@ -147,7 +156,7 @@ export default function InlinePoliticianPicker({
           </h2>
           {currentPolitician?.office_title && (
             <p className="text-neutral-500 text-sm leading-snug">
-              {normalizeOfficeTitle(currentPolitician.office_title)}
+              {getOfficeSubtitle(currentPolitician)}
             </p>
           )}
         </div>
@@ -267,7 +276,7 @@ export default function InlinePoliticianPicker({
                     <div className="flex flex-col min-w-0 flex-1">
                       <div className="font-medium truncate">{getPolName(p)}</div>
                       <div className="text-neutral-500 text-xs truncate">
-                        {normalizeOfficeTitle(p.office_title)}
+                        {getOfficeSubtitle(p)}
                       </div>
                     </div>
                     {isCurrent && (

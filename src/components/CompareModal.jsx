@@ -1,6 +1,6 @@
 // CompareModal.jsx
 import { useEffect, useMemo, useRef, useState } from "react";
-import { normalizeOfficeTitle, getPolName } from "../util/name";
+import { normalizeOfficeTitle, getPolName, getOfficeSubtitle } from "../util/name";
 import placeholder from "../assets/placeholder.png";
 import usePoliticianList from "../hooks/usePoliticianList";
 
@@ -25,7 +25,7 @@ function PoliticianPicker({ politicians = [], onPick }) {
     if (!q) return politicians;
     return politicians.filter((p) => {
       const name = normalize(displayName(p));
-      const office = normalize(p.office_title);
+      const office = normalize(getOfficeSubtitle(p));
       return name.includes(q) || office.includes(q);
     });
   }, [politicians, query]);
@@ -126,7 +126,7 @@ function PoliticianPicker({ politicians = [], onPick }) {
                   <div className="flex flex-col">
                     <div className="font-medium">{displayName(p)}</div>
                     <div className="text-gray-500">
-                      {normalizeOfficeTitle(p.office_title)}
+                      {getOfficeSubtitle(p)}
                     </div>
                   </div>
                 </div>
