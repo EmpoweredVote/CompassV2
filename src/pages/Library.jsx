@@ -335,7 +335,7 @@ function Library() {
               title={belowThreshold ? "Add more topics to see your compass" : "View your compass"}
             >
               <div className={belowThreshold ? "opacity-25 pointer-events-none select-none" : ""}>
-                <RadarChart data={chartData} invertedSpokes={{}} labelFontSize={44} padding={160} labelOffset={35} />
+                <RadarChart data={chartData} invertedSpokes={invertedSpokes} labelFontSize={44} padding={160} labelOffset={35} />
               </div>
               {belowThreshold && (
                 <div className="absolute inset-0 flex items-center justify-center">
@@ -628,7 +628,11 @@ function Library() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              setRemoveConfirm(topic.id);
+                              if (selectedTopics.length <= 3) {
+                                setRemoveConfirm(topic.id);
+                              } else {
+                                setSelectedTopics(prev => prev.filter(id => id !== topic.id));
+                              }
                             }}
                             className="absolute top-2 right-2 w-6 h-6 rounded-full bg-[#59b0c4] text-white hover:bg-red-400 transition-colors flex items-center justify-center cursor-pointer"
                             title="Remove from compass"

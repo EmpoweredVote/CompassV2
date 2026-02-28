@@ -177,9 +177,12 @@ function LibraryDrawer({
       setHasRepositioned(true);
       // Reconstruct ordered items with write-in at the correct position
       const stanceIds = displayStances.map(s => s.id);
-      const writeInIndex = Math.floor(currentAnswer);
+      const stanceCount = stances.length;
+      const writeInDisplayIndex = isInverted
+        ? Math.floor(stanceCount + 1 - currentAnswer)
+        : Math.floor(currentAnswer);
       const items = [...stanceIds];
-      items.splice(writeInIndex, 0, "write-in");
+      items.splice(writeInDisplayIndex, 0, "write-in");
       setOrderedItems(items);
     } else {
       setShowWriteIn(false);
@@ -197,7 +200,9 @@ function LibraryDrawer({
     setOrderedItems(reordered);
     setHasRepositioned(true);
     const writeInIndex = reordered.indexOf("write-in");
-    const midpointValue = writeInIndex + 0.5;
+    const displayMidpoint = writeInIndex + 0.5;
+    const stanceCount = stances.length;
+    const midpointValue = isInverted ? (stanceCount + 1 - displayMidpoint) : displayMidpoint;
     onSelectWriteIn(topic, midpointValue, writeInText);
   };
 
@@ -269,7 +274,13 @@ function LibraryDrawer({
             {isOnCompass && (
               <div className="px-4 pt-2">
                 <button
-                  onClick={() => setShowRemoveConfirm(true)}
+                  onClick={() => {
+                    if (compassTopicCount <= 3) {
+                      setShowRemoveConfirm(true);
+                    } else {
+                      onRemoveFromCompass(topic);
+                    }
+                  }}
                   className="flex items-center gap-2 text-sm text-gray-500 hover:text-red-500 transition-colors cursor-pointer"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">

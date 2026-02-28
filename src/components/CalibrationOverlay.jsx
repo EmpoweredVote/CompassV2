@@ -294,7 +294,10 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
       setWriteInText(savedWriteIn);
       setHasRepositioned(true);
       const items = [...effectStances.map((s) => s.id)];
-      items.splice(Math.floor(val), 0, "write-in");
+      const displayIndex = isFlippedInEffect
+        ? Math.floor(effectStances.length + 1 - val)
+        : Math.floor(val);
+      items.splice(displayIndex, 0, "write-in");
       setOrderedItems(items);
     } else {
       setShowWriteIn(false);
@@ -532,7 +535,11 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     setOrderedItems(reordered);
     setHasRepositioned(true);
     const writeInIndex = reordered.indexOf("write-in");
-    selectWriteInPlacement(writeInIndex + 0.5);
+    const displayMidpoint = writeInIndex + 0.5;
+    const flipped = currentTopic && invertedSpokes[currentTopic.short_title];
+    const stanceCount = currentTopic?.stances?.length || 0;
+    const midpointValue = flipped ? (stanceCount + 1 - displayMidpoint) : displayMidpoint;
+    selectWriteInPlacement(midpointValue);
   };
 
   const handleWriteInTextChange = (newText) => {
@@ -832,7 +839,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
             {!showWriteIn ? (
               <>
                 {orderedStances.map((stance, i) => {
-                  const stanceValue = i + 1;
+                  const stanceValue = stance.value;
                   return (
                     <button
                       key={stance.id}
