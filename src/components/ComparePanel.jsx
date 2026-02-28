@@ -1,11 +1,18 @@
 import { useCompass } from "./CompassContext";
 import { useState, useEffect } from "react";
-import placeholder from "../assets/placeholder.png";
 import Favicon from "./Favicon";
-import { getPolName, normalizeOfficeTitle } from "../util/name";
+import { getPolName } from "../util/name";
 import { getQuestionText, parseTensionTitle } from "../util/topic";
+import InlinePoliticianPicker from "./InlinePoliticianPicker";
 
-function ComparePanel({ politician, dropdownValue, setDropdownValue }) {
+function ComparePanel({
+  politician,
+  dropdownValue,
+  setDropdownValue,
+  onSwitchPolitician,
+  onClearComparison,
+  onOpenFullModal,
+}) {
   const { topics, answers, setAnswers, compareAnswers, writeIns } =
     useCompass();
 
@@ -96,28 +103,14 @@ function ComparePanel({ politician, dropdownValue, setDropdownValue }) {
 
   return (
     <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm w-full flex flex-col">
-      {/* Politician header */}
-      <div className="flex items-center gap-4 p-5 pb-3">
-        <div className="size-16 rounded-full overflow-hidden shrink-0 ring-2 ring-neutral-100">
-          <img
-            src={
-              politician.photo_origin_url ||
-              politician.photo_custom_url ||
-              placeholder
-            }
-            className="w-full h-full object-cover object-center"
-          />
-        </div>
-        <div className="min-w-0">
-          <h2 className="text-lg font-bold leading-tight truncate">
-            {polName || "Selected Politician"}
-          </h2>
-          {politician.office_title && (
-            <p className="text-neutral-500 text-sm leading-snug">
-              {normalizeOfficeTitle(politician.office_title)}
-            </p>
-          )}
-        </div>
+      {/* Politician header — inline switcher */}
+      <div className="p-5 pb-3">
+        <InlinePoliticianPicker
+          currentPolitician={politician}
+          onSelect={onSwitchPolitician}
+          onClear={onClearComparison}
+          onOpenFullModal={onOpenFullModal}
+        />
       </div>
 
       {/* Topic selector */}
