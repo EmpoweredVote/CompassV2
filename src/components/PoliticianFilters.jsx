@@ -31,8 +31,22 @@ export default function PoliticianFilters({
 }) {
   return (
     <div className="select-none">
-      {/* Level pills row */}
-      <div className="flex flex-wrap items-center gap-1.5 px-3 pt-2 pb-1">
+      {/* Single row: state dropdown → level pills → clear controls */}
+      <div className="flex flex-wrap items-center gap-1.5 px-3 py-2">
+        {/* State dropdown */}
+        <select
+          value={stateFilter}
+          onChange={(e) => onStateChange(e.target.value)}
+          className="rounded-lg border border-neutral-200 px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-[#59b0c4]/40 focus:border-[#59b0c4] transition-colors"
+        >
+          <option value="">State</option>
+          {availableStates.map(({ code, name }) => (
+            <option key={code} value={code}>
+              {name}
+            </option>
+          ))}
+        </select>
+
         {/* All pill — always visible, no count */}
         <button
           type="button"
@@ -57,63 +71,8 @@ export default function PoliticianFilters({
             </button>
           );
         })}
-      </div>
 
-      {/* State dropdown + clear controls row */}
-      <div className="flex items-center gap-2 px-3 pb-2">
-        {/* State dropdown */}
-        <select
-          value={stateFilter}
-          onChange={(e) => onStateChange(e.target.value)}
-          className="rounded-lg border border-neutral-200 px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-[#59b0c4]/40 focus:border-[#59b0c4] transition-colors"
-        >
-          <option value="">State</option>
-          {availableStates.map(({ code, name }) => (
-            <option key={code} value={code}>
-              {name}
-            </option>
-          ))}
-        </select>
-
-        {/* Clear state x button */}
-        {stateFilter && (
-          <button
-            type="button"
-            onClick={() => onStateChange("")}
-            className="flex items-center gap-0.5 text-xs text-neutral-400 hover:text-neutral-600 transition-colors"
-            aria-label="Clear state filter"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 16 16"
-              fill="currentColor"
-              className="w-3 h-3"
-            >
-              <path d="M5.28 4.22a.75.75 0 00-1.06 1.06L6.94 8l-2.72 2.72a.75.75 0 101.06 1.06L8 9.06l2.72 2.72a.75.75 0 101.06-1.06L9.06 8l2.72-2.72a.75.75 0 00-1.06-1.06L8 6.94 5.28 4.22z" />
-            </svg>
-          </button>
-        )}
-
-        {/* Clear level x button */}
-        {level !== "All" && (
-          <button
-            type="button"
-            onClick={() => onLevelChange("All")}
-            className="flex items-center gap-0.5 text-xs text-neutral-400 hover:text-neutral-600 transition-colors"
-            aria-label="Clear level filter"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 16 16"
-              fill="currentColor"
-              className="w-3 h-3"
-            >
-              <path d="M5.28 4.22a.75.75 0 00-1.06 1.06L6.94 8l-2.72 2.72a.75.75 0 101.06 1.06L8 9.06l2.72 2.72a.75.75 0 101.06-1.06L9.06 8l2.72-2.72a.75.75 0 00-1.06-1.06L8 6.94 5.28 4.22z" />
-            </svg>
-          </button>
-        )}
-
-        {/* Clear all link */}
+        {/* Clear all link — pushed to the right */}
         {hasActiveFilters && (
           <button
             type="button"

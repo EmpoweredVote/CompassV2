@@ -167,7 +167,7 @@ function CompareModal({ onCompare, onClose }) {
 
   return (
     <div className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
+      <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-[30rem]">
         <h2 className="text-xl font-semibold mb-4">
           Select a politician to compare
         </h2>
