@@ -559,7 +559,8 @@ function Compass() {
             const a = allAnswers.find((x) => x.topic_id === id);
             const t = topicsRef.current.find((tt) => tt.id === id);
             if (!t) return null;
-            return [t.short_title, a ? a.value : 0];
+            if (!a || a.value === 0) return null;
+            return [t.short_title, a.value];
           })
           .filter(Boolean);
         setCompareAnswers(Object.fromEntries(mapped));
