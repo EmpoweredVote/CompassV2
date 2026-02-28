@@ -9,6 +9,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { getPolName, normalizeOfficeTitle, getOfficeSubtitle } from "../util/name";
 import placeholder from "../assets/placeholder.png";
 import usePoliticianList from "../hooks/usePoliticianList";
+import { useFilteredPoliticians } from "../hooks/useFilteredPoliticians";
+import PoliticianFilters from "./PoliticianFilters";
 
 const normalize = (s = "") =>
   s
@@ -24,6 +26,17 @@ export default function InlinePoliticianPicker({
   onOpenFullModal,
 }) {
   const { politicians, loading } = usePoliticianList();
+  const {
+    level,
+    setLevel,
+    stateFilter,
+    setStateFilter,
+    clearAll,
+    hasActiveFilters,
+    levelCounts,
+    availableStates,
+    filtered,
+  } = useFilteredPoliticians(politicians);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [highlight, setHighlight] = useState(0);
@@ -65,13 +78,13 @@ export default function InlinePoliticianPicker({
 
   const options = useMemo(() => {
     const q = normalize(query);
-    if (!q) return politicians;
-    return politicians.filter((p) => {
+    if (!q) return filtered;
+    return filtered.filter((p) => {
       const name = normalize(getPolName(p));
       const office = normalize(getOfficeSubtitle(p));
       return name.includes(q) || office.includes(q);
     });
-  }, [politicians, query]);
+  }, [filtered, query]);
 
   const ensureVisible = (i) => {
     const list = listRef.current;
@@ -191,6 +204,21 @@ export default function InlinePoliticianPicker({
             />
           </div>
 
+          {/* Filter controls */}
+          <PoliticianFilters
+            level={level}
+            onLevelChange={setLevel}
+            levelCounts={levelCounts}
+            stateFilter={stateFilter}
+            onStateChange={setStateFilter}
+            availableStates={availableStates}
+            hasActiveFilters={hasActiveFilters}
+            onClearAll={clearAll}
+          />
+
+          {/* Divider between filters and action rows */}
+          <div className="border-t border-neutral-100" />
+
           {/* Clear comparison row */}
           <button
             type="button"
@@ -246,7 +274,9 @@ export default function InlinePoliticianPicker({
             )}
             {!loading && options.length === 0 && (
               <div className="px-4 py-3 text-sm text-neutral-400 text-center">
-                No results
+                {hasActiveFilters
+                  ? "No politicians match the current filters"
+                  : "No results"}
               </div>
             )}
             {options.map((p, i) => {
