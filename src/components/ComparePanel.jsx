@@ -13,10 +13,15 @@ function ComparePanel({
   onClearComparison,
   onOpenFullModal,
 }) {
-  const { topics, answers, setAnswers, compareAnswers, writeIns } =
+  const { topics, selectedTopics, answers, setAnswers, compareAnswers, writeIns } =
     useCompass();
 
-  const topicNames = Object.keys(answers);
+  const topicNames = selectedTopics
+    .map((id) => {
+      const t = topics.find((topic) => topic.id === id);
+      return t ? t.short_title : null;
+    })
+    .filter(Boolean);
   const [selectedTopicID, setSelectedTopicID] = useState("");
   const [sources, setSources] = useState([]);
   const [reasoning, setReasoning] = useState("");

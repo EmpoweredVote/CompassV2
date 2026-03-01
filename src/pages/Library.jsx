@@ -327,15 +327,15 @@ function Library() {
       <div className="mt-4 px-4 md:px-6 max-w-5xl mx-auto">
         {hasCompass ? (
           /* ── Active compass ── */
-          <div className="flex flex-col md:flex-row gap-0 md:gap-8 items-center">
+          <div className="flex flex-col items-center">
             {/* Compass chart — clickable; grayed when below threshold */}
             <div
-              onClick={() => navigate("/results")}
-              className={`w-60 md:w-72 shrink-0 cursor-pointer transition-opacity relative ${belowThreshold ? "" : "hover:opacity-80"}`}
+              onClick={() => navigate("/results", { state: { clearCompare: true } })}
+              className={`w-full max-w-sm md:max-w-lg cursor-pointer transition-opacity relative ${belowThreshold ? "" : "hover:opacity-80"}`}
               title={belowThreshold ? "Add more topics to see your compass" : "View your compass"}
             >
               <div className={belowThreshold ? "opacity-25 pointer-events-none select-none" : ""}>
-                <RadarChart data={chartData} invertedSpokes={invertedSpokes} labelFontSize={44} padding={160} labelOffset={35} />
+                <RadarChart data={chartData} invertedSpokes={invertedSpokes} labelFontSize={38} padding={140} labelOffset={40} />
               </div>
               {belowThreshold && (
                 <div className="absolute inset-0 flex items-center justify-center">
@@ -346,50 +346,33 @@ function Library() {
               )}
             </div>
 
-            {/* Right side: heading + stat cards + actions */}
-            <div className="flex-1 min-w-0 w-full">
-              <div className="flex items-center gap-3 mb-4">
-                <h1 className="text-xl md:text-2xl font-semibold">
-                  Your Compass
-                </h1>
-                <button
-                  onClick={() => navigate("/help")}
-                  className="p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer"
-                  title="How it works"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z" />
-                  </svg>
-                </button>
-              </div>
-
-              {/* Stat cards */}
-              {answeredLoaded && (
-                <div className="grid grid-cols-2 gap-3 mb-4 w-full">
-                  <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3">
-                    <p className="text-2xl font-bold text-green-700">{answeredCount}</p>
-                    <p className="text-xs text-green-600 font-medium">Answered</p>
-                  </div>
-                  <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-                    <p className="text-2xl font-bold text-gray-700">{unansweredCount}</p>
-                    <p className="text-xs text-gray-500 font-medium">Remaining</p>
-                  </div>
-                </div>
-              )}
-
+            <div className="flex items-center gap-3 mt-2">
+              <h1 className="text-xl md:text-2xl font-semibold">
+                Your Compass
+              </h1>
               <button
-                onClick={() => navigate("/results")}
-                className="px-5 py-2 bg-black text-white rounded-full text-sm font-medium hover:opacity-90 transition-opacity cursor-pointer"
+                onClick={() => navigate("/help")}
+                className="p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer"
+                title="How it works"
               >
-                View Full Compass
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z" />
+                </svg>
               </button>
             </div>
+
+            <button
+              onClick={() => navigate("/results", { state: { clearCompare: true } })}
+              className="mt-3 px-5 py-2 bg-black text-white rounded-full text-sm font-medium hover:opacity-90 transition-opacity cursor-pointer"
+            >
+              View Full Compass
+            </button>
           </div>
         ) : (
           /* ── Empty / uncalibrated compass ── */
-          <div className="flex flex-col md:flex-row gap-4 md:gap-8 items-start">
+          <div className="flex flex-col items-center">
             {/* Placeholder compass */}
-            <div className="w-40 md:w-48 shrink-0 self-center md:self-start">
+            <div className="w-56 md:w-80">
               <svg viewBox="0 0 200 200" className="w-full h-full opacity-15">
                 {[1, 2, 3, 4, 5].map((level) => {
                   const r = (level / 5) * 80;
@@ -402,48 +385,23 @@ function Library() {
               </svg>
             </div>
 
-            {/* Right side: heading + stat cards + help */}
-            <div className="flex-1 min-w-0 w-full">
-              <div className="flex items-center gap-3 mb-1">
-                <h1 className="text-xl md:text-2xl font-semibold">
-                  Calibrate Your Compass
-                </h1>
-                <button
-                  onClick={() => navigate("/help")}
-                  className="p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer"
-                  title="How it works"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z" />
-                  </svg>
-                </button>
-              </div>
-              <p className="text-gray-500 text-sm mb-4">
-                Answer questions on the topics that matter to you and see where you stand
-              </p>
-
-              {/* Stat cards */}
-              {answeredLoaded && (
-                <div className="grid grid-cols-2 gap-3 w-full">
-                  <div className={`rounded-xl border px-4 py-3 ${
-                    answeredCount > 0
-                      ? "border-green-200 bg-green-50"
-                      : "border-gray-200 bg-gray-50"
-                  }`}>
-                    <p className={`text-2xl font-bold ${
-                      answeredCount > 0 ? "text-green-700" : "text-gray-400"
-                    }`}>{answeredCount}</p>
-                    <p className={`text-xs font-medium ${
-                      answeredCount > 0 ? "text-green-600" : "text-gray-400"
-                    }`}>Answered</p>
-                  </div>
-                  <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-                    <p className="text-2xl font-bold text-gray-700">{unansweredCount}</p>
-                    <p className="text-xs text-gray-500 font-medium">Remaining</p>
-                  </div>
-                </div>
-              )}
+            <div className="flex items-center gap-3 mt-2">
+              <h1 className="text-xl md:text-2xl font-semibold">
+                Calibrate Your Compass
+              </h1>
+              <button
+                onClick={() => navigate("/help")}
+                className="p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer"
+                title="How it works"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z" />
+                </svg>
+              </button>
             </div>
+            <p className="text-gray-500 text-sm mt-1">
+              Answer questions on the topics that matter to you and see where you stand
+            </p>
           </div>
         )}
       </div>
@@ -537,7 +495,7 @@ function Library() {
                   }`}
                 />
               </button>
-              <span className={!showAll ? "font-medium text-gray-900" : "text-gray-400"}>Unanswered</span>
+              <span className={!showAll ? "font-medium text-gray-900" : "text-gray-400"}>Unanswered{answeredLoaded && unansweredCount > 0 ? ` (${unansweredCount})` : ""}</span>
             </div>
           </div>
         </div>

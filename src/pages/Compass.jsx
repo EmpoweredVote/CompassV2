@@ -7,7 +7,7 @@ import CompareModal from "../components/CompareModal";
 import ComparePanel from "../components/ComparePanel";
 import SavePromptModal from "../components/SavePromptModal";
 import { useState, useEffect, useRef, useMemo } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useLocation } from "react-router";
 
 function SpokeHint({ onDismiss }) {
   return (
@@ -397,7 +397,14 @@ function Compass() {
   }, [selectedTab]);
 
   // -------- Load comparePol from localStorage on mount --------
+  const location = useLocation();
   useEffect(() => {
+    if (location.state?.clearCompare) {
+      setComparePol(null);
+      setCompareAnswers({});
+      localStorage.removeItem("comparePolitician");
+      return;
+    }
     const savedPol = localStorage.getItem("comparePolitician");
     if (savedPol) {
       try {
