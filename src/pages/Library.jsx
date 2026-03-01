@@ -310,6 +310,11 @@ function Library() {
   const totalTopics = topics.length;
   const answeredCount = answeredTopicIDs.filter((id) => activeTopicIDs.has(id)).length;
   const unansweredCount = totalTopics - answeredCount;
+
+  // Reset filter to "All" when everything is answered
+  useEffect(() => {
+    if (unansweredCount === 0 && !showAll) setShowAll(true);
+  }, [unansweredCount, showAll]);
   const MIN_TOPICS = 3;
   // Count how many SELECTED (compass) topics have answers — not all answered topics
   const answeredCompassCount = selectedTopics.filter((id) => {
@@ -361,12 +366,6 @@ function Library() {
               </button>
             </div>
 
-            <button
-              onClick={() => navigate("/results", { state: { clearCompare: true } })}
-              className="mt-3 px-5 py-2 bg-black text-white rounded-full text-sm font-medium hover:opacity-90 transition-opacity cursor-pointer"
-            >
-              View Full Compass
-            </button>
           </div>
         ) : (
           /* ── Empty / uncalibrated compass ── */
@@ -479,25 +478,27 @@ function Library() {
               className="w-full bg-transparent outline-none text-sm"
             />
           </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <span className={showAll ? "font-medium text-gray-900" : "text-gray-400"}>All</span>
-              <button
-                onClick={() => setShowAll(!showAll)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 cursor-pointer ${
-                  showAll ? "bg-gray-300" : "bg-[#00657c]"
-                }`}
-                aria-label="Toggle between all topics and unanswered only"
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
-                    showAll ? "translate-x-1" : "translate-x-6"
+          {answeredLoaded && unansweredCount > 0 && (
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <span className={showAll ? "font-medium text-gray-900" : "text-gray-400"}>All</span>
+                <button
+                  onClick={() => setShowAll(!showAll)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 cursor-pointer ${
+                    showAll ? "bg-gray-300" : "bg-[#00657c]"
                   }`}
-                />
-              </button>
-              <span className={!showAll ? "font-medium text-gray-900" : "text-gray-400"}>Unanswered{answeredLoaded && unansweredCount > 0 ? ` (${unansweredCount})` : ""}</span>
+                  aria-label="Toggle between all topics and unanswered only"
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                      showAll ? "translate-x-1" : "translate-x-6"
+                    }`}
+                  />
+                </button>
+                <span className={!showAll ? "font-medium text-gray-900" : "text-gray-400"}>Unanswered ({unansweredCount})</span>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Topic Cards by Category */}
