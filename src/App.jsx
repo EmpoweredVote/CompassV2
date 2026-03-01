@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -13,20 +12,21 @@ import BuildCompass from "./pages/BuildCompass";
 import Layout from "./components/Layout";
 import { CompassProvider } from "./components/CompassContext";
 import AdminDashboard from "./components/admin/AdminDashboard";
-import { Onboarding } from "./pages/Onboarding";
 
-// Routes that should bypass the help guard
-const HELP_GUARD_BYPASS = ["/help", "/login", "/register", "/admin", "/401"];
+// Routes that should bypass the calibration guard
+const GUARD_BYPASS = ["/help", "/login", "/register", "/admin", "/401", "/results"];
 
 function HelpGuard({ children }) {
   const location = useLocation();
-  const helpSeen = localStorage.getItem("help_seen");
-  const isBypass = HELP_GUARD_BYPASS.some(
+  const calibrationDone =
+    localStorage.getItem("calibration_completed") === "true" ||
+    localStorage.getItem("calibration_skipped") === "true";
+  const isBypass = GUARD_BYPASS.some(
     (path) => location.pathname === path || location.pathname.startsWith("/admin")
   );
 
-  if (!helpSeen && !isBypass) {
-    return <Navigate to="/help" replace />;
+  if (!calibrationDone && !isBypass) {
+    return <Navigate to="/results" replace />;
   }
 
   return children;
@@ -39,7 +39,7 @@ function App() {
         {/* Public routes that bypass the help guard */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/help" element={<Onboarding />} />
+        <Route path="/help" element={<Navigate to="/results" replace />} />
         <Route path="/401" element={<Unauthorized />} />
 
         {/* Protected admin route */}

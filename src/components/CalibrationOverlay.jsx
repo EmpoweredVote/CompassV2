@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useCompass } from "./CompassContext";
 import RadarChart from "./RadarChart";
 import { getQuestionText, parseTensionTitle } from "../util/topic";
+import calibrationDemoGif from "../assets/calibration-demo.gif";
 import {
   DndContext,
   closestCenter,
@@ -608,14 +609,34 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
   if (step === "welcome") {
     return (
       <div className="fixed inset-0 z-50 bg-white overflow-y-auto flex flex-col items-center justify-center px-6 py-12">
-        <GhostRadar />
-        <h1 className="text-3xl md:text-4xl font-semibold text-center mt-6 mb-3">
-          Calibrate Your Compass
+        <div className="w-full max-w-sm md:max-w-2xl lg:max-w-4xl rounded-xl mb-6 overflow-hidden">
+          <img
+            src={calibrationDemoGif}
+            alt="Compass calibration demo"
+            className="w-[calc(100%+8px)] max-w-none -ml-1"
+          />
+        </div>
+        <h1 className="text-3xl md:text-4xl font-semibold text-center mb-4">
+          Build Your Political Compass
         </h1>
-        <p className="text-gray-500 text-center max-w-md mb-8 text-base md:text-lg leading-relaxed">
-          Answer a few questions to build your political compass. Pick the topics
-          that matter to you, then tell us where you stand on each one.
-        </p>
+        <ul className="text-gray-600 text-left max-w-sm mb-8 space-y-2 text-base md:text-lg">
+          <li className="flex items-start gap-2">
+            <span className="text-ev-yellow mt-1">&#9679;</span>
+            Pick the topics that matter to you
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-ev-yellow mt-1">&#9679;</span>
+            Answer where you stand on each one
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-ev-yellow mt-1">&#9679;</span>
+            See your compass take shape in real time
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-ev-yellow mt-1">&#9679;</span>
+            Compare your views with politicians
+          </li>
+        </ul>
         <button
           onClick={handleGetStarted}
           className="px-8 py-3 bg-ev-yellow text-black font-semibold rounded-full text-base md:text-lg shadow-sm hover:opacity-90 transition-opacity cursor-pointer"
