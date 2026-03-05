@@ -195,7 +195,7 @@ function Compass() {
 
   function ActionButtons() {
     return (
-      <div className="flex gap-4 mt-4">
+      <div className="flex gap-4 mt-1">
         {showChart && (
           <button
             onClick={() => setIsCompareModal(true)}
@@ -590,7 +590,7 @@ function Compass() {
         }}
       />
     ) : (
-    <div className="px-4 py-6 flex flex-col items-center overflow-hidden">
+    <div className="px-4 py-6 pb-16 flex flex-col items-center overflow-hidden">
       {/* -------- back button -------- */}
       <div className="self-start w-full lg:px-4">
         <button
@@ -695,7 +695,7 @@ function Compass() {
           {showChart ? (
             <>
               <Legend />
-              <div className="w-full min-h-[280px] max-h-[calc(100dvh-240px)] aspect-square mx-auto relative">
+              <div className="w-full min-h-[280px] max-h-[calc(100dvh-280px)] aspect-square mx-auto relative">
                 {showSpokeHint && <SpokeHint onDismiss={dismissSpokeHint} />}
                 <RadarChart
                   data={chartData}
