@@ -3,7 +3,6 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useCompass } from "./CompassContext";
 import RadarChart from "./RadarChart";
 import { getQuestionText, parseTensionTitle } from "../util/topic";
-import calibrationDemoGif from "../assets/calibration-demo.gif";
 import {
   DndContext,
   closestCenter,
@@ -612,34 +611,96 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
   if (step === "welcome") {
     return (
       <div className="fixed inset-0 z-50 bg-white overflow-y-auto flex flex-col items-center justify-center px-6 py-12">
-        <div className="w-full max-w-sm md:max-w-2xl lg:max-w-4xl rounded-xl mb-6 overflow-hidden">
-          <img
-            src={calibrationDemoGif}
-            alt="Compass calibration demo"
-            className="w-[calc(100%+8px)] max-w-none -ml-1"
-          />
+        {/* Static SVG compass illustration — replaces calibration-demo.gif */}
+        <div className="w-full max-w-sm mx-auto mb-8">
+          <svg viewBox="0 0 200 200" className="w-full h-full">
+            {/* Grid rings */}
+            {[1, 2, 3, 4, 5].map((level) => {
+              const r = (level / 5) * 80;
+              return (
+                <circle
+                  key={level}
+                  cx="100"
+                  cy="100"
+                  r={r}
+                  fill="none"
+                  stroke="#e5e7eb"
+                  strokeWidth="1.5"
+                />
+              );
+            })}
+            {/* Spoke lines */}
+            {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => {
+              const angle = (2 * Math.PI * i) / 8;
+              return (
+                <line
+                  key={i}
+                  x1="100"
+                  y1="100"
+                  x2={100 + 80 * Math.sin(angle)}
+                  y2={100 - 80 * Math.cos(angle)}
+                  stroke="#e5e7eb"
+                  strokeWidth="1.5"
+                />
+              );
+            })}
+            {/* User compass polygon — ev-coral fill */}
+            <polygon
+              points={[0, 1, 2, 3, 4, 5, 6, 7]
+                .map((i) => {
+                  const angle = (2 * Math.PI * i) / 8;
+                  const values = [0.7, 0.9, 0.5, 0.8, 0.6, 0.85, 0.4, 0.75];
+                  const r = values[i] * 80;
+                  return `${100 + r * Math.sin(angle)},${100 - r * Math.cos(angle)}`;
+                })
+                .join(" ")}
+              fill="#ff5740"
+              fillOpacity="0.25"
+              stroke="#ff5740"
+              strokeWidth="2"
+              strokeLinejoin="round"
+            />
+            {/* Comparison polygon — ev-light-blue fill */}
+            <polygon
+              points={[0, 1, 2, 3, 4, 5, 6, 7]
+                .map((i) => {
+                  const angle = (2 * Math.PI * i) / 8;
+                  const values = [0.5, 0.6, 0.8, 0.4, 0.9, 0.55, 0.7, 0.45];
+                  const r = values[i] * 80;
+                  return `${100 + r * Math.sin(angle)},${100 - r * Math.cos(angle)}`;
+                })
+                .join(" ")}
+              fill="#59b0c4"
+              fillOpacity="0.2"
+              stroke="#59b0c4"
+              strokeWidth="2"
+              strokeLinejoin="round"
+            />
+            {/* Accent dots on user polygon vertices */}
+            {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => {
+              const angle = (2 * Math.PI * i) / 8;
+              const values = [0.7, 0.9, 0.5, 0.8, 0.6, 0.85, 0.4, 0.75];
+              const r = values[i] * 80;
+              return (
+                <circle
+                  key={i}
+                  cx={100 + r * Math.sin(angle)}
+                  cy={100 - r * Math.cos(angle)}
+                  r="4"
+                  fill="#fed12e"
+                  stroke="white"
+                  strokeWidth="1.5"
+                />
+              );
+            })}
+          </svg>
         </div>
         <h1 className="text-3xl md:text-4xl font-semibold text-center mb-4">
           Build Your Political Compass
         </h1>
-        <ul className="text-gray-600 text-left max-w-sm mb-8 space-y-2 text-base md:text-lg">
-          <li className="flex items-start gap-2">
-            <span className="text-ev-yellow mt-1">&#9679;</span>
-            Pick the topics that matter to you
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-ev-yellow mt-1">&#9679;</span>
-            Answer where you stand on each one
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-ev-yellow mt-1">&#9679;</span>
-            See your compass take shape in real time
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-ev-yellow mt-1">&#9679;</span>
-            Compare your views with politicians
-          </li>
-        </ul>
+        <p className="text-gray-600 text-base md:text-lg text-center max-w-sm mb-8">
+          Pick topics that matter to you, answer where you stand, and see your political compass take shape.
+        </p>
         <button
           onClick={handleGetStarted}
           className="px-8 py-3 bg-ev-yellow text-black font-semibold rounded-full text-base md:text-lg shadow-sm hover:opacity-90 transition-opacity cursor-pointer"
