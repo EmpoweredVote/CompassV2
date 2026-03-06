@@ -10,24 +10,6 @@ import CoachMark from "../components/CoachMark";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router";
 
-function SpokeHint({ onDismiss }) {
-  return (
-    <div className="absolute top-[22%] right-[15%] z-10 flex items-start gap-2 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-lg pl-3 pr-7 py-2.5 text-sm text-gray-600 max-w-[210px] shadow-md">
-      <button onClick={onDismiss} className="absolute top-1.5 right-1.5 text-gray-400 hover:text-black cursor-pointer">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
-          <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
-        </svg>
-      </button>
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 shrink-0 text-ev-muted-blue mt-0.5">
-        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clipRule="evenodd" />
-      </svg>
-      <div>
-        <span>Click any spoke to invert it.</span>
-      </div>
-    </div>
-  );
-}
-
 function BelowThresholdChart({ answeredCompassCount, needsMore, onStartCalibration, chartData, unansweredSpokesMap, invertedSpokes }) {
   return (
     <div
@@ -199,6 +181,7 @@ function Compass() {
       <div className="flex gap-4 mt-1">
         {showChart && (
           <button
+            ref={compareRef}
             onClick={() => setIsCompareModal(true)}
             className="px-4 sm:px-6 py-2 text-sm sm:text-base bg-black text-white rounded-full hover:bg-ev-yellow-dark hover:text-black transition-colors cursor-pointer"
           >
@@ -380,13 +363,38 @@ function Compass() {
   };
 
   // -------- Local UI State --------
-  const [showSpokeHint, setShowSpokeHint] = useState(
-    () => !localStorage.getItem("onboarding_spokeFlip")
-  );
-  const dismissSpokeHint = () => {
-    setShowSpokeHint(false);
-    localStorage.setItem("onboarding_spokeFlip", "1");
+  // Post-calibration tour state
+  const [tourStep, setTourStep] = useState(-1); // -1 = not active, 0-3 = active step
+
+  // Tour target refs
+  const spokeRef = useRef(null);    // Chart container div (for step 0 — "click any spoke")
+  const compareRef = useRef(null);  // Compare button (for step 1)
+  const backToLibRef = useRef(null); // "Back to Library" button (for step 2)
+  const helpBtnRef = useRef(null);  // The ? help button (for step 3)
+
+  // Tour messages indexed by step
+  const tourMessages = [
+    "Click any spoke to flip its direction and see the issue from a different angle",
+    "See how your views line up with a politician",
+    "Add or change topics anytime from the Library",
+    "Need a refresher? The walkthrough is always here",
+  ];
+
+  // Tour advancement logic
+  const advanceTour = () => {
+    if (tourStep < 3) {
+      setTourStep(tourStep + 1);
+    } else {
+      // Final step — dismiss
+      localStorage.setItem("onboarding_postCalTour", "1");
+      setTourStep(-1);
+    }
   };
+  const skipTour = () => {
+    localStorage.setItem("onboarding_postCalTour", "1");
+    setTourStep(-1);
+  };
+
   const [drawerTopic, setDrawerTopic] = useState(null);
   const [isCompareModal, setIsCompareModal] = useState(false);
 
@@ -468,6 +476,16 @@ function Compass() {
     compareTourDismissed.current = true;
     setCompareTourStep(-1);
   };
+
+  // Handle helpBtnRef edge case: help button is in Layout.jsx, outside Compass DOM tree
+  useEffect(() => {
+    if (tourStep === 3) {
+      const helpEl = document.querySelector('[aria-label="Help"]');
+      if (helpEl) {
+        helpBtnRef.current = helpEl;
+      }
+    }
+  }, [tourStep]);
 
   // Compare Details & Stance Explorer state
   const [dropdownValue, setDropdownValue] = useState("");
@@ -691,6 +709,11 @@ function Compass() {
           setCalibrationCompleted(true);
           setCalibrationActive(false);
           setStartAtPick(false);
+          // Start post-cal tour if not already dismissed
+          if (!localStorage.getItem("onboarding_postCalTour")) {
+            // Small delay to let compass render before positioning coach marks
+            setTimeout(() => setTourStep(0), 500);
+          }
         }}
         onSkip={() => {
           setCalibrationSkipped(true);
@@ -705,6 +728,7 @@ function Compass() {
       {/* -------- back button -------- */}
       <div className="self-start w-full lg:px-4">
         <button
+          ref={backToLibRef}
           onClick={() => navigate("/library")}
           className="flex items-center gap-1 text-sm text-gray-500 hover:text-black transition-colors cursor-pointer mb-2"
         >
@@ -725,8 +749,10 @@ function Compass() {
           {showChart ? (
             <>
               <Legend />
-              <div ref={chartContainerRef} className="w-full min-h-[320px] max-h-[calc(100dvh-180px)] max-w-2xl mx-auto relative">
-                {showSpokeHint && <SpokeHint onDismiss={dismissSpokeHint} />}
+              <div
+                ref={(el) => { chartContainerRef.current = el; spokeRef.current = el; }}
+                className="w-full min-h-[320px] max-h-[calc(100dvh-180px)] max-w-2xl mx-auto relative"
+              >
                 <RadarChart
                   data={chartData}
                   unansweredSpokes={unansweredSpokesMap}
@@ -807,7 +833,6 @@ function Compass() {
             <>
               <Legend />
               <div className="w-full min-h-[280px] max-h-[calc(100dvh-240px)] mx-auto relative">
-                {showSpokeHint && <SpokeHint onDismiss={dismissSpokeHint} />}
                 <RadarChart
                   data={chartData}
                   unansweredSpokes={unansweredSpokesMap}
@@ -875,6 +900,24 @@ function Compass() {
           onNext={advanceCompareTour}
           onSkipAll={skipCompareTour}
           onDismiss={advanceCompareTour}
+          show={true}
+        />
+      )}
+
+      {/* -------- Post-calibration guided tour -------- */}
+      {tourStep >= 0 && (
+        <CoachMark
+          targetRef={
+            tourStep === 0 ? spokeRef
+            : tourStep === 1 ? compareRef
+            : tourStep === 2 ? backToLibRef
+            : helpBtnRef
+          }
+          message={tourMessages[tourStep]}
+          stepLabel={`${tourStep + 1} of 4`}
+          onNext={advanceTour}
+          onSkipAll={skipTour}
+          onDismiss={advanceTour}
           show={true}
         />
       )}
