@@ -53,6 +53,7 @@ function Layout({ children }) {
     localStorage.removeItem("quiz_progress");
     localStorage.removeItem("onboarding_libraryTour");
     localStorage.removeItem("onboarding_compareTour");
+    localStorage.removeItem("onboarding_topicPickHint");
     // Clear context state
     setAnswers({});
     setWriteIns({});

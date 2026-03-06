@@ -19,6 +19,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
+import CoachMark from "./CoachMark";
 
 const STORAGE_KEY = "calibration_progress";
 const MAX_TOPICS = 8;
@@ -309,6 +310,12 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
       setHasRepositioned(false);
     }
   }, [currentIndex, step, pickedTopics, topics, answers, writeIns, invertedSpokes]);
+
+  // Topic picker coach mark — shown once on first visit to pick step
+  const firstTopicRef = useRef(null);
+  const [topicPickHintDismissed, setTopicPickHintDismissed] = useState(
+    () => !!localStorage.getItem("onboarding_topicPickHint")
+  );
 
   // Write-in awareness hint — shown only on the first question (currentIndex === 0)
   // Dismissed permanently after advancing past first question or clicking "Write your own..."
@@ -755,7 +762,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
 
         {/* Topic list */}
         <div className="px-4 py-4 max-w-2xl mx-auto pb-32">
-          {categories.map((category) => {
+          {categories.map((category, catIdx) => {
             if (!category.topics || category.topics.length === 0) return null;
             return (
               <div key={category.id} className="mb-6">
@@ -763,13 +770,16 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
                   {category.title}
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {category.topics.map((topic) => {
+                  {category.topics.map((topic, topicIdx) => {
                     const fullTopic = topics.find((t) => t.id === topic.id) || topic;
                     const isSelected = pickedTopics.includes(topic.id);
                     const atCap = pickedTopics.length >= MAX_TOPICS && !isSelected;
+                    // Attach ref to the very first topic card for the coach mark
+                    const isFirstTopic = catIdx === 0 && topicIdx === 0;
                     return (
                       <button
                         key={topic.id}
+                        ref={isFirstTopic ? firstTopicRef : undefined}
                         onClick={() => !atCap && togglePick(topic.id)}
                         disabled={atCap}
                         className={`text-left px-4 py-3 rounded-xl border-2 transition-all duration-200 cursor-pointer flex items-center justify-between gap-2 ${
@@ -821,6 +831,19 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
             </button>
           </div>
         </div>
+
+        {/* Topic picker coach mark — highlights first topic, explains why */}
+        {!topicPickHintDismissed && !startAtPick && (
+          <CoachMark
+            targetRef={firstTopicRef}
+            message="Tap topics you care about most when voting — these shape your personal compass and help you compare with politicians."
+            onDismiss={() => {
+              localStorage.setItem("onboarding_topicPickHint", "1");
+              setTopicPickHintDismissed(true);
+            }}
+            show={true}
+          />
+        )}
       </div>
     );
   }
