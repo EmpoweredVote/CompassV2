@@ -307,11 +307,11 @@ function Compass() {
   // This replaces the BelowThresholdChart overlay — instead of showing a message,
   // send the user straight to the pick screen so they can add more topics.
   useEffect(() => {
-    if (!showChart && !calibrationActive && selectedTopics.length > 0) {
+    if (topicsLoaded && !showChart && !calibrationActive && selectedTopics.length > 0) {
       setStartAtPick(true);
       setCalibrationActive(true);
     }
-  }, [showChart, calibrationActive, selectedTopics.length]);
+  }, [topicsLoaded, showChart, calibrationActive, selectedTopics.length]);
 
   // Show overlay when active (stays shown even as answers change mid-flow)
   const showCalibration = calibrationActive;
