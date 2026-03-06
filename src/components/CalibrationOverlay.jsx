@@ -741,7 +741,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
             </button>
             <div className="flex-1">
               <h1 className="text-xl font-semibold">Choose Your Topics</h1>
-              <p className="text-gray-500 text-sm">Pick 3 to 8 topics for your compass</p>
+              <p className="text-gray-500 text-sm">Pick the issues that matter most to you when you vote</p>
             </div>
             <span className={`shrink-0 text-sm font-medium px-3 py-1 rounded-full ${
               pickedTopics.length >= MIN_TOPICS
