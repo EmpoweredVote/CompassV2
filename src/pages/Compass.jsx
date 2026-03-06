@@ -6,6 +6,7 @@ import LibraryDrawer from "../components/LibraryDrawer";
 import CompareModal from "../components/CompareModal";
 import ComparePanel from "../components/ComparePanel";
 import SavePromptModal from "../components/SavePromptModal";
+import CoachMark from "../components/CoachMark";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router";
 
@@ -389,6 +390,12 @@ function Compass() {
   const [drawerTopic, setDrawerTopic] = useState(null);
   const [isCompareModal, setIsCompareModal] = useState(false);
 
+  // -------- Compare deep-dive tour --------
+  const [compareTourStep, setCompareTourStep] = useState(-1); // -1 = inactive, 0-3 = active
+  const compareTourDismissed = useRef(!!localStorage.getItem("onboarding_compareTour"));
+  // Ref for the radar chart container — used as target for compare tour steps 2 & 3
+  const chartContainerRef = useRef(null);
+
   // NEW: selected comparison politician
   const [comparePol, setComparePol] = useState(null); // { id, full_name/first/last, ... }
 
@@ -407,6 +414,59 @@ function Compass() {
 
   const handleOpenFullModal = () => {
     setIsCompareModal(true);
+  };
+
+  // -------- Compare tour trigger: fires on first compare selection --------
+  useEffect(() => {
+    if (!comparePol || compareTourDismissed.current) return;
+    // Delay to let ComparePanel render before positioning coach marks
+    const timer = setTimeout(() => setCompareTourStep(0), 600);
+    return () => clearTimeout(timer);
+  }, [comparePol]);
+
+  // Helper: get the DOM target for each compare tour step
+  const getCompareTourRef = (step) => {
+    const el = (() => {
+      switch (step) {
+        case 0: {
+          // InlinePoliticianPicker container — first child of ComparePanel white card
+          const panel = document.querySelector('.bg-white.rounded-2xl.border.border-neutral-200');
+          return panel?.querySelector('.p-5') || panel;
+        }
+        case 1:
+          return document.getElementById('topic-dropdown');
+        case 2:
+        case 3:
+          // Radar chart container — spotlights the comparison overlay area
+          return chartContainerRef.current;
+        default:
+          return null;
+      }
+    })();
+    return { current: el };
+  };
+
+  const compareTourMessages = [
+    "Search for any politician to compare your views side by side. You can switch politicians anytime.",
+    "Pick a topic to see how you both answered — your stances appear side by side below.",
+    "The blue overlay shows the politician's positions. Where your shapes overlap, you agree.",
+    "Flipping a spoke changes the visual layout, but your actual stance stays exactly the same — it's just a different perspective.",
+  ];
+
+  const advanceCompareTour = () => {
+    if (compareTourStep < 3) {
+      setCompareTourStep(compareTourStep + 1);
+    } else {
+      localStorage.setItem("onboarding_compareTour", "1");
+      compareTourDismissed.current = true;
+      setCompareTourStep(-1);
+    }
+  };
+
+  const skipCompareTour = () => {
+    localStorage.setItem("onboarding_compareTour", "1");
+    compareTourDismissed.current = true;
+    setCompareTourStep(-1);
   };
 
   // Compare Details & Stance Explorer state
@@ -665,7 +725,7 @@ function Compass() {
           {showChart ? (
             <>
               <Legend />
-              <div className="w-full min-h-[320px] max-h-[calc(100dvh-180px)] max-w-2xl mx-auto relative">
+              <div ref={chartContainerRef} className="w-full min-h-[320px] max-h-[calc(100dvh-180px)] max-w-2xl mx-auto relative">
                 {showSpokeHint && <SpokeHint onDismiss={dismissSpokeHint} />}
                 <RadarChart
                   data={chartData}
@@ -805,6 +865,19 @@ function Compass() {
 
       {/* -------- save prompt for guests -------- */}
       <SavePromptModal />
+
+      {/* -------- Compare deep-dive tour -------- */}
+      {compareTourStep >= 0 && comparePol && (
+        <CoachMark
+          targetRef={getCompareTourRef(compareTourStep)}
+          message={compareTourMessages[compareTourStep]}
+          stepLabel={`${compareTourStep + 1} of 4`}
+          onNext={advanceCompareTour}
+          onSkipAll={skipCompareTour}
+          onDismiss={advanceCompareTour}
+          show={true}
+        />
+      )}
     </div>
     )}
     </>

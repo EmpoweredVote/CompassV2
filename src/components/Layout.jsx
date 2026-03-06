@@ -50,6 +50,7 @@ function Layout({ children }) {
     localStorage.removeItem("savePromptModalDismissed");
     localStorage.removeItem("quiz_progress");
     localStorage.removeItem("onboarding_libraryTour");
+    localStorage.removeItem("onboarding_compareTour");
     // Clear context state
     setAnswers({});
     setWriteIns({});
