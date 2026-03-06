@@ -83,7 +83,7 @@ function SortableStanceLabel({ id, text }) {
     <div
       ref={setNodeRef}
       style={style}
-      className="px-4 py-2.5 rounded-lg text-sm sm:text-base font-medium bg-gray-50 text-gray-600 border border-gray-200"
+      className="px-4 py-2.5 rounded-lg text-sm font-medium bg-gray-50 text-gray-600 border border-gray-200"
     >
       {text}
     </div>
@@ -146,7 +146,7 @@ function SortableWriteInCard({ id, text, onChange, onCancel, showHint }) {
           onChange={(e) => onChange(e.target.value)}
           placeholder="Write your stance here..."
           rows={2}
-          className="text-sm sm:text-base font-medium resize-none bg-transparent focus:outline-none"
+          className="text-sm font-medium resize-none bg-transparent focus:outline-none"
         />
         {showHint && (
           <p className="text-xs font-medium text-ev-coral">
