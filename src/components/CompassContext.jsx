@@ -34,6 +34,8 @@ export function CompassProvider({ children }) {
   const [topics, setTopics] = useState([]);
   const [categories, setCategories] = useState([]);
   const [catLoaded, setCatLoaded] = useState(false);
+  const [topicsLoaded, setTopicsLoaded] = useState(false);
+  const [topicsError, setTopicsError] = useState(false);
   const [showPrevAnswers, setShowPrevAnswers] = useState();
   const [selectedTopics, setSelected] = useState(
     () => safeParse(localStorage.getItem("selectedTopics"), [])
@@ -120,9 +122,16 @@ export function CompassProvider({ children }) {
       ]);
       setTopics(topicsRes);
       setCategories(catsRes);
+      setTopicsLoaded(true);
     } catch {
-      // Server unreachable — state stays at defaults
+      // Server unreachable — signal error to consumers
+      setTopicsError(true);
     }
+  };
+
+  const retryLoadTopics = () => {
+    setTopicsError(false);
+    refreshData();
   };
 
   // Fetch selected topics from server (called on mount + after login)
@@ -153,6 +162,25 @@ export function CompassProvider({ children }) {
     };
     init().catch(() => {});
   }, []);
+
+  // Filter out stale topic IDs (admin-deleted topics) from selectedTopics
+  useEffect(() => {
+    if (topics.length === 0) return;
+    setSelected((prev) => {
+      const validIds = new Set(topics.map((t) => t.id));
+      const filtered = prev.filter((id) => validIds.has(id));
+      if (filtered.length !== prev.length) {
+        // Some topics were removed — update localStorage
+        localStorage.setItem("selectedTopics", JSON.stringify(filtered));
+        // If count drops below 3, re-trigger calibration
+        if (filtered.length < 3) {
+          localStorage.removeItem("calibration_completed");
+        }
+        return filtered;
+      }
+      return prev;
+    });
+  }, [topics]);
 
   // Sync selectedTopics to localStorage + server when it changes
   const syncTimer = useRef(null);
@@ -200,6 +228,9 @@ export function CompassProvider({ children }) {
         refreshData,
         refreshSelectedTopics,
         catLoaded,
+        topicsLoaded,
+        topicsError,
+        retryLoadTopics,
         isLoggedIn,
         setIsLoggedIn,
         username,

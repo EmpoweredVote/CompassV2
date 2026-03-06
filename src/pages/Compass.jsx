@@ -222,6 +222,9 @@ function Compass() {
     invertedSpokes,
     setInvertedSpokes,
     isLoggedIn,
+    topicsLoaded,
+    topicsError,
+    retryLoadTopics,
   } = useCompass();
 
   // -------- Minimum topic gate --------
@@ -565,6 +568,28 @@ function Compass() {
   }, [comparePol, selectedTopics, setCompareAnswers]);
 
   const navigate = useNavigate();
+
+  // -------- Loading gate: block all calibration/compass rendering until topics are ready --------
+  // Placed after all hooks to comply with Rules of Hooks.
+  // Prevents needsCalibration from evaluating against empty topics array.
+  if (!topicsLoaded && !topicsError) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="w-8 h-8 border-[3px] border-[#ff5740] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (topicsError && topics.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <p className="text-gray-600 text-base">Couldn't load topics</p>
+        <button onClick={retryLoadTopics} className="px-5 py-2 bg-black text-white rounded-full text-sm font-semibold hover:opacity-90 transition-opacity cursor-pointer">
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   return (
     <>
