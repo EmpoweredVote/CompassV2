@@ -25,6 +25,8 @@ const SMOOTH_TRANSITION = {
   easing: "cubic-bezier(0.25, 1, 0.5, 1)",
 };
 
+const QUIZ_STORAGE_KEY = "quiz_progress";
+
 function SortableStanceLabel({ id, text }) {
   const { setNodeRef, transform, transition } = useSortable({
     id,
@@ -182,7 +184,19 @@ export function Quiz() {
       });
   }, [mode, topics, isLoggedIn]);
 
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentIndex, setCurrentIndex] = useState(() => {
+    try {
+      const saved = localStorage.getItem(QUIZ_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Only restore if mode matches
+        if (parsed.mode === mode) {
+          return parsed.currentIndex || 0;
+        }
+      }
+    } catch {}
+    return 0;
+  });
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [showWriteIn, setShowWriteIn] = useState(false);
   const [writeInText, setWriteInText] = useState("");
@@ -197,6 +211,36 @@ export function Quiz() {
       activationConstraint: { delay: 150, tolerance: 5 },
     })
   );
+
+  // Validate saved quiz progress against current topic data — restart if stale
+  useEffect(() => {
+    if (!quizTopicIds.length) return;
+    try {
+      const saved = localStorage.getItem(QUIZ_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.mode !== mode) {
+          // Mode mismatch — restart
+          localStorage.removeItem(QUIZ_STORAGE_KEY);
+          setCurrentIndex(0);
+          return;
+        }
+        if (parsed.currentIndex >= quizTopicIds.length) {
+          // Saved index beyond current topic list — restart
+          localStorage.removeItem(QUIZ_STORAGE_KEY);
+          setCurrentIndex(0);
+        }
+      }
+    } catch {
+      localStorage.removeItem(QUIZ_STORAGE_KEY);
+    }
+  }, [quizTopicIds.length, mode]);
+
+  // Persist quiz progress on every currentIndex change
+  useEffect(() => {
+    const progress = { currentIndex, mode };
+    localStorage.setItem(QUIZ_STORAGE_KEY, JSON.stringify(progress));
+  }, [currentIndex, mode]);
 
   // Randomly invert ~50% of spokes on first quiz mount (curated and full modes)
   useEffect(() => {
@@ -307,6 +351,7 @@ export function Quiz() {
     const advanceOrFinish = () => {
       setSelectedAnswer(null);
       if (isLastQuestion) {
+        localStorage.removeItem(QUIZ_STORAGE_KEY);
         navigate(mode === "full" ? "/build" : "/results");
       } else {
         setCurrentIndex((prev) => prev + 1);
