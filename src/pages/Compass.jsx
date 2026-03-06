@@ -261,6 +261,32 @@ function Compass() {
     () => !!localStorage.getItem("calibration_progress")
   );
 
+  // Celebration screen edge case: if calibration_progress exists but all pickedTopics are already
+  // answered (user refreshed on the "complete" celebration screen), skip celebration and go straight
+  // to compass. This runs once after topics load.
+  useEffect(() => {
+    if (!topicsLoaded) return;
+    try {
+      const saved = localStorage.getItem("calibration_progress");
+      if (!saved) return;
+      const parsed = JSON.parse(saved);
+      const pickedIds = parsed.pickedTopics || [];
+      if (pickedIds.length === 0) return;
+      const allAnswered = pickedIds.every((id) => {
+        const topic = topics.find((t) => t.id === id);
+        if (!topic) return false;
+        const val = answers[topic.short_title];
+        return val != null && val > 0;
+      });
+      if (allAnswered) {
+        // All topics answered — user was on celebration screen. Clear progress and dismiss overlay.
+        localStorage.removeItem("calibration_progress");
+        setCalibrationActive(false);
+      }
+    } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topicsLoaded]);
+
   // Determine if calibration needs to start:
   // Trigger when ANY selected topics are unanswered AND user hasn't skipped or completed calibration.
   // Also trigger for fresh users with NO selected topics (returning uncalibrated users, first-time

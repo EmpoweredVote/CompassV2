@@ -189,6 +189,22 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
 
   // Load persisted progress on mount, honouring resumeMode and startAtPick
   const getInitialState = () => {
+    // Always check localStorage first — this handles refresh during any step,
+    // including resume-mode sessions (which now persist their progress).
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.step === "pick" || parsed.step === "answer") {
+          return {
+            step: parsed.step,
+            pickedTopics: parsed.pickedTopics || [],
+            currentIndex: parsed.currentIndex || 0,
+          };
+        }
+      }
+    } catch {}
+
     // startAtPick: enter at pick step with existing selectedTopics pre-selected
     // (used from below-3 overlay — does NOT reset calibration_completed/skipped)
     if (startAtPick) {
@@ -215,20 +231,6 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
       };
     }
 
-    // Standard first-time flow: check localStorage for in-progress session
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.step === "pick" || parsed.step === "answer") {
-          return {
-            step: parsed.step,
-            pickedTopics: parsed.pickedTopics || [],
-            currentIndex: parsed.currentIndex || 0,
-          };
-        }
-      }
-    } catch {}
     return { step: "welcome", pickedTopics: [], currentIndex: 0 };
   };
 
@@ -254,8 +256,10 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
   // Initialize state once topics are loaded (needed because resumeMode/startAtPick reads selectedTopics + answers)
   useEffect(() => {
     if (initializedRef.current) return;
-    // Wait until topics are available for a meaningful resume or startAtPick
-    if ((resumeMode || startAtPick) && topics.length === 0) return;
+    // Always wait for topics to be available — prevents initializing with stale/empty data.
+    // Since Compass.jsx now gates on topicsLoaded, topics will be non-empty when we mount,
+    // but the defensive check is good practice for any edge cases.
+    if (topics.length === 0) return;
     const initial = getInitialState();
     setStep(initial.step);
     setPickedTopics(initial.pickedTopics);
@@ -265,11 +269,10 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
   }, [topics, resumeMode, startAtPick]);
 
   // Persist progress on every state change (skip welcome and complete steps)
+  // Resume-mode sessions now persist too so refresh during resume-mode restores position.
   useEffect(() => {
     if (step === "welcome" || step === "complete") return;
-    // Don't persist resume-mode sessions — they always re-derive from selectedTopics
-    if (resumeMode) return;
-    const progress = { step, pickedTopics, currentIndex };
+    const progress = { step, pickedTopics, currentIndex, resumeMode: resumeMode || false };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
   }, [step, pickedTopics, currentIndex, resumeMode]);
 
