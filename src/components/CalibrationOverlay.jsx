@@ -317,6 +317,25 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     () => !!localStorage.getItem("onboarding_topicPickHint")
   );
 
+  // Answer step 2-step tour: (0) stances panel, (1) write-your-own button
+  const stancesPanelRef = useRef(null);
+  const writeOwnBtnRef = useRef(null);
+  const [answerTourStep, setAnswerTourStep] = useState(() =>
+    localStorage.getItem("onboarding_answerTour") ? -1 : 0
+  );
+  const advanceAnswerTour = () => {
+    if (answerTourStep < 1) {
+      setAnswerTourStep(answerTourStep + 1);
+    } else {
+      localStorage.setItem("onboarding_answerTour", "1");
+      setAnswerTourStep(-1);
+    }
+  };
+  const skipAnswerTour = () => {
+    localStorage.setItem("onboarding_answerTour", "1");
+    setAnswerTourStep(-1);
+  };
+
   // Write-in awareness hint — shown only on the first question (currentIndex === 0)
   // Dismissed permanently after advancing past first question or clicking "Write your own..."
   const [writeInHintShown, setWriteInHintShown] = useState(
@@ -936,7 +955,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
           </div>
 
           {/* Question + Stance buttons — right 50%, stacked from top */}
-          <div className="md:basis-1/2 flex flex-col gap-1.5 px-3 pb-4 md:pb-0 md:pt-6 md:pr-6 max-w-md mx-auto md:mx-0">
+          <div ref={stancesPanelRef} className="md:basis-1/2 flex flex-col gap-1.5 px-3 pb-4 md:pb-0 md:pt-6 md:pr-6 max-w-md mx-auto md:mx-0">
             {/* Question text anchored above stances */}
             <div className="mb-2">
               <p className="text-base md:text-lg font-semibold leading-snug">
@@ -971,6 +990,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
                   );
                 })}
                 <button
+                  ref={writeOwnBtnRef}
                   onClick={() => {
                     setShowWriteIn(true);
                     setHasRepositioned(false);
@@ -1050,6 +1070,23 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
             </button>
           </div>
         </div>
+
+        {/* Answer step 2-step tour */}
+        {answerTourStep >= 0 && currentIndex === 0 && !showWriteIn && (
+          <CoachMark
+            targetRef={answerTourStep === 0 ? stancesPanelRef : writeOwnBtnRef}
+            message={
+              answerTourStep === 0
+                ? "Select which stance on the spectrum best matches your own — your compass builds as you answer"
+                : "If none of the stances quite match, write your own and drag it to where it fits best on the spectrum"
+            }
+            stepLabel={`${answerTourStep + 1} of 2`}
+            onNext={advanceAnswerTour}
+            onSkipAll={skipAnswerTour}
+            onDismiss={advanceAnswerTour}
+            show={true}
+          />
+        )}
       </div>
     );
   }
