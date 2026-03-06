@@ -614,7 +614,7 @@ function Compass() {
           {showChart ? (
             <>
               <Legend />
-              <div className="w-full min-h-[320px] max-h-[calc(100dvh-180px)] max-w-2xl aspect-square mx-auto relative">
+              <div className="w-full min-h-[320px] max-h-[calc(100dvh-180px)] max-w-2xl mx-auto relative">
                 {showSpokeHint && <SpokeHint onDismiss={dismissSpokeHint} />}
                 <RadarChart
                   data={chartData}
@@ -630,6 +630,7 @@ function Compass() {
                   onReplaceTopic={handleSpokeClick}
                 />
               </div>
+              <ActionButtons />
             </>
           ) : (
             <BelowThresholdChart
@@ -641,7 +642,6 @@ function Compass() {
               invertedSpokes={invertedSpokes}
             />
           )}
-          <ActionButtons />
         </div>
 
         {/* right: compare panel */}
@@ -695,7 +695,7 @@ function Compass() {
           {showChart ? (
             <>
               <Legend />
-              <div className="w-full min-h-[280px] max-h-[calc(100dvh-280px)] aspect-square mx-auto relative">
+              <div className="w-full min-h-[280px] max-h-[calc(100dvh-240px)] mx-auto relative">
                 {showSpokeHint && <SpokeHint onDismiss={dismissSpokeHint} />}
                 <RadarChart
                   data={chartData}
