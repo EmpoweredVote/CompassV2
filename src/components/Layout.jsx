@@ -49,6 +49,7 @@ function Layout({ children }) {
     localStorage.removeItem("calibration_progress");
     localStorage.removeItem("savePromptModalDismissed");
     localStorage.removeItem("quiz_progress");
+    localStorage.removeItem("onboarding_libraryTour");
     // Clear context state
     setAnswers({});
     setWriteIns({});

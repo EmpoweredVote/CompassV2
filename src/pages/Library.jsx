@@ -3,6 +3,7 @@ import { useCompass } from "../components/CompassContext";
 import { useNavigate } from "react-router";
 import RadarChart from "../components/RadarChart";
 import LibraryDrawer from "../components/LibraryDrawer";
+import CoachMark from "../components/CoachMark";
 import { getQuestionText, parseTensionTitle } from "../util/topic";
 
 const CATEGORY_COLORS = [
@@ -69,6 +70,14 @@ function Library() {
   const [showAll, setShowAll] = useState(true);
   const [drawerTopic, setDrawerTopic] = useState(null);
   const [removeConfirm, setRemoveConfirm] = useState(null); // topic.id or null
+
+  // -------- Library coach mark tour --------
+  const [libTourStep, setLibTourStep] = useState(-1); // -1 = inactive, 0-1 = active
+  const libTourDismissed = useRef(!!localStorage.getItem("onboarding_libraryTour"));
+  const addButtonRef = useRef(null);  // First visible topic card's + button (step 0)
+  const fullCalRef = useRef(null);    // Full Calibration CTA banner (step 1)
+  // Track whether we've assigned addButtonRef yet (callback ref across render loop)
+  const addRefAssigned = useRef(false);
 
   // Fetch answered topic IDs
   useEffect(() => {
@@ -137,6 +146,32 @@ function Library() {
   topicsRef.current = topics;
   const answersRef = useRef(answers);
   answersRef.current = answers;
+
+  // -------- Library tour trigger: fires after topics have rendered --------
+  useEffect(() => {
+    if (!answeredLoaded || libTourDismissed.current) return;
+    // Small delay to let DOM render so refs are attached
+    const timer = setTimeout(() => {
+      if (addButtonRef.current) {
+        setLibTourStep(0);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [answeredLoaded]);
+
+  const advanceLibTour = () => {
+    if (libTourStep < 1) {
+      setLibTourStep(libTourStep + 1);
+    } else {
+      localStorage.setItem("onboarding_libraryTour", "1");
+      setLibTourStep(-1);
+    }
+  };
+
+  const skipLibTour = () => {
+    localStorage.setItem("onboarding_libraryTour", "1");
+    setLibTourStep(-1);
+  };
 
   // Fetch answers for selected topics (to power the compass preview)
   useEffect(() => {
@@ -411,6 +446,7 @@ function Library() {
       {/* ── Full Quiz CTA ── */}
       <div className="mx-4 md:mx-auto max-w-3xl mb-6">
         <button
+          ref={fullCalRef}
           onClick={() => navigate("/quiz?mode=full")}
           className="w-full flex items-center justify-between gap-4 px-5 py-4 rounded-xl bg-ev-yellow hover:bg-ev-yellow-dark transition-colors cursor-pointer group"
         >
@@ -603,6 +639,9 @@ function Library() {
                           </button>
                         ) : (
                           <button
+                            ref={!addRefAssigned.current && !isOnCompass ? (el) => {
+                              if (el) { addButtonRef.current = el; addRefAssigned.current = true; }
+                            } : undefined}
                             onClick={(e) => {
                               e.stopPropagation();
                               if (!atCap) {
@@ -680,6 +719,21 @@ function Library() {
         }}
         compassTopicCount={selectedTopics.length}
       />
+
+      {/* ── Library coach mark tour ── */}
+      {libTourStep >= 0 && (
+        <CoachMark
+          targetRef={libTourStep === 0 ? addButtonRef : fullCalRef}
+          message={libTourStep === 0
+            ? "Tap + to add a topic to your compass — you can pick up to 8"
+            : "Or take the full calibration to answer every topic, then choose which ones appear on your compass"}
+          stepLabel={`${libTourStep + 1} of 2`}
+          onNext={advanceLibTour}
+          onSkipAll={skipLibTour}
+          onDismiss={advanceLibTour}
+          show={true}
+        />
+      )}
     </>
   );
 }
