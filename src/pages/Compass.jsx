@@ -181,7 +181,10 @@ function Compass() {
       <div className="flex gap-4 mt-1">
         {showChart && (
           <button
-            ref={compareRef}
+            ref={(el) => {
+              // Only assign if this button is visible (has layout dimensions)
+              if (el && el.offsetWidth > 0) compareRef.current = el;
+            }}
             onClick={() => setIsCompareModal(true)}
             className="px-4 sm:px-6 py-2 text-sm sm:text-base bg-black text-white rounded-full hover:bg-ev-yellow-dark hover:text-black transition-colors cursor-pointer"
           >
@@ -367,22 +370,20 @@ function Compass() {
   const [tourStep, setTourStep] = useState(-1); // -1 = not active, 0-3 = active step
 
   // Tour target refs
-  const spokeRef = useRef(null);    // Chart container div (for step 0 — "click any spoke")
+  const spokeRef = useRef(null);    // Chart container div (for step 0 — "tap any spoke label")
   const compareRef = useRef(null);  // Compare button (for step 1)
   const backToLibRef = useRef(null); // "Back to Library" button (for step 2)
-  const helpBtnRef = useRef(null);  // The ? help button (for step 3)
 
   // Tour messages indexed by step
   const tourMessages = [
-    "Click any spoke to flip its direction and see the issue from a different angle",
+    "Tap any spoke label to flip its direction — this only changes the visual layout, not your actual stance",
     "See how your views line up with a politician",
     "Add or change topics anytime from the Library",
-    "Need a refresher? The walkthrough is always here",
   ];
 
   // Tour advancement logic
   const advanceTour = () => {
-    if (tourStep < 3) {
+    if (tourStep < 2) {
       setTourStep(tourStep + 1);
     } else {
       // Final step — dismiss
@@ -477,15 +478,6 @@ function Compass() {
     setCompareTourStep(-1);
   };
 
-  // Handle helpBtnRef edge case: help button is in Layout.jsx, outside Compass DOM tree
-  useEffect(() => {
-    if (tourStep === 3) {
-      const helpEl = document.querySelector('[aria-label="Help"]');
-      if (helpEl) {
-        helpBtnRef.current = helpEl;
-      }
-    }
-  }, [tourStep]);
 
   // Compare Details & Stance Explorer state
   const [dropdownValue, setDropdownValue] = useState("");
@@ -910,11 +902,10 @@ function Compass() {
           targetRef={
             tourStep === 0 ? spokeRef
             : tourStep === 1 ? compareRef
-            : tourStep === 2 ? backToLibRef
-            : helpBtnRef
+            : backToLibRef
           }
           message={tourMessages[tourStep]}
-          stepLabel={`${tourStep + 1} of 4`}
+          stepLabel={`${tourStep + 1} of 3`}
           onNext={advanceTour}
           onSkipAll={skipTour}
           onDismiss={advanceTour}
