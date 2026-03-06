@@ -44,6 +44,8 @@ function Layout({ children }) {
     localStorage.removeItem("selectedTopics");
     localStorage.removeItem("invertedSpokes");
     localStorage.removeItem("onboarding_spokeFlip");
+    localStorage.removeItem("onboarding_postCalTour");
+    localStorage.removeItem("onboarding_writeInHint");
     localStorage.removeItem("calibration_skipped");
     localStorage.removeItem("calibration_completed");
     localStorage.removeItem("calibration_progress");

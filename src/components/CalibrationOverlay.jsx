@@ -310,15 +310,19 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     }
   }, [currentIndex, step, pickedTopics, topics, answers, writeIns, invertedSpokes]);
 
-  // Auto-transition from complete screen after 3 seconds
+  // Write-in awareness hint — shown only on the first question (currentIndex === 0)
+  // Dismissed permanently after advancing past first question or clicking "Write your own..."
+  const [writeInHintShown, setWriteInHintShown] = useState(
+    () => !!localStorage.getItem("onboarding_writeInHint")
+  );
+
+  // Dismiss write-in hint when user advances past first question
   useEffect(() => {
-    if (step !== "complete") return;
-    const timer = setTimeout(() => {
-      localStorage.removeItem(STORAGE_KEY);
-      onComplete();
-    }, 3000);
-    return () => clearTimeout(timer);
-  }, [step, onComplete]);
+    if (currentIndex > 0 && !writeInHintShown) {
+      localStorage.setItem("onboarding_writeInHint", "1");
+      setWriteInHintShown(true);
+    }
+  }, [currentIndex, writeInHintShown]);
 
   // Build chart data from answered picked topics
   const chartData = useMemo(() => {
@@ -948,11 +952,21 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
                     setShowWriteIn(true);
                     setHasRepositioned(false);
                     setOrderedItems([...orderedStances.map((s) => s.id), "write-in"]);
+                    // Dismiss write-in hint when user clicks "Write your own..."
+                    if (!writeInHintShown) {
+                      localStorage.setItem("onboarding_writeInHint", "1");
+                      setWriteInHintShown(true);
+                    }
                   }}
                   className="text-left px-3 py-2.5 rounded-lg transition-all duration-200 text-sm leading-snug font-medium cursor-pointer border-2 border-dashed border-gray-400 text-gray-500 hover:border-ev-yellow hover:text-black"
                 >
                   Write your own...
                 </button>
+                {currentIndex === 0 && !writeInHintShown && !showWriteIn && (
+                  <p className="text-xs text-gray-400 text-center mt-1">
+                    You can always write your own stance if none of these fit
+                  </p>
+                )}
               </>
             ) : (
               <DndContext
