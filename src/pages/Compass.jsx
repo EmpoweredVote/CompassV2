@@ -458,7 +458,7 @@ function Compass() {
   const compareTourMessages = [
     "Search for any politician to compare your views side by side. You can switch politicians anytime.",
     "Pick a topic to see how you both answered — your stances appear side by side below.",
-    "The blue overlay shows the politician's positions. Where your shapes overlap, you agree.",
+    "The blue overlay shows the politician's positions. The closer your points are on each spoke, the more you align on that topic.",
     "Flipping a spoke changes the visual layout, but your actual stance stays exactly the same — it's just a different perspective.",
   ];
 
