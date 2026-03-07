@@ -2,6 +2,7 @@ import { useNavigate, useLocation } from "react-router";
 import { SiteHeader } from "@chrisandrewsedu/ev-ui";
 import { useCompass } from "../components/CompassContext";
 import { useIsAdmin } from "../hooks/IsAdmin";
+import ReturnBanner from "./ReturnBanner";
 
 function Layout({ children }) {
   const navigate = useNavigate();
@@ -83,6 +84,7 @@ function Layout({ children }) {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <ReturnBanner />
       <SiteHeader
         logoSrc="/EVLogo.svg"
         currentPath={location.pathname}
