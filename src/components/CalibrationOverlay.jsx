@@ -187,6 +187,10 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     isLoggedIn,
   } = useCompass();
 
+  // Offset overlay when ReturnBanner is visible (fixed z-[60] above us)
+  const hasReturnBanner = !!sessionStorage.getItem("essentials_return_url");
+  const overlayTop = hasReturnBanner ? "top-9" : "top-0";
+
   // Load persisted progress on mount, honouring resumeMode and startAtPick
   const getInitialState = () => {
     // Always check localStorage first — this handles refresh during any step,
@@ -640,7 +644,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
   // ============================
   if (step === "welcome") {
     return (
-      <div className="fixed inset-0 z-50 bg-white overflow-y-auto flex flex-col items-center justify-center px-6 py-12">
+      <div className={`fixed ${overlayTop} left-0 right-0 bottom-0 z-50 bg-white overflow-y-auto flex flex-col items-center justify-center px-6 py-12`}>
         {/* Static SVG compass illustration — replaces calibration-demo.gif */}
         <div className="w-full max-w-sm mx-auto mb-8">
           <svg viewBox="0 0 200 200" className="w-full h-full">
@@ -752,7 +756,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
   // ============================
   if (step === "pick") {
     return (
-      <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
+      <div className={`fixed ${overlayTop} left-0 right-0 bottom-0 z-50 bg-white overflow-y-auto`}>
         {/* Header */}
         <div className="sticky top-0 bg-white border-b border-gray-100 z-10 px-4 pt-4 pb-3">
           <div className="flex items-center gap-3 max-w-2xl mx-auto">
@@ -872,7 +876,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
   // ============================
   if (step === "answer" && currentTopic) {
     return (
-      <div className="fixed inset-0 z-50 bg-white overflow-y-auto flex flex-col min-h-screen">
+      <div className={`fixed ${overlayTop} left-0 right-0 bottom-0 z-50 bg-white overflow-y-auto flex flex-col`}>
         {/* Header */}
         <div className="flex items-center justify-between px-4 pt-4 pb-2 shrink-0">
           <button
@@ -1096,7 +1100,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
   // ============================
   if (step === "complete") {
     return (
-      <div className="fixed inset-0 z-50 bg-white overflow-y-auto flex flex-col items-center justify-center px-6 py-12">
+      <div className={`fixed ${overlayTop} left-0 right-0 bottom-0 z-50 bg-white overflow-y-auto flex flex-col items-center justify-center px-6 py-12`}>
         <h1 className="text-3xl md:text-4xl font-semibold text-center mb-6">
           Your Compass is Ready!
         </h1>
@@ -1127,7 +1131,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
 
   // Fallback (loading / initializing)
   return (
-    <div className="fixed inset-0 z-50 bg-white flex items-center justify-center">
+    <div className={`fixed ${overlayTop} left-0 right-0 bottom-0 z-50 bg-white flex items-center justify-center`}>
       <p className="text-gray-400">Loading...</p>
     </div>
   );

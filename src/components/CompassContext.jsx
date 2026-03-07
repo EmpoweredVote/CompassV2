@@ -252,8 +252,9 @@ export function serializeCompassFragment() {
   try {
     const answers = JSON.parse(localStorage.getItem("answers") || "{}");
     const selectedTopics = JSON.parse(localStorage.getItem("selectedTopics") || "[]");
+    const invertedSpokes = JSON.parse(localStorage.getItem("invertedSpokes") || "{}");
     if (Object.keys(answers).length === 0) return "";
-    const payload = { a: answers, s: selectedTopics };
+    const payload = { a: answers, s: selectedTopics, i: invertedSpokes };
     return "#compass=" + btoa(JSON.stringify(payload));
   } catch {
     return "";

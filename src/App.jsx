@@ -26,6 +26,12 @@ function HelpGuard({ children }) {
   );
 
   if (!calibrationDone && !isBypass) {
+    // Preserve ?return= param in sessionStorage before redirect strips it
+    const params = new URLSearchParams(window.location.search);
+    const returnUrl = params.get("return");
+    if (returnUrl) {
+      sessionStorage.setItem("essentials_return_url", returnUrl);
+    }
     return <Navigate to="/results" replace />;
   }
 
