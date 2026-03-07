@@ -243,3 +243,19 @@ export function CompassProvider({ children }) {
 }
 
 export const useCompass = () => useContext(CompassContext);
+
+/**
+ * Serialize current guest compass state into a URL fragment string.
+ * Returns "#compass=BASE64" or "" if no answers exist.
+ */
+export function serializeCompassFragment() {
+  try {
+    const answers = JSON.parse(localStorage.getItem("answers") || "{}");
+    const selectedTopics = JSON.parse(localStorage.getItem("selectedTopics") || "[]");
+    if (Object.keys(answers).length === 0) return "";
+    const payload = { a: answers, s: selectedTopics };
+    return "#compass=" + btoa(JSON.stringify(payload));
+  } catch {
+    return "";
+  }
+}
