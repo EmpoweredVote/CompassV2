@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { AuthForm } from "@chrisandrewsedu/ev-ui";
 import { useCompass } from "../components/CompassContext";
 import { AnimatePresence, motion } from "framer-motion";
@@ -10,6 +10,8 @@ function Login() {
   const [checking, setChecking] = useState(true);
   const [showRestoredToast, setShowRestoredToast] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const returnTo = searchParams.get("returnTo");
   const { refreshSelectedTopics, setIsLoggedIn, setUsername: setCtxUsername } = useCompass();
 
   // Check if already logged in
@@ -22,6 +24,10 @@ function Login() {
         throw new Error("Not logged in");
       })
       .then((data) => {
+        if (returnTo) {
+          window.location.href = returnTo;
+          return;
+        }
         navigate(data.completed_onboarding ? "/results" : "/help", {
           replace: true,
         });
@@ -76,8 +82,14 @@ function Login() {
       if (hadLocalAnswers) {
         setShowRestoredToast(true);
         setTimeout(() => {
-          navigate(data.completed_onboarding ? "/results" : "/help");
+          if (returnTo) {
+            window.location.href = returnTo;
+          } else {
+            navigate(data.completed_onboarding ? "/results" : "/help");
+          }
         }, 2000); // Show toast for 2 seconds then navigate
+      } else if (returnTo) {
+        window.location.href = returnTo;
       } else {
         navigate(data.completed_onboarding ? "/results" : "/help");
       }
