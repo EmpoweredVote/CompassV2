@@ -17,7 +17,7 @@ function BelowThresholdChart({ answeredCompassCount, needsMore, onStartCalibrati
       onClick={onStartCalibration}
     >
       {/* Grayed, non-interactive chart */}
-      <div className="w-full min-h-[280px] max-h-[calc(100dvh-240px)] aspect-square mx-auto opacity-25 pointer-events-none select-none">
+      <div className="w-full max-h-[calc(100dvh-300px)] aspect-square mx-auto opacity-25 pointer-events-none select-none">
         <RadarChart
           data={chartData}
           unansweredSpokes={unansweredSpokesMap}
@@ -743,7 +743,7 @@ function Compass() {
               <Legend />
               <div
                 ref={(el) => { chartContainerRef.current = el; spokeRef.current = el; }}
-                className="w-full min-h-[320px] max-h-[calc(100dvh-180px)] max-w-2xl mx-auto relative"
+                className="w-full max-h-[calc(100dvh-220px)] max-w-2xl mx-auto relative"
               >
                 <RadarChart
                   data={chartData}
@@ -824,7 +824,7 @@ function Compass() {
           {showChart ? (
             <>
               <Legend />
-              <div className="w-full min-h-[280px] max-h-[calc(100dvh-240px)] mx-auto relative">
+              <div className="w-full max-h-[calc(100dvh-300px)] mx-auto relative">
                 <RadarChart
                   data={chartData}
                   unansweredSpokes={unansweredSpokesMap}
@@ -910,6 +910,7 @@ function Compass() {
           onSkipAll={skipTour}
           onDismiss={advanceTour}
           show={true}
+          allowSpotlightInteraction={tourStep === 0}
         />
       )}
     </div>

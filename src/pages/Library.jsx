@@ -76,8 +76,6 @@ function Library() {
   const libTourDismissed = useRef(!!localStorage.getItem("onboarding_libraryTour"));
   const addButtonRef = useRef(null);  // First visible topic card's + button (step 0)
   const fullCalRef = useRef(null);    // Full Calibration CTA banner (step 1)
-  // Track whether we've assigned addButtonRef yet (callback ref across render loop)
-  const addRefAssigned = useRef(false);
 
   // Fetch answered topic IDs
   useEffect(() => {
@@ -361,6 +359,15 @@ function Library() {
   const belowThreshold = hasCompass && answeredCompassCount < MIN_TOPICS;
   const needsMore = MIN_TOPICS - answeredCompassCount;
 
+  // Find the first non-compass topic's + button after render via DOM query.
+  // Callback refs don't work here because they all evaluate during render
+  // (before any fire during commit), so the last one always wins.
+  useEffect(() => {
+    if (libTourDismissed.current || !answeredLoaded) return;
+    const btn = document.querySelector('[data-add-topic-btn]');
+    if (btn) addButtonRef.current = btn;
+  }, [answeredLoaded, selectedTopics]);
+
   return (
     <>
       {/* ── Compass Preview Section ── */}
@@ -539,7 +546,9 @@ function Library() {
 
         {/* Topic Cards by Category */}
         {answeredLoaded &&
-          categories.map((category, catIdx) => {
+          (() => {
+            let firstAddBtnFound = false;
+            return categories.map((category, catIdx) => {
             const visible = getVisibleTopics(category);
             if (visible.length === 0) return null;
 
@@ -557,6 +566,8 @@ function Library() {
                   {visible.map((topic) => {
                     const isOnCompass = selectedTopics.includes(topic.id);
                     const isAnswered = answeredTopicIDs.includes(topic.id);
+                    const isFirstAdd = !isOnCompass && !firstAddBtnFound;
+                    if (isFirstAdd) firstAddBtnFound = true;
                     const atCap = selectedTopics.length >= MAX_TOPICS;
                     const wouldDropBelow3 = isOnCompass && selectedTopics.length <= 3;
 
@@ -639,9 +650,7 @@ function Library() {
                           </button>
                         ) : (
                           <button
-                            ref={!addRefAssigned.current && !isOnCompass ? (el) => {
-                              if (el) { addButtonRef.current = el; addRefAssigned.current = true; }
-                            } : undefined}
+                            {...(isFirstAdd ? { 'data-add-topic-btn': '' } : {})}
                             onClick={(e) => {
                               e.stopPropagation();
                               if (!atCap) {
@@ -699,7 +708,8 @@ function Library() {
                 </div>
               </div>
             );
-          })}
+          });
+          })()}
       </div>
 
 

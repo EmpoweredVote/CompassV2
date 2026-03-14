@@ -1089,6 +1089,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
             onSkipAll={skipAnswerTour}
             onDismiss={advanceAnswerTour}
             show={true}
+            allowSpotlightInteraction={true}
           />
         )}
       </div>
