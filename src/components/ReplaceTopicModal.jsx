@@ -1,5 +1,6 @@
 import { useCompass } from "./CompassContext";
 import { useEffect, useState } from "react";
+import { apiFetch } from "../lib/auth";
 
 function ReplaceTopicModal({
   replacingTopic, // short title of the topic being replaced
@@ -12,10 +13,8 @@ function ReplaceTopicModal({
   const [replacementID, setReplacementID] = useState(null);
 
   useEffect(() => {
-    fetch(`${import.meta.env.VITE_API_URL}/compass/answers`, {
-      credentials: "include",
-    })
-      .then((res) => res.json())
+    apiFetch('/compass/answers')
+      .then((res) => res ? res.json() : [])
       .then((data) => {
         const ids = data.map((a) => a.topic_id);
         setAnsweredTopicIDs(ids);
