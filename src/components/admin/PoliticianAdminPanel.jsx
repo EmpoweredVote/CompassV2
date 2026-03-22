@@ -1,5 +1,6 @@
 import { useState } from "react";
 import PoliticianAccordion from "./PoliticianAccordion";
+import { apiFetch } from "../../lib/auth";
 
 function PoliticianAdminPanel({ politicians, topics }) {
   const [expanded, setExpanded] = useState([]);
@@ -11,17 +12,13 @@ function PoliticianAdminPanel({ politicians, topics }) {
 
   const fetchContextsForPolitician = async (politician_id) => {
     // Fetch each topic’s context in parallel. Keep 200s; ignore 404s.
-    const base = `${
-      import.meta.env.VITE_API_URL
-    }/compass/politicians/${politician_id}`;
     console.log("[Panel] fetchContextsForPolitician START", {
       politician_id,
       topics: topics.length,
     });
 
     const jobs = topics.map((t) => {
-      const url = `${base}/${t.id}/context`;
-      return fetch(url, { credentials: "include" })
+      return apiFetch(`/compass/politicians/${politician_id}/${t.id}/context`)
         .then(async (res) => {
           if (res.ok) {
             const ctx = await res.json();
@@ -68,11 +65,8 @@ function PoliticianAdminPanel({ politicians, topics }) {
       return;
     }
     try {
-      const ansUrl = `${
-        import.meta.env.VITE_API_URL
-      }/compass/politicians/${politician_id}/answers`;
-      console.log("[Panel] fetching answers:", ansUrl);
-      const res = await fetch(ansUrl, { credentials: "include" });
+      console.log("[Panel] fetching answers for politician:", politician_id);
+      const res = await apiFetch(`/compass/politicians/${politician_id}/answers`);
       console.log("[Panel] answers status:", res.status);
       if (!res.ok) throw new Error("Failed to fetch answers");
       const answerData = await res.json();
@@ -111,19 +105,14 @@ function PoliticianAdminPanel({ politicians, topics }) {
 
     try {
       // 1) Upsert context
-      const ctxUrl = `${
-        import.meta.env.VITE_API_URL
-      }/compass/politicians/context`;
-      console.log("[Panel] POST context ->", ctxUrl, {
+      console.log("[Panel] POST context ->", {
         politician_id,
         topic_id,
         reasoning: rawReasoning,
         sources,
       });
-      const ctxRes = await fetch(ctxUrl, {
+      const ctxRes = await apiFetch('/compass/politicians/context', {
         method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           politician_id,
           topic_id,
@@ -140,14 +129,9 @@ function PoliticianAdminPanel({ politicians, topics }) {
 
       // 2) Upsert answer (optional)
       if (hasValue) {
-        const ansUrl = `${
-          import.meta.env.VITE_API_URL
-        }/compass/politicians/${politician_id}/answers`;
-        console.log("[Panel] PUT answers ->", ansUrl, [{ topic_id, value }]);
-        const ansRes = await fetch(ansUrl, {
+        console.log("[Panel] PUT answers ->", politician_id, [{ topic_id, value }]);
+        const ansRes = await apiFetch(`/compass/politicians/${politician_id}/answers`, {
           method: "PUT",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify([{ topic_id, value }]),
         });
         console.log("[Panel] answer response status:", ansRes.status);

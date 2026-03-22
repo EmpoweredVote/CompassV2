@@ -1,5 +1,6 @@
 import { useState, useEffect, Suspense, lazy } from "react";
 import { useCompass } from "../CompassContext";
+import { apiFetch } from "../../lib/auth";
 
 const PoliticianAdminPanel = lazy(() => import("./PoliticianAdminPanel"));
 const AttachAnswers = lazy(() => import("./AttachAnswers"));
@@ -14,19 +15,15 @@ function AdminDashboard() {
   const [filteredPol, setFilteredPol] = useState([]);
 
   useEffect(() => {
-    fetch(`${import.meta.env.VITE_API_URL}/compass/categories`, {
-      credentials: "include",
-    })
-      .then((res) => res.json())
+    apiFetch('/compass/categories')
+      .then((res) => res ? res.json() : [])
       .then(setAllCategories)
       .catch((err) => console.error("Failed to fetch categories:", err));
   }, []);
 
   useEffect(() => {
-    fetch(`${import.meta.env.VITE_API_URL}/essentials/politicians`, {
-      credentials: "include",
-    })
-      .then((res) => res.json())
+    apiFetch('/essentials/politicians')
+      .then((res) => res ? res.json() : [])
       .then(setPoliticians)
       .catch((err) => console.error("Failed to fetch politicians:", err));
   }, []);

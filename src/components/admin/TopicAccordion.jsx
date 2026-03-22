@@ -2,6 +2,7 @@ import TopicSummary from "./TopicSummary";
 import TopicEditor from "./TopicEditor";
 import { useState } from "react";
 import { useCompass } from "../CompassContext";
+import { apiFetch } from "../../lib/auth";
 
 function TopicAccordion({
   topic,
@@ -41,13 +42,9 @@ function TopicAccordion({
   const handleDeleteTopic = async () => {
     console.log("Starting Delete...");
     try {
-      const res = await fetch(
-        `${import.meta.env.VITE_API_URL}/compass/topics/delete/${topic.id}`,
-        {
-          method: "DELETE",
-          credentials: "include",
-        }
-      );
+      const res = await apiFetch(`/compass/topics/delete/${topic.id}`, {
+        method: "DELETE",
+      });
 
       if (res.ok) {
         console.log("Deleted successfully!");
