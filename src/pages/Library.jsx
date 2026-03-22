@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useCompass } from "../components/CompassContext";
 import { useNavigate } from "react-router";
+import { apiFetch } from "../lib/auth";
 import RadarChart from "../components/RadarChart";
 import LibraryDrawer from "../components/LibraryDrawer";
 import CoachMark from "../components/CoachMark";
@@ -92,11 +93,9 @@ function Library() {
       return;
     }
 
-    fetch(`${import.meta.env.VITE_API_URL}/compass/answers`, {
-      credentials: "include",
-    })
+    apiFetch('/compass/answers')
       .then((res) => {
-        if (!res.ok) throw new Error("Failed to fetch answers");
+        if (!res || !res.ok) throw new Error("Failed to fetch answers");
         return res.json();
       })
       .then((data) => {
@@ -178,10 +177,8 @@ function Library() {
     if (!selectedTopics.length || !topicsRef.current.length) return;
     if (!isLoggedIn) return;  // guests have no server answers to fetch
 
-    fetch(`${import.meta.env.VITE_API_URL}/compass/answers/batch`, {
+    apiFetch('/compass/answers/batch', {
       method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ids: selectedTopics }),
     })
       .then((res) => res.json())
@@ -279,10 +276,8 @@ function Library() {
     // For logged-in users, also save to server
     if (isLoggedIn) {
       try {
-        await fetch(`${import.meta.env.VITE_API_URL}/compass/answers`, {
+        await apiFetch('/compass/answers', {
           method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             topic_id: topic.id,
             value: stanceValue,
@@ -309,10 +304,8 @@ function Library() {
     // Server save for logged-in users
     if (isLoggedIn) {
       try {
-        await fetch(`${import.meta.env.VITE_API_URL}/compass/answers`, {
+        await apiFetch('/compass/answers', {
           method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             topic_id: topic.id,
             value: writeInValue,

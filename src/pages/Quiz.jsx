@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useCompass } from "../components/CompassContext";
 import { useNavigate, useSearchParams } from "react-router";
+import { apiFetch } from "../lib/auth";
 import { getQuestionText, parseTensionTitle } from "../util/topic";
 import RadarChart from "../components/RadarChart";
 import {
@@ -157,9 +158,7 @@ export function Quiz() {
     if (mode !== "full" || !topics.length) return;
     if (!isLoggedIn) return; // Guests already have answers from localStorage
 
-    fetch(`${import.meta.env.VITE_API_URL}/compass/answers`, {
-      credentials: "include",
-    })
+    apiFetch('/compass/answers')
       .then((res) => res.json())
       .then((data) => {
         const mapped = data
@@ -359,10 +358,8 @@ export function Quiz() {
     };
 
     if (isLoggedIn) {
-      fetch(`${import.meta.env.VITE_API_URL}/compass/answers`, {
+      apiFetch('/compass/answers', {
         method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           topic_id: currentTopicId,
           value: selectedAnswer,
