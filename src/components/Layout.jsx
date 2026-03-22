@@ -3,6 +3,7 @@ import { SiteHeader } from "@chrisandrewsedu/ev-ui";
 import { useCompass } from "../components/CompassContext";
 import { useIsAdmin } from "../hooks/IsAdmin";
 import ReturnBanner from "./ReturnBanner";
+import { apiFetch, clearToken } from "../lib/auth";
 
 function Layout({ children }) {
   const navigate = useNavigate();
@@ -11,15 +12,15 @@ function Layout({ children }) {
   const { setSelectedTopics, setAnswers, setWriteIns, setInvertedSpokes, isLoggedIn, username, setIsLoggedIn } = useCompass();
 
   const logout = () => {
-    fetch(`${import.meta.env.VITE_API_URL}/auth/logout`, {
+    apiFetch('/auth/logout', {
       method: "POST",
-      credentials: "include",
     })
       .then((res) => {
-        if (!res.ok) throw new Error("Logout failed");
+        if (!res || !res.ok) throw new Error("Logout failed");
         return res.text();
       })
       .then(() => {
+        clearToken();
         localStorage.removeItem("compareUser");
         localStorage.removeItem("invertedSpokes");
         localStorage.removeItem("selectedTopics");
@@ -33,6 +34,7 @@ function Layout({ children }) {
       })
       .catch((err) => {
         console.error(err);
+        clearToken();
         navigate("/");
       });
   };
@@ -62,9 +64,8 @@ function Layout({ children }) {
     setSelectedTopics([]);
     setInvertedSpokes({});
     // Server clear for logged-in users
-    fetch(`${import.meta.env.VITE_API_URL}/compass/answers/me`, {
+    apiFetch('/compass/answers/me', {
       method: "DELETE",
-      credentials: "include",
     }).catch(() => {});
   };
 

@@ -1,5 +1,6 @@
 // CompassContext.jsx
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
+import { extractHashToken, getToken, apiFetch, clearToken } from '../lib/auth';
 
 function safeParse(str, fallback) {
   try {
@@ -27,7 +28,6 @@ function shouldFlip(guestId, topicId) {
   return (hash & 1) === 1;
 }
 
-const API = import.meta.env.VITE_API_URL;
 const CompassContext = createContext();
 
 export function CompassProvider({ children }) {
@@ -90,14 +90,16 @@ export function CompassProvider({ children }) {
     localStorage.setItem("writeIns", JSON.stringify(writeIns));
   }, [writeIns]);
 
-  // Check auth state on mount
+  // Check auth state on mount — extract hash token first, then check /auth/me
   useEffect(() => {
-    fetch(`${API}/auth/me`, { credentials: "include" })
-      .then(r => r.ok ? r.json() : null)
+    extractHashToken();
+    if (!getToken()) return;
+    apiFetch('/auth/me')
+      .then(r => r && r.ok ? r.json() : null)
       .then(data => {
         if (data) {
           setIsLoggedIn(true);
-          setUsername(data.username || null);
+          setUsername(data.display_name || null);
           // Seed help_seen from DB: if user completed onboarding, don't show /help again
           if (data.completed_onboarding) {
             localStorage.setItem("help_seen", "true");
@@ -113,12 +115,8 @@ export function CompassProvider({ children }) {
   const refreshData = async () => {
     try {
       const [topicsRes, catsRes] = await Promise.all([
-        fetch(`${API}/compass/topics`, {
-          credentials: "include",
-        }).then((r) => r.json()),
-        fetch(`${API}/compass/categories`, {
-          credentials: "include",
-        }).then((r) => r.json()),
+        apiFetch('/compass/topics').then((r) => r.json()),
+        apiFetch('/compass/categories').then((r) => r.json()),
       ]);
       setTopics(topicsRes);
       setCategories(catsRes);
@@ -137,10 +135,8 @@ export function CompassProvider({ children }) {
   // Fetch selected topics from server (called on mount + after login)
   const refreshSelectedTopics = async () => {
     try {
-      const res = await fetch(`${API}/compass/selected-topics`, {
-        credentials: "include",
-      });
-      if (res.ok) {
+      const res = await apiFetch('/compass/selected-topics');
+      if (res && res.ok) {
         const ids = await res.json();
         if (Array.isArray(ids) && ids.length > 0) {
           setSelected(ids);
@@ -196,10 +192,8 @@ export function CompassProvider({ children }) {
     // Debounce server sync to avoid rapid calls during topic toggling
     clearTimeout(syncTimer.current);
     syncTimer.current = setTimeout(() => {
-      fetch(`${API}/compass/selected-topics`, {
+      apiFetch('/compass/selected-topics', {
         method: "PUT",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ topic_ids: selectedTopics }),
       }).catch(() => {});
     }, 500);

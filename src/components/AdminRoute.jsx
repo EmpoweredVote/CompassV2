@@ -1,15 +1,25 @@
 import { useState, useEffect } from "react";
 import { Navigate } from "react-router";
+import { apiFetch } from "../lib/auth";
 
 function AdminRoute(props) {
   const [adminStatus, setAdminStatus] = useState("loading");
 
   useEffect(() => {
-    fetch(`${import.meta.env.VITE_API_URL}/auth/admin-check`, {
-      credentials: "include",
-    })
+    apiFetch('/auth/me')
       .then((res) => {
-        setAdminStatus(res.ok ? "authorized" : "unauthorized");
+        if (!res || !res.ok) {
+          setAdminStatus("unauthorized");
+          return;
+        }
+        return res.json();
+      })
+      .then((data) => {
+        if (data?.is_admin === true) {
+          setAdminStatus("authorized");
+        } else {
+          setAdminStatus("unauthorized");
+        }
       })
       .catch((err) => {
         console.error(err);
