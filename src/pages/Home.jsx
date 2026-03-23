@@ -6,7 +6,7 @@ function Home() {
   const [user, setUser] = useState();
   const navigate = useNavigate();
 
-  apiFetch('/auth/me')
+  apiFetch('/account/me')
     .then((response) => {
       if (!response || !response.ok) {
         navigate("/");

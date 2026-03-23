@@ -6,16 +6,9 @@ function AdminRoute(props) {
   const [adminStatus, setAdminStatus] = useState("loading");
 
   useEffect(() => {
-    apiFetch('/auth/me')
+    apiFetch('/admin/me')
       .then((res) => {
-        if (!res || !res.ok) {
-          setAdminStatus("unauthorized");
-          return;
-        }
-        return res.json();
-      })
-      .then((data) => {
-        if (data?.is_admin === true) {
+        if (res && res.ok) {
           setAdminStatus("authorized");
         } else {
           setAdminStatus("unauthorized");

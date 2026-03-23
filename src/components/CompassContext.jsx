@@ -90,11 +90,11 @@ export function CompassProvider({ children }) {
     localStorage.setItem("writeIns", JSON.stringify(writeIns));
   }, [writeIns]);
 
-  // Check auth state on mount — extract hash token first, then check /auth/me
+  // Check auth state on mount — extract hash token first, then check /account/me
   useEffect(() => {
     extractHashToken();
     if (!getToken()) return;
-    apiFetch('/auth/me')
+    apiFetch('/account/me')
       .then(r => r && r.ok ? r.json() : null)
       .then(data => {
         if (data) {
