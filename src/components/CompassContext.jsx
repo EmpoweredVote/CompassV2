@@ -1,6 +1,6 @@
 // CompassContext.jsx
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
-import { extractHashToken, getToken, apiFetch, clearToken } from '../lib/auth';
+import { extractHashToken, getToken, apiFetch, publicFetch, clearToken } from '../lib/auth';
 
 function safeParse(str, fallback) {
   try {
@@ -115,8 +115,8 @@ export function CompassProvider({ children }) {
   const refreshData = async () => {
     try {
       const [topicsRes, catsRes] = await Promise.all([
-        apiFetch('/compass/topics').then((r) => r.json()),
-        apiFetch('/compass/categories').then((r) => r.json()),
+        publicFetch('/compass/topics').then((r) => r.json()),
+        publicFetch('/compass/categories').then((r) => r.json()),
       ]);
       setTopics(topicsRes);
       setCategories(catsRes);
@@ -132,8 +132,12 @@ export function CompassProvider({ children }) {
     refreshData();
   };
 
-  // Fetch selected topics from server (called on mount + after login)
+  // Fetch selected topics from server (called after login, not on mount for guests)
   const refreshSelectedTopics = async () => {
+    if (!getToken()) {
+      serverLoaded.current = true;
+      return;
+    }
     try {
       const res = await apiFetch('/compass/selected-topics');
       if (res && res.ok) {
@@ -144,12 +148,12 @@ export function CompassProvider({ children }) {
         }
       }
     } catch {
-      // Offline or not logged in — keep localStorage value
+      // Offline or token expired — keep localStorage value
     }
     serverLoaded.current = true;
   };
 
-  // On mount: fetch topics/categories AND restore selectedTopics from server
+  // On mount: fetch topics/categories; only restore selectedTopics from server if logged in
   useEffect(() => {
     const init = async () => {
       await refreshData();

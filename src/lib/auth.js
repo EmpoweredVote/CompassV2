@@ -52,3 +52,17 @@ export async function apiFetch(path, options = {}) {
 
   return res;
 }
+
+// Like apiFetch but never redirects on 401 — use for public/optional-auth endpoints
+// where unauthenticated access is valid. Still sends the token if one is present.
+export async function publicFetch(path, options = {}) {
+  const token = getToken();
+  return fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options.headers,
+    },
+  });
+}
