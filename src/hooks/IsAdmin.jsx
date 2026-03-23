@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
-import { apiFetch } from "../lib/auth";
+import { publicFetch } from "../lib/auth";
 
 export function useIsAdmin() {
   const [isAdmin, setIsAdmin] = useState(null); // null = loading
 
   useEffect(() => {
-    apiFetch('/admin/me')
+    publicFetch('/admin/me')
       .then((res) => {
         setIsAdmin(res && res.ok);
       })
