@@ -1,6 +1,7 @@
 // CalibrationOverlay.jsx
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useCompass } from "./CompassContext";
+import { apiFetch } from "../lib/auth";
 import RadarChart from "./RadarChart";
 import { getQuestionText, parseTensionTitle } from "../util/topic";
 import {
@@ -448,10 +449,8 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     setAnswers((prev) => ({ ...prev, [currentTopic.short_title]: value }));
     if (isLoggedIn) {
       try {
-        await fetch(`${import.meta.env.VITE_API_URL}/compass/answers`, {
+        await apiFetch('/compass/answers', {
           method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ topic_id: currentTopic.id, value }),
         });
       } catch {}
@@ -551,10 +550,8 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     setWriteIns((prev) => ({ ...prev, [currentTopic.short_title]: writeInText }));
     setSelectedAnswer(midpointValue);
     if (isLoggedIn) {
-      fetch(`${import.meta.env.VITE_API_URL}/compass/answers`, {
+      apiFetch('/compass/answers', {
         method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           topic_id: currentTopic.id,
           value: midpointValue,

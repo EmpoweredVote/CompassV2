@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useCompass } from "../components/CompassContext";
 import { useNavigate } from "react-router";
+import { apiFetch } from "../lib/auth";
 
 const CATEGORY_COLORS = [
   { bg: "bg-blue-50", border: "border-blue-400", text: "text-blue-700", accent: "bg-blue-400" },
@@ -39,11 +40,9 @@ function BuildCompass() {
       return;
     }
 
-    fetch(`${import.meta.env.VITE_API_URL}/compass/answers`, {
-      credentials: "include",
-    })
+    apiFetch('/compass/answers')
       .then((res) => {
-        if (!res.ok) throw new Error("Failed to fetch answers");
+        if (!res || !res.ok) throw new Error("Failed to fetch answers");
         return res.json();
       })
       .then((data) => {

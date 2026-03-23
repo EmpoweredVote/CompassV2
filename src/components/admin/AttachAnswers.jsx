@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getPolName, normalizeOfficeTitle, getOfficeSubtitle } from "../../util/name";
+import { apiFetch } from "../../lib/auth";
 
 // --- Small utilities ---
 const normalize = (s) =>
@@ -198,13 +199,8 @@ function AttachAnswers({ topics, politicians = [] }) {
     }
 
     try {
-      const url = `${
-        import.meta.env.VITE_API_URL
-      }/compass/politicians/${politicianId}/answers`;
-      const res = await fetch(url, {
+      const res = await apiFetch(`/compass/politicians/${politicianId}/answers`, {
         method: "PUT",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error(await res.text());

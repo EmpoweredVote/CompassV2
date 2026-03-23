@@ -1,17 +1,15 @@
 import { useState, useEffect } from "react";
-import { useNavigate, Navigate } from "react-router";
+import { Navigate } from "react-router";
+import { apiFetch } from "../lib/auth";
 
 function ProtectedRoute(props) {
   const [authStatus, setAuthStatus] = useState("loading");
-  const navigate = useNavigate();
 
   useEffect(() => {
     console.log("Fetching auth status");
-    fetch(`${import.meta.env.VITE_API_URL}/auth/me`, {
-      credentials: "include", // REQUIRED to send session cookie
-    })
+    apiFetch('/auth/me')
       .then((response) => {
-        if (!response.ok) {
+        if (!response || !response.ok) {
           setAuthStatus("unauthorized");
         } else {
           setAuthStatus("authorized");

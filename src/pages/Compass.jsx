@@ -1,5 +1,6 @@
 // Compass.jsx
 import { useCompass } from "../components/CompassContext";
+import { apiFetch } from "../lib/auth";
 import RadarChart from "../components/RadarChart";
 import CalibrationOverlay from "../components/CalibrationOverlay";
 import LibraryDrawer from "../components/LibraryDrawer";
@@ -532,10 +533,8 @@ function Compass() {
       return;
     if (!isLoggedIn) return; // Guest answers already in state from localStorage
 
-    fetch(`${import.meta.env.VITE_API_URL}/compass/answers/batch`, {
+    apiFetch('/compass/answers/batch', {
       method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ids: selectedTopics }),
     })
       .then((res) => res.json())
@@ -602,10 +601,8 @@ function Compass() {
     });
     if (isLoggedIn) {
       try {
-        await fetch(`${import.meta.env.VITE_API_URL}/compass/answers`, {
+        await apiFetch('/compass/answers', {
           method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ topic_id: topic.id, value: stanceValue }),
         });
       } catch {}
@@ -617,10 +614,8 @@ function Compass() {
     setWriteIns(prev => ({ ...prev, [topic.short_title]: writeInText }));
     if (isLoggedIn) {
       try {
-        await fetch(`${import.meta.env.VITE_API_URL}/compass/answers`, {
+        await apiFetch('/compass/answers', {
           method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ topic_id: topic.id, value: writeInValue, write_in_text: writeInText }),
         });
       } catch {}
@@ -639,10 +634,7 @@ function Compass() {
       return;
     }
 
-    const url = `${import.meta.env.VITE_API_URL}/compass/politicians/${
-      comparePol.id
-    }/answers`;
-    fetch(url, { credentials: "include" })
+    apiFetch(`/compass/politicians/${comparePol.id}/answers`)
       .then((r) => r.json())
       .then((allAnswers) => {
         // allAnswers: [{topic_id, value}, ...]

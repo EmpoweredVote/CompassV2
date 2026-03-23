@@ -28,6 +28,7 @@ import { arrayMove } from "@dnd-kit/sortable";
 import { useEffect, useState } from "react";
 import { useCompass } from "../CompassContext";
 import { v4 as uuid } from "uuid";
+import { apiFetch } from "../../lib/auth";
 
 function CreateTopic({
   onClose,
@@ -126,15 +127,10 @@ function CreateTopic({
     };
 
     try {
-      const res = await fetch(
-        `${import.meta.env.VITE_API_URL}/compass/topics/create`,
-        {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        }
-      );
+      const res = await apiFetch('/compass/topics/create', {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
 
       if (res.ok) {
         setTopicSaved(true);

@@ -1,5 +1,6 @@
 import { useCompass, serializeCompassFragment } from "./CompassContext";
 import { useState, useEffect } from "react";
+import { apiFetch } from "../lib/auth";
 import Favicon from "./Favicon";
 import { getPolName } from "../util/name";
 import { getQuestionText, parseTensionTitle } from "../util/topic";
@@ -46,10 +47,7 @@ function ComparePanel({
   // Fetch reasoning + sources
   useEffect(() => {
     if (!selectedTopicID || !politician?.id) return;
-    fetch(
-      `${import.meta.env.VITE_API_URL}/compass/politicians/${politician.id}/${selectedTopicID}/context`,
-      { method: "GET", credentials: "include" }
-    )
+    apiFetch(`/compass/politicians/${politician.id}/${selectedTopicID}/context`)
       .then(async (res) => {
         if (!res.ok) {
           if (res.status === 404) {
@@ -81,10 +79,8 @@ function ComparePanel({
   const updateStance = (stanceIndex) => {
     if (saving || !selectedTopic) return;
     setSaving(true);
-    fetch(`${import.meta.env.VITE_API_URL}/compass/answers`, {
+    apiFetch('/compass/answers', {
       method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         topic_id: selectedTopic.id,
         value: stanceIndex,

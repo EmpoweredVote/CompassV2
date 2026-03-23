@@ -1,17 +1,16 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
+import { apiFetch, clearToken } from "../lib/auth";
 
 function Home() {
   const [user, setUser] = useState();
   const navigate = useNavigate();
 
-  fetch(`${import.meta.env.VITE_API_URL}/auth/me`, {
-    credentials: "include", // REQUIRED to send session cookie
-  })
+  apiFetch('/auth/me')
     .then((response) => {
-      if (!response.ok) {
+      if (!response || !response.ok) {
         navigate("/");
-        throw new Error("HTTP error " + response.status);
+        throw new Error("HTTP error " + (response ? response.status : "null"));
       } else {
         return response.json();
       }
@@ -25,19 +24,21 @@ function Home() {
     });
 
   const logout = () => {
-    fetch(`${import.meta.env.VITE_API_URL}/auth/logout`, {
+    apiFetch('/auth/logout', {
       method: "POST",
-      credentials: "include",
     })
       .then((response) => {
-        if (!response.ok) {
+        if (!response || !response.ok) {
           navigate("/");
-          throw new Error("HTTP error " + response.status);
+          throw new Error("HTTP error " + (response ? response.status : "null"));
         } else {
           return response.text();
         }
       })
-      .then(() => navigate("/"))
+      .then(() => {
+        clearToken();
+        navigate("/");
+      })
       .catch((error) => {
         console.error("Error during HTTP request:", error);
       });

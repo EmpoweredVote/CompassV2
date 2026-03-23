@@ -5,6 +5,7 @@ import SortableStance from "./SortableStance";
 import { arrayMove } from "@dnd-kit/sortable";
 import { v4 as uuid } from "uuid";
 import { useCompass } from "../CompassContext";
+import { apiFetch } from "../../lib/auth";
 
 function TopicEditor({
   topic,
@@ -97,10 +98,8 @@ function TopicEditor({
     });
 
     try {
-      const topicRes = await fetch(`${import.meta.env.VITE_API_URL}/compass/topics/update`, {
+      const topicRes = await apiFetch('/compass/topics/update', {
         method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: topic.id,
           title: editedFields.title,
@@ -109,12 +108,10 @@ function TopicEditor({
           level: editedFields.level || [],
         }),
       });
-      if (!topicRes.ok) throw new Error("Failed to update topic");
+      if (!topicRes || !topicRes.ok) throw new Error("Failed to update topic");
 
-      await fetch(`${import.meta.env.VITE_API_URL}/compass/stances/update`, {
+      await apiFetch('/compass/stances/update', {
         method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           topic_id: topic.id,
           updated,
@@ -132,20 +129,15 @@ function TopicEditor({
       );
 
       if (add.length || remove.length) {
-        const catRes = await fetch(
-          `${import.meta.env.VITE_API_URL}/compass/topics/categories/update`,
-          {
-            method: "PATCH",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              topic_id: topic.id,
-              add,
-              remove,
-            }),
-          }
-        );
-        if (!catRes.ok) throw new Error("Failed to update categories");
+        const catRes = await apiFetch('/compass/topics/categories/update', {
+          method: "PATCH",
+          body: JSON.stringify({
+            topic_id: topic.id,
+            add,
+            remove,
+          }),
+        });
+        if (!catRes || !catRes.ok) throw new Error("Failed to update categories");
       }
 
       setTopics((prev) =>
