@@ -767,15 +767,15 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
               </svg>
             </button>
             <div className="flex-1">
-              <h1 className="text-xl font-semibold">Choose Your Topics</h1>
-              <p className="text-gray-500 text-sm">Pick the issues that matter most to you when you vote</p>
+              <h1 className="text-xl font-semibold">Pick 3–8 Topics</h1>
+              <p className="text-gray-500 text-sm">Choose the issues that matter most to you</p>
             </div>
             <span className={`shrink-0 text-sm font-medium px-3 py-1 rounded-full ${
               pickedTopics.length >= MIN_TOPICS
                 ? "bg-ev-yellow text-black"
                 : "bg-gray-100 text-gray-600"
             }`}>
-              {pickedTopics.length}/8 selected
+              {pickedTopics.length}/{MAX_TOPICS}
             </span>
           </div>
         </div>
@@ -833,9 +833,9 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
         {/* Footer */}
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-4 py-4 z-10">
           <div className="max-w-2xl mx-auto">
-            {pickedTopics.length < MIN_TOPICS && (
+            {pickedTopics.length < MIN_TOPICS && pickedTopics.length > 0 && (
               <p className="text-center text-sm text-gray-400 mb-2">
-                Pick at least {MIN_TOPICS} topics to continue
+                {MIN_TOPICS - pickedTopics.length} more to go
               </p>
             )}
             <button
@@ -1086,6 +1086,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
             onSkipAll={skipAnswerTour}
             onDismiss={advanceAnswerTour}
             show={true}
+            allowSpotlightInteraction={true}
           />
         )}
       </div>

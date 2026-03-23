@@ -174,6 +174,7 @@ export default function CoachMark({
   onSkipAll,
   stepLabel,
   show = true,
+  allowSpotlightInteraction = false,
 }) {
   const [rect, setRect] = useState(null);
   const [vpSize, setVpSize] = useState({ w: window.innerWidth, h: window.innerHeight });
@@ -186,10 +187,27 @@ export default function CoachMark({
     setVpSize({ w: window.innerWidth, h: window.innerHeight });
   }, [targetRef]);
 
+  // Scroll target into view if off-screen, then measure
+  useEffect(() => {
+    if (!show || !targetRef?.current) return;
+
+    const el = targetRef.current;
+    const r = el.getBoundingClientRect();
+    const isOffScreen =
+      r.bottom < 0 || r.top > window.innerHeight ||
+      r.right < 0 || r.left > window.innerWidth;
+
+    if (isOffScreen) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [show, targetRef]);
+
   // Measure on mount and whenever the target element resizes
   useEffect(() => {
     if (!show) return;
-    measureTarget();
+
+    // Small delay to let any scrollIntoView settle before first measurement
+    const measureDelay = setTimeout(measureTarget, 80);
 
     // ResizeObserver on the target element
     if (targetRef?.current && typeof ResizeObserver !== "undefined") {
@@ -202,11 +220,25 @@ export default function CoachMark({
     window.addEventListener("scroll", measureTarget, { passive: true, capture: true });
 
     return () => {
+      clearTimeout(measureDelay);
       observerRef.current?.disconnect();
       window.removeEventListener("resize", measureTarget);
       window.removeEventListener("scroll", measureTarget, { capture: true });
     };
   }, [show, measureTarget, targetRef]);
+
+  // Escape key dismisses the coachmark
+  useEffect(() => {
+    if (!show) return;
+    const handler = (e) => {
+      if (e.key === "Escape") {
+        if (onNext && onSkipAll) onSkipAll();
+        else if (onDismiss) onDismiss();
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [show, onNext, onSkipAll, onDismiss]);
 
   const isTourMode = typeof onNext === "function";
   const content = children ?? message;
@@ -223,57 +255,116 @@ export default function CoachMark({
     placement = pos.placement;
   }
 
+  // When allowSpotlightInteraction is true we render 4 separate dim
+  // rectangles around the cutout so the spotlight area has NO overlay
+  // and real pointer events pass through to the page elements.
+  // When false we use the original single-div + SVG-mask approach.
+  const renderBackdrop = () => {
+    if (!cutout) {
+      // No rect yet — dim whole screen
+      return (
+        <motion.div
+          key="coach-backdrop"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.15 }}
+          className="fixed inset-0"
+          style={{ zIndex: 60 }}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <div className="absolute inset-0 bg-black/60" />
+        </motion.div>
+      );
+    }
+
+    if (allowSpotlightInteraction) {
+      // 4-rect approach: top, bottom, left, right strips around the cutout.
+      // The spotlight area is completely uncovered — real clicks pass through.
+      const dimStyle = "bg-black/60";
+      return (
+        <motion.div
+          key="coach-backdrop-interactive"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.15 }}
+        >
+          {/* Top strip: full width, from viewport top to cutout top */}
+          <div
+            className={`fixed ${dimStyle}`}
+            style={{ zIndex: 60, top: 0, left: 0, right: 0, height: cutout.top }}
+            onPointerDown={(e) => e.stopPropagation()}
+          />
+          {/* Bottom strip: full width, from cutout bottom to viewport bottom */}
+          <div
+            className={`fixed ${dimStyle}`}
+            style={{ zIndex: 60, top: cutout.bottom, left: 0, right: 0, bottom: 0 }}
+            onPointerDown={(e) => e.stopPropagation()}
+          />
+          {/* Left strip: between top and bottom strips, from left edge to cutout left */}
+          <div
+            className={`fixed ${dimStyle}`}
+            style={{ zIndex: 60, top: cutout.top, left: 0, width: cutout.left, height: cutout.bottom - cutout.top }}
+            onPointerDown={(e) => e.stopPropagation()}
+          />
+          {/* Right strip: between top and bottom strips, from cutout right to right edge */}
+          <div
+            className={`fixed ${dimStyle}`}
+            style={{ zIndex: 60, top: cutout.top, left: cutout.right, right: 0, height: cutout.bottom - cutout.top }}
+            onPointerDown={(e) => e.stopPropagation()}
+          />
+        </motion.div>
+      );
+    }
+
+    // Default: single overlay with SVG mask cutout (blocks all clicks)
+    return (
+      <motion.div
+        key="coach-backdrop"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.15 }}
+        className="fixed inset-0"
+        style={{ zIndex: 60 }}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
+        <svg
+          width={vpW}
+          height={vpH}
+          style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
+        >
+          <defs>
+            <mask id="coach-spotlight-mask">
+              <rect width={vpW} height={vpH} fill="white" />
+              <rect
+                x={cutout.left}
+                y={cutout.top}
+                width={cutout.right - cutout.left}
+                height={cutout.bottom - cutout.top}
+                rx={CUTOUT_RADIUS}
+                ry={CUTOUT_RADIUS}
+                fill="black"
+              />
+            </mask>
+          </defs>
+          <rect
+            width={vpW}
+            height={vpH}
+            fill="rgba(0,0,0,0.6)"
+            mask="url(#coach-spotlight-mask)"
+          />
+        </svg>
+      </motion.div>
+    );
+  };
+
   const overlay = (
     <AnimatePresence>
       {show && (
         <>
-          {/* Backdrop — blocks interaction outside spotlight */}
-          <motion.div
-            key="coach-backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            className="fixed inset-0"
-            style={{ zIndex: 60 }}
-            // Block pointer events on overlay (not on cutout area)
-            onPointerDown={(e) => e.stopPropagation()}
-          >
-            {/* SVG overlay with hole cut out for the spotlight */}
-            {cutout ? (
-              <svg
-                width={vpW}
-                height={vpH}
-                style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
-              >
-                <defs>
-                  <mask id="coach-spotlight-mask">
-                    {/* Full white rectangle = fully masked (dimmed) */}
-                    <rect width={vpW} height={vpH} fill="white" />
-                    {/* Black rounded rect = transparent cutout (spotlight) */}
-                    <rect
-                      x={cutout.left}
-                      y={cutout.top}
-                      width={cutout.right - cutout.left}
-                      height={cutout.bottom - cutout.top}
-                      rx={CUTOUT_RADIUS}
-                      ry={CUTOUT_RADIUS}
-                      fill="black"
-                    />
-                  </mask>
-                </defs>
-                <rect
-                  width={vpW}
-                  height={vpH}
-                  fill="rgba(0,0,0,0.6)"
-                  mask="url(#coach-spotlight-mask)"
-                />
-              </svg>
-            ) : (
-              /* No rect yet — dim whole screen */
-              <div className="absolute inset-0 bg-black/60" />
-            )}
-          </motion.div>
+          {renderBackdrop()}
 
           {/* Tooltip card */}
           {tooltipPos && (
