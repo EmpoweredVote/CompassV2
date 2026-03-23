@@ -2,7 +2,7 @@
 // Shared hook for fetching the politician list from /compass/politicians.
 // Uses module-level caching so the API call only happens once across all consumers.
 
-import { apiFetch } from "../lib/auth";
+import { publicFetch } from "../lib/auth";
 
 let cachedList = null;
 let pendingPromise = null;
@@ -14,7 +14,7 @@ function fetchPoliticianList() {
   if (pendingPromise) {
     return pendingPromise;
   }
-  pendingPromise = apiFetch('/compass/politicians')
+  pendingPromise = publicFetch('/compass/politicians')
     .then((r) => r ? r.json() : [])
     .then((r) => {
       const list = Array.isArray(r) ? r : [];

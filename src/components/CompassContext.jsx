@@ -90,12 +90,17 @@ export function CompassProvider({ children }) {
     localStorage.setItem("writeIns", JSON.stringify(writeIns));
   }, [writeIns]);
 
-  // Check auth state on mount — extract hash token first, then check /account/me
+  // Check auth state on mount — extract hash token first, then check /account/me.
+  // Uses publicFetch so a stale/expired token silently clears and falls back to
+  // guest mode instead of redirecting to login.
   useEffect(() => {
     extractHashToken();
     if (!getToken()) return;
-    apiFetch('/account/me')
-      .then(r => r && r.ok ? r.json() : null)
+    publicFetch('/account/me')
+      .then(r => {
+        if (r.status === 401) { clearToken(); return null; }
+        return r.ok ? r.json() : null;
+      })
       .then(data => {
         if (data) {
           setIsLoggedIn(true);
