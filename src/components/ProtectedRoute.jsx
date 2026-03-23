@@ -7,7 +7,7 @@ function ProtectedRoute(props) {
 
   useEffect(() => {
     console.log("Fetching auth status");
-    apiFetch('/auth/me')
+    apiFetch('/account/me')
       .then((response) => {
         if (!response || !response.ok) {
           setAuthStatus("unauthorized");
