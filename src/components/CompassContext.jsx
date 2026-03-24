@@ -1,6 +1,6 @@
 // CompassContext.jsx
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
-import { extractHashToken, getToken, apiFetch, publicFetch, clearToken } from '../lib/auth';
+import { extractHashToken, getToken, setToken, apiFetch, publicFetch, clearToken } from '../lib/auth';
 
 function safeParse(str, fallback) {
   try {
@@ -53,6 +53,7 @@ export function CompassProvider({ children }) {
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [username, setUsername] = useState(null);
+  const [authChecking, setAuthChecking] = useState(true);
 
   const setInvertedSpokes = useCallback((updater) => {
     setInvertedSpokesRaw((prev) => {
@@ -90,28 +91,56 @@ export function CompassProvider({ children }) {
     localStorage.setItem("writeIns", JSON.stringify(writeIns));
   }, [writeIns]);
 
-  // Check auth state on mount — extract hash token first, then check /account/me.
-  // Uses publicFetch so a stale/expired token silently clears and falls back to
-  // guest mode instead of redirecting to login.
+  // Check auth state on mount — extract hash token first, try SSO cookie if no
+  // local token, then verify with /account/me. Uses publicFetch so a stale/expired
+  // token silently clears and falls back to guest mode instead of redirecting.
+  // authChecking stays true until ALL code paths (token-present, SSO success,
+  // SSO failure) reach the finally block — prevents flash of "Sign in" UI.
   useEffect(() => {
-    extractHashToken();
-    if (!getToken()) return;
-    publicFetch('/account/me')
-      .then(r => {
-        if (r.status === 401) { clearToken(); return null; }
-        return r.ok ? r.json() : null;
-      })
-      .then(data => {
-        if (data) {
-          setIsLoggedIn(true);
-          setUsername(data.display_name || null);
-          // Seed help_seen from DB: if user completed onboarding, don't show /help again
-          if (data.completed_onboarding) {
-            localStorage.setItem("help_seen", "true");
+    (async () => {
+      try {
+        extractHashToken();
+
+        // SSO check — only when no local token exists
+        if (!getToken()) {
+          try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 2000);
+            const res = await fetch('/api/auth/session', {
+              credentials: 'include',
+              signal: controller.signal,
+            });
+            clearTimeout(timeout);
+            if (res.ok) {
+              const data = await res.json();
+              if (data.access_token) setToken(data.access_token);
+            }
+          } catch {
+            // Silent fallback — no cookie or network error
           }
         }
-      })
-      .catch(() => {});
+
+        // Auth check (runs after potential SSO token injection)
+        if (getToken()) {
+          const r = await publicFetch('/account/me');
+          if (r.status === 401) {
+            clearToken();
+          } else if (r.ok) {
+            const data = await r.json();
+            setIsLoggedIn(true);
+            setUsername(data.display_name || null);
+            // Seed help_seen from DB: if user completed onboarding, don't show /help again
+            if (data.completed_onboarding) {
+              localStorage.setItem("help_seen", "true");
+            }
+          }
+        }
+      } catch {
+        // Silent — degrade to guest
+      } finally {
+        setAuthChecking(false);
+      }
+    })();
   }, []);
 
   // Track whether we've loaded server-side selectedTopics
@@ -238,6 +267,7 @@ export function CompassProvider({ children }) {
         setIsLoggedIn,
         username,
         setUsername,
+        authChecking,
       }}
     >
       {children}
