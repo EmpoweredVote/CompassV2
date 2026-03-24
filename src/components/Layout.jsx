@@ -3,40 +3,37 @@ import { SiteHeader } from "@chrisandrewsedu/ev-ui";
 import { useCompass } from "../components/CompassContext";
 import { useIsAdmin } from "../hooks/IsAdmin";
 import ReturnBanner from "./ReturnBanner";
-import { apiFetch, clearToken } from "../lib/auth";
+import { apiFetch, getToken, clearToken } from "../lib/auth";
 
 function Layout({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
   const isAdmin = useIsAdmin();
-  const { setSelectedTopics, setAnswers, setWriteIns, setInvertedSpokes, isLoggedIn, username, setIsLoggedIn } = useCompass();
+  const { setSelectedTopics, setAnswers, setWriteIns, setInvertedSpokes, isLoggedIn, username, setIsLoggedIn, authChecking } = useCompass();
 
-  const logout = () => {
-    apiFetch('/auth/logout', {
-      method: "POST",
-    })
-      .then((res) => {
-        if (!res || !res.ok) throw new Error("Logout failed");
-        return res.text();
-      })
-      .then(() => {
-        clearToken();
-        localStorage.removeItem("compareUser");
-        localStorage.removeItem("invertedSpokes");
-        localStorage.removeItem("selectedTopics");
-        localStorage.removeItem("answers");
-        localStorage.removeItem("writeIns");
-        setSelectedTopics([]);
-        setAnswers({});
-        setWriteIns({});
-        setIsLoggedIn(false);
-        navigate("/");
-      })
-      .catch((err) => {
-        console.error(err);
-        clearToken();
-        navigate("/");
+  const logout = async () => {
+    try {
+      const token = getToken();
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
       });
+    } catch {
+      // Network error — clear local state anyway
+    }
+    clearToken();
+    localStorage.removeItem("compareUser");
+    localStorage.removeItem("invertedSpokes");
+    localStorage.removeItem("selectedTopics");
+    localStorage.removeItem("answers");
+    localStorage.removeItem("writeIns");
+    setSelectedTopics([]);
+    setAnswers({});
+    setWriteIns({});
+    setIsLoggedIn(false);
   };
 
   const handleClearCompass = () => {
@@ -91,9 +88,11 @@ function Layout({ children }) {
         currentPath={location.pathname}
         onNavigate={handleNavigate}
         profileMenu={
-          isLoggedIn
-            ? { label: username, items: profileItems }
-            : { label: null, items: [{ label: "Sign in", onClick: () => navigate("/login") }] }
+          authChecking
+            ? { label: null, items: [] }
+            : isLoggedIn
+              ? { label: username, items: profileItems }
+              : { label: null, items: [{ label: "Sign in", onClick: () => navigate("/login") }] }
         }
       />
       <main className="flex-1">{children}</main>

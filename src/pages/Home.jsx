@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { apiFetch, clearToken } from "../lib/auth";
+import { apiFetch, getToken, clearToken } from "../lib/auth";
 
 function Home() {
   const [user, setUser] = useState();
@@ -23,25 +23,20 @@ function Home() {
       console.error("Error during HTTP request:", error);
     });
 
-  const logout = () => {
-    apiFetch('/auth/logout', {
-      method: "POST",
-    })
-      .then((response) => {
-        if (!response || !response.ok) {
-          navigate("/");
-          throw new Error("HTTP error " + (response ? response.status : "null"));
-        } else {
-          return response.text();
-        }
-      })
-      .then(() => {
-        clearToken();
-        navigate("/");
-      })
-      .catch((error) => {
-        console.error("Error during HTTP request:", error);
+  const logout = async () => {
+    try {
+      const token = getToken();
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
       });
+    } catch {
+      // Network error — clear local state anyway
+    }
+    clearToken();
   };
 
   return (
