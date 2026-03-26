@@ -1,6 +1,6 @@
 export const API_BASE = import.meta.env.VITE_API_URL
   ? `${import.meta.env.VITE_API_URL.replace(/\/+$/, '')}/api`
-  : '/api';
+  : 'https://accounts-api.empowered.vote/api';
 
 export const TOKEN_KEY = 'ev_token';
 export const AUTH_HUB_URL = 'https://accounts.empowered.vote';
