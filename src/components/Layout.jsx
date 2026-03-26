@@ -3,7 +3,7 @@ import { SiteHeader } from "@chrisandrewsedu/ev-ui";
 import { useCompass } from "../components/CompassContext";
 import { useIsAdmin } from "../hooks/IsAdmin";
 import ReturnBanner from "./ReturnBanner";
-import { apiFetch, getToken, clearToken } from "../lib/auth";
+import { apiFetch, getToken, clearToken, API_BASE } from "../lib/auth";
 
 function Layout({ children }) {
   const navigate = useNavigate();
@@ -14,7 +14,7 @@ function Layout({ children }) {
   const logout = async () => {
     try {
       const token = getToken();
-      await fetch('/api/auth/logout', {
+      await fetch(`${API_BASE}/auth/logout`, {
         method: 'POST',
         credentials: 'include',
         headers: {
