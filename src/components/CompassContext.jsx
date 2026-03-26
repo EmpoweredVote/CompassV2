@@ -1,6 +1,6 @@
 // CompassContext.jsx
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
-import { extractHashToken, getToken, setToken, apiFetch, publicFetch, clearToken } from '../lib/auth';
+import { extractHashToken, getToken, setToken, apiFetch, publicFetch, clearToken, API_BASE } from '../lib/auth';
 
 function safeParse(str, fallback) {
   try {
@@ -106,7 +106,7 @@ export function CompassProvider({ children }) {
           try {
             const controller = new AbortController();
             const timeout = setTimeout(() => controller.abort(), 2000);
-            const res = await fetch('/api/auth/session', {
+            const res = await fetch(`${API_BASE}/auth/session`, {
               credentials: 'include',
               signal: controller.signal,
             });
