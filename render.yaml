@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: empowered-compass
+    runtime: static
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://accounts-api.empowered.vote
+      - key: NODE_VERSION
+        value: "20"
+      - key: NPM_TOKEN
+        sync: false  # Set in Render dashboard — GitHub PAT with read:packages scope
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
