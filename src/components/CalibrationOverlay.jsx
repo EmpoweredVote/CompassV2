@@ -478,10 +478,9 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
   const handleBack = () => {
     if (currentIndex > 0) {
       setCurrentIndex((i) => i - 1);
-    } else if (!resumeMode) {
-      setStep("pick");
+    } else {
+      handleSkip();
     }
-    // In resumeMode, back at index 0 does nothing (no pick step to return to)
   };
 
   const handleFinish = () => {
@@ -758,9 +757,9 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
         <div className="sticky top-0 bg-white border-b border-gray-100 z-10 px-4 pt-4 pb-3">
           <div className="flex items-center gap-3 max-w-2xl mx-auto">
             <button
-              onClick={() => startAtPick ? onSkip() : setStep("welcome")}
+              onClick={handleSkip}
               className="p-1.5 rounded-full text-gray-400 hover:text-black hover:bg-gray-100 transition-colors cursor-pointer shrink-0"
-              aria-label={startAtPick ? "Close" : "Back to welcome"}
+              aria-label="Close"
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
                 <path fillRule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clipRule="evenodd" />
