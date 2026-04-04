@@ -6,7 +6,7 @@ services:
     staticPublishPath: ./dist
     envVars:
       - key: VITE_API_URL
-        value: https://accounts-api.empowered.vote
+        value: https://api.empowered.vote
       - key: NODE_VERSION
         value: "20"
       - key: NPM_TOKEN

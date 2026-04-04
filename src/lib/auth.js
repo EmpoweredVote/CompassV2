@@ -1,4 +1,4 @@
-export const API_BASE = 'https://accounts-api.empowered.vote/api';
+export const API_BASE = 'https://api.empowered.vote/api';
 
 export const TOKEN_KEY = 'ev_token';
 export const AUTH_HUB_URL = 'https://accounts.empowered.vote';
