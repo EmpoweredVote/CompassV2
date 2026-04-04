@@ -1,7 +1,7 @@
 services:
   - type: web
     name: empowered-compass
-    runtime: static
+    env: static
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
     envVars:
