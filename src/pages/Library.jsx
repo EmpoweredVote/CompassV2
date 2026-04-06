@@ -590,9 +590,9 @@ function Library() {
                           />
                           <div className="flex items-start justify-between gap-1">
                             <div className="text-left pr-5">
-                              <p className="text-sm md:text-base font-medium leading-snug">{parseTensionTitle(topic).name}</p>
+                              <p className="text-sm md:text-base font-medium leading-snug">{getQuestionText(topic) || parseTensionTitle(topic).name}</p>
                               {getQuestionText(topic) && (
-                                <p className="text-xs text-gray-500 font-normal mt-0.5">{getQuestionText(topic)}</p>
+                                <p className="text-xs text-gray-500 font-normal mt-0.5">{parseTensionTitle(topic).name}</p>
                               )}
                             </div>
                             {isAnswered && (

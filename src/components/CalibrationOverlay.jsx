@@ -811,9 +811,9 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
                         }`}
                       >
                         <div className="text-left">
-                          <p className="text-sm font-medium leading-snug">{parseTensionTitle(fullTopic).name}</p>
+                          <p className="text-sm font-medium leading-snug">{getQuestionText(fullTopic) || parseTensionTitle(fullTopic).name}</p>
                           {getQuestionText(fullTopic) && (
-                            <p className="text-xs text-gray-500 font-normal mt-0.5">{getQuestionText(fullTopic)}</p>
+                            <p className="text-xs text-gray-500 font-normal mt-0.5">{parseTensionTitle(fullTopic).name}</p>
                           )}
                         </div>
                         {isSelected && (
