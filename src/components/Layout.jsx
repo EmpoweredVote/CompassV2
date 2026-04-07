@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router";
-import { SiteHeader } from "@chrisandrewsedu/ev-ui";
+import { SiteHeader } from "@empoweredvote/ev-ui";
 import { useCompass } from "../components/CompassContext";
 import { useIsAdmin } from "../hooks/IsAdmin";
 import ReturnBanner from "./ReturnBanner";
