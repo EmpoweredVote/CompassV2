@@ -237,6 +237,30 @@ export function CompassProvider({ children }) {
     }, 500);
   }, [selectedTopics, isLoggedIn]);
 
+  // Cross-app logout sync — detect ev_session cookie cleared by another app
+  useEffect(() => {
+    if (!isLoggedIn) return;
+
+    const SESSION_URL = `${API_BASE}/auth/session`;
+
+    const poll = async () => {
+      if (document.visibilityState !== 'visible') return;
+      try {
+        const res = await fetch(SESSION_URL, { credentials: 'include' });
+        if (res.status === 401) {
+          clearToken();
+          setIsLoggedIn(false);
+          setUsername(null);
+        }
+      } catch {
+        // Network error — don't log out
+      }
+    };
+
+    const id = setInterval(poll, 60_000);
+    return () => clearInterval(id);
+  }, [isLoggedIn]);
+
   return (
     <CompassContext.Provider
       value={{
