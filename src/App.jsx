@@ -12,9 +12,10 @@ import BuildCompass from "./pages/BuildCompass";
 import Layout from "./components/Layout";
 import { CompassProvider } from "./components/CompassContext";
 import AdminDashboard from "./components/admin/AdminDashboard";
+import HowItWorks from "./pages/HowItWorks";
 
 // Routes that should bypass the calibration guard
-const GUARD_BYPASS = ["/help", "/login", "/register", "/admin", "/401", "/results"];
+const GUARD_BYPASS = ["/help", "/how-it-works", "/login", "/register", "/admin", "/401", "/results"];
 
 function HelpGuard({ children }) {
   const location = useLocation();
@@ -45,7 +46,8 @@ function App() {
         {/* Public routes that bypass the help guard */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/help" element={<Navigate to="/results" replace />} />
+        <Route path="/help" element={<Navigate to="/how-it-works" replace />} />
+        <Route path="/how-it-works" element={<HowItWorks />} />
         <Route path="/401" element={<Unauthorized />} />
 
         {/* Protected admin route */}
