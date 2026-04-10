@@ -380,11 +380,25 @@ function Compass() {
     "Tap any spoke label to flip its direction — this only changes the visual layout, not your actual stance",
     "See how your views line up with a politician",
     "Add or change topics anytime from the Library",
+    (
+      <>
+        Your compass may look scattered — that's intentional. We randomize stance spectrum direction and don't encode left/right on the chart, so the shape isn't a partisan score.{" "}
+        <a
+          href="/how-it-works#compass-positions"
+          target="_blank"
+          rel="noopener"
+          className="text-[#00657c] underline hover:text-[#ff5740]"
+          onClick={(e) => e.stopPropagation()}
+        >
+          Want the full story?
+        </a>
+      </>
+    ),
   ];
 
   // Tour advancement logic
   const advanceTour = () => {
-    if (tourStep < 2) {
+    if (tourStep < 3) {
       setTourStep(tourStep + 1);
     } else {
       // Final step — dismiss
@@ -906,15 +920,16 @@ function Compass() {
           targetRef={
             tourStep === 0 ? spokeRef
             : tourStep === 1 ? compareRef
-            : backToLibRef
+            : tourStep === 2 ? backToLibRef
+            : chartContainerRef
           }
           message={tourMessages[tourStep]}
-          stepLabel={`${tourStep + 1} of 3`}
+          stepLabel={`${tourStep + 1} of 4`}
           onNext={advanceTour}
           onSkipAll={skipTour}
           onDismiss={advanceTour}
           show={true}
-          allowSpotlightInteraction={tourStep === 0}
+          allowSpotlightInteraction={tourStep === 0 || tourStep === 3}
         />
       )}
     </div>
