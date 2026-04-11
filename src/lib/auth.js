@@ -1,4 +1,11 @@
-export const API_BASE = 'https://api.empowered.vote/api';
+// In dev mode (vite dev server), use a relative /api path so requests are
+// proxied through Vite to the production API — bypassing CORS. See
+// vite.config.js for the proxy config and COMPASSV2-INTEGRATION.md for the
+// rationale. In production builds (`vite build`), talk to the prod API
+// directly via the absolute URL.
+export const API_BASE = import.meta.env.DEV
+  ? '/api'
+  : 'https://api.empowered.vote/api';
 
 export const TOKEN_KEY = 'ev_token';
 export const AUTH_HUB_URL = 'https://accounts.empowered.vote';
