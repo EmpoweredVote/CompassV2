@@ -524,11 +524,7 @@ function Library() {
                   {category.title}
                 </h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                  {visible.map((catTopic) => {
-                    // The nested category topic is stripped of tier flags;
-                    // look up the full topic from the flat topics array so
-                    // TopicTierBadge can read applies_federal/state/local.
-                    const topic = topics.find((t) => t.id === catTopic.id) || catTopic;
+                  {visible.map((topic) => {
                     const isOnCompass = selectedTopics.includes(topic.id);
                     const isAnswered = answeredTopicIDs.includes(topic.id);
                     const isFirstAdd = !isOnCompass && !firstAddBtnFound;
