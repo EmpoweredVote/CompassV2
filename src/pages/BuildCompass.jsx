@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from "react";
 import { useCompass } from "../components/CompassContext";
 import { useNavigate } from "react-router";
 import { apiFetch } from "../lib/auth";
-import { TopicTierBadge } from "@empoweredvote/ev-ui";
 
 const CATEGORY_COLORS = [
   { bg: "bg-blue-50", border: "border-blue-400", text: "text-blue-700", accent: "bg-blue-400" },
@@ -73,17 +72,6 @@ function BuildCompass() {
     }
   };
 
-  // Derive per-tier counts from the current picked topics.
-  // A topic counts toward any tier it applies to (topics can apply at multiple).
-  const pickedTopics = picked
-    .map((id) => topics.find((t) => t.id === id))
-    .filter(Boolean);
-  const tierCounts = {
-    federal: pickedTopics.filter((t) => t.applies_federal).length,
-    state:   pickedTopics.filter((t) => t.applies_state).length,
-    local:   pickedTopics.filter((t) => t.applies_local).length,
-  };
-
   const handleViewCompass = () => {
     setSelectedTopics(picked);
     navigate("/results");
@@ -106,7 +94,7 @@ function BuildCompass() {
         <p className="text-gray-500 text-center text-sm md:text-base mb-2">
           Choose up to {MAX_TOPICS} topics to display on your compass
         </p>
-        <p className="text-center text-sm font-medium mb-2">
+        <p className="text-center text-sm font-medium mb-6">
           <span className={picked.length >= MIN_TOPICS ? "text-green-600" : "text-gray-500"}>
             {picked.length} of {MAX_TOPICS} selected
           </span>
@@ -114,16 +102,6 @@ function BuildCompass() {
             <span className="text-gray-400 ml-2">(minimum {MIN_TOPICS})</span>
           )}
         </p>
-        {picked.length > 0 && (
-          <p className="text-center text-xs text-gray-500 mb-6">
-            Tier coverage:{" "}
-            <span className="font-medium">{tierCounts.federal} Federal</span>
-            {" · "}
-            <span className="font-medium">{tierCounts.state} State</span>
-            {" · "}
-            <span className="font-medium">{tierCounts.local} Local</span>
-          </p>
-        )}
       </div>
 
       {/* Topic Cards by Category (only answered topics) */}
@@ -144,11 +122,7 @@ function BuildCompass() {
                 {category.title}
               </h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                {answeredInCategory.map((catTopic) => {
-                  // The category's nested topic is stripped down (no tier flags).
-                  // Look up the full topic from the flat topics array so TopicTierBadge
-                  // can read applies_federal/state/local.
-                  const topic = topics.find((t) => t.id === catTopic.id) || catTopic;
+                {answeredInCategory.map((topic) => {
                   const isPicked = picked.includes(topic.id);
                   const isAtMax = picked.length >= MAX_TOPICS && !isPicked;
 
@@ -192,9 +166,6 @@ function BuildCompass() {
                       <span className={`text-xs mt-1 block ${color.text} opacity-80`}>
                         {category.title}
                       </span>
-                      <div className="mt-2">
-                        <TopicTierBadge topic={topic} size="xs" layout="compact" />
-                      </div>
                     </button>
                   );
                 })}
