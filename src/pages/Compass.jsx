@@ -377,7 +377,7 @@ function Compass() {
 
   // Tour messages indexed by step
   const tourMessages = [
-    "Tap any spoke label to flip its direction — this only changes the visual layout, not your actual stance",
+    "Tap any spoke label to flip its direction. It only changes how the chart looks, not your stance. We do the same flip on the quiz, at random, so neither side ever starts on top.",
     "See how your views line up with a politician",
     "Add or change topics anytime from the Library",
     (
@@ -471,7 +471,7 @@ function Compass() {
   };
 
   const compareTourMessages = [
-    "Search for any politician to compare your views side by side. You can switch politicians anytime.",
+    "Search for any politician to compare your views side by side. You won't see their party here — we want you to look at the ideas first, not the labels.",
     "Pick a topic to see how you both answered — your stances appear side by side below.",
     "The blue overlay shows the politician's positions. The closer your points are on each spoke, the more you align on that topic.",
     "Flipping a spoke changes the visual layout, but your actual stance stays exactly the same — it's just a different perspective.",

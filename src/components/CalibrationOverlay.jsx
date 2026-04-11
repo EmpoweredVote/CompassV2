@@ -1077,7 +1077,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
             targetRef={answerTourStep === 0 ? stancesPanelRef : writeOwnBtnRef}
             message={
               answerTourStep === 0
-                ? "Select which stance on the spectrum best matches your own — your compass builds as you answer"
+                ? "Pick the stance that fits you best. We flip each topic's order at random, so neither side ever shows up 'first.' What matters is your pick, not where it sits in the list."
                 : "If none of the stances quite match, write your own and drag it to where it fits best on the spectrum"
             }
             stepLabel={`${answerTourStep + 1} of 2`}
