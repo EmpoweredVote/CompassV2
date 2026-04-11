@@ -4,6 +4,7 @@ import { useCompass } from "./CompassContext";
 import { apiFetch } from "../lib/auth";
 import RadarChart from "./RadarChart";
 import { getQuestionText, parseTensionTitle } from "../util/topic";
+import { TopicTierBadge } from "@empoweredvote/ev-ui";
 import {
   DndContext,
   closestCenter,
@@ -814,6 +815,9 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
                           {getQuestionText(fullTopic) && (
                             <p className="text-xs text-gray-500 font-normal mt-0.5">{parseTensionTitle(fullTopic).name}</p>
                           )}
+                          <div className="mt-2">
+                            <TopicTierBadge topic={fullTopic} size="xs" variant="muted" />
+                          </div>
                         </div>
                         {isSelected && (
                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5 shrink-0 text-[#59b0c4]">
