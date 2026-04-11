@@ -5,6 +5,7 @@ import { apiFetch } from "../../lib/auth";
 const PoliticianAdminPanel = lazy(() => import("./PoliticianAdminPanel"));
 const AttachAnswers = lazy(() => import("./AttachAnswers"));
 const TopicAdminPanel = lazy(() => import("./TopicAdminPanel"));
+const TopicRewriteWorkflow = lazy(() => import("./TopicRewriteWorkflow"));
 
 function AdminDashboard() {
   const { topics } = useCompass();
@@ -45,6 +46,10 @@ function AdminDashboard() {
 
     case "Answers":
       page = <AttachAnswers topics={topics} politicians={filteredPol} />;
+      break;
+
+    case "Rewrite Workflow":
+      page = <TopicRewriteWorkflow />;
   }
 
   const changeTab = (tabName) => {
@@ -55,9 +60,9 @@ function AdminDashboard() {
     <div className="mx-6 mt-6">
       <h1 className="text-center text-2xl font-bold">Admin Dashboard</h1>
 
-      <div className="w-1/2 m-auto">
+      <div className="w-3/4 m-auto">
         <div className="flex flex-row justify-center gap-8 my-4">
-          {["Topics", "Context", "Answers"].map((tab) => (
+          {["Topics", "Context", "Answers", "Rewrite Workflow"].map((tab) => (
             <button
               key={tab}
               className={`py-2 px-8 border rounded-md cursor-pointer font-semibold hover:bg-gray-200 ${
