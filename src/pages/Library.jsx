@@ -544,7 +544,7 @@ function Library() {
                               setRemoveConfirm(null);
                               return;
                             }
-                            setDrawerTopic(topic);
+                            setDrawerTopic(topics.find((t) => t.id === topic.id) ?? topic);
                           }}
                           className={`w-full relative text-left px-4 py-3 rounded-xl border-2 transition-all duration-200 cursor-pointer ${
                             isOnCompass
