@@ -570,7 +570,7 @@ export function Quiz() {
           const question = getQuestionText(currentTopic);
           return (
             <div className="text-center px-4 mt-4 mb-2">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center justify-center gap-2">
                 <h1 className="text-xl md:text-2xl font-semibold">{question || topicName}</h1>
                 <a
                   href="/how-it-works#spectrum-direction"
@@ -678,7 +678,7 @@ export function Quiz() {
           const question = getQuestionText(currentTopic);
           return (
             <div className="text-center mt-1 md:mt-4 px-4">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center justify-center gap-2">
                 <h1 className="text-xl md:text-2xl font-semibold">{question || topicName}</h1>
                 <a
                   href="/how-it-works#spectrum-direction"
