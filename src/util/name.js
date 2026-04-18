@@ -1,4 +1,5 @@
 export function getPolName(politician) {
+  if (!politician) return "";
   const polName = politician.preferred_name
     ? politician.preferred_name + " " + politician.last_name
     : politician.full_name
