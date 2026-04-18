@@ -66,16 +66,16 @@ export default function InlinePoliticianPicker({
     if (stateFilter) return; // respect existing user-chosen filter
     if (!availableStates || availableStates.length === 0) return;
     try {
-      const raw = localStorage.getItem('evUserAddress');
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      // TTL guard mirrors essentials/src/lib/compass.js loadUserAddress (30 days)
+      // Read cross-subdomain cookie written by essentials (localStorage is origin-scoped, cookies are not)
+      const match = document.cookie.split('; ').find((c) => c.startsWith('evUserAddress='));
+      if (!match) return;
+      const parsed = JSON.parse(decodeURIComponent(match.split('=').slice(1).join('=')));
       const TTL_MS = 30 * 24 * 60 * 60 * 1000;
       if (parsed?.ts && Date.now() - parsed.ts > TTL_MS) return;
       if (parsed?.state && availableStates.some((s) => s.code === parsed.state)) {
         setStateFilter(parsed.state);
       }
-    } catch { /* noop — malformed JSON or storage unavailable */ }
+    } catch { /* noop — malformed JSON or cookie unavailable */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [availableStates]);
 
