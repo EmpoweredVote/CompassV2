@@ -72,7 +72,7 @@ export default function InlinePoliticianPicker({
       // TTL guard mirrors essentials/src/lib/compass.js loadUserAddress (30 days)
       const TTL_MS = 30 * 24 * 60 * 60 * 1000;
       if (parsed?.ts && Date.now() - parsed.ts > TTL_MS) return;
-      if (parsed?.state && availableStates.includes(parsed.state)) {
+      if (parsed?.state && availableStates.some((s) => s.code === parsed.state)) {
         setStateFilter(parsed.state);
       }
     } catch { /* noop — malformed JSON or storage unavailable */ }
