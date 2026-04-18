@@ -5,6 +5,11 @@
 //   onSelect(politician) - called when user picks from the list
 //   onClear() - called when user chooses "Clear comparison"
 //   onOpenFullModal() - called when user clicks the browse/expand button
+//
+// Cross-app contract: reads localStorage 'evUserAddress' written by essentials/src/lib/compass.js (G-114-011 D-02 Tier 1).
+// Shape: { addr: string, state: string (USPS 2-letter), ts: number (epoch ms) }. 30-day TTL.
+// Pre-selects state filter only if user has not already chosen one (stateFilter empty).
+// CompassV2 cannot import from essentials/ — inlines the localStorage read with the literal key string.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getPolName, normalizeOfficeTitle, getOfficeSubtitle } from "../util/name";
 import placeholder from "../assets/placeholder.png";
@@ -53,6 +58,26 @@ export default function InlinePoliticianPicker({
       onSelect?.(fresh);
     }
   }, [politicians, currentPolitician, onSelect]);
+
+  // G-114-011 Tier 1: pre-select state from Essentials cross-app address bridge (one-shot on mount)
+  // Only applies when user has not already chosen a filter and availableStates has loaded.
+  // Tier 3 fallback (unfiltered) is the existing default — no Indiana hardcoding.
+  useEffect(() => {
+    if (stateFilter) return; // respect existing user-chosen filter
+    if (!availableStates || availableStates.length === 0) return;
+    try {
+      const raw = localStorage.getItem('evUserAddress');
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      // TTL guard mirrors essentials/src/lib/compass.js loadUserAddress (30 days)
+      const TTL_MS = 30 * 24 * 60 * 60 * 1000;
+      if (parsed?.ts && Date.now() - parsed.ts > TTL_MS) return;
+      if (parsed?.state && availableStates.includes(parsed.state)) {
+        setStateFilter(parsed.state);
+      }
+    } catch { /* noop — malformed JSON or storage unavailable */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availableStates]);
 
   // Close dropdown on outside click
   useEffect(() => {
