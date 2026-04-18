@@ -4,7 +4,6 @@ import { apiFetch } from "../lib/auth";
 import RadarChart from "../components/RadarChart";
 import CalibrationOverlay from "../components/CalibrationOverlay";
 import LibraryDrawer from "../components/LibraryDrawer";
-import CompareModal from "../components/CompareModal";
 import ComparePanel from "../components/ComparePanel";
 import SavePromptModal from "../components/SavePromptModal";
 import CoachMark from "../components/CoachMark";
@@ -186,7 +185,7 @@ function Compass() {
               // Only assign if this button is visible (has layout dimensions)
               if (el && el.offsetWidth > 0) compareRef.current = el;
             }}
-            onClick={() => setIsCompareModal(true)}
+            onClick={() => setCompareMode(true)}
             className="px-4 sm:px-6 py-2 text-sm sm:text-base bg-black text-white rounded-full hover:bg-ev-yellow-dark hover:text-black transition-colors cursor-pointer"
           >
             Compare
@@ -412,7 +411,7 @@ function Compass() {
   };
 
   const [drawerTopic, setDrawerTopic] = useState(null);
-  const [isCompareModal, setIsCompareModal] = useState(false);
+  const [compareMode, setCompareMode] = useState(false);
 
   // -------- Compare deep-dive tour --------
   const [compareTourStep, setCompareTourStep] = useState(-1); // -1 = inactive, 0-3 = active
@@ -434,10 +433,7 @@ function Compass() {
   const handleClearComparison = () => {
     setComparePol(null);
     setCompareAnswers({});
-  };
-
-  const handleOpenFullModal = () => {
-    setIsCompareModal(true);
+    setCompareMode(false);
   };
 
   // -------- Compare tour trigger: fires on first compare selection --------
@@ -792,7 +788,7 @@ function Compass() {
         </div>
 
         {/* right: compare panel */}
-        {showChart && comparePol && (
+        {showChart && (comparePol || compareMode) && (
           <div className="flex-1 min-w-[320px]">
             <ComparePanel
               politician={comparePol}
@@ -800,7 +796,6 @@ function Compass() {
               setDropdownValue={setDropdownValue}
               onSwitchPolitician={handleSwitchPolitician}
               onClearComparison={handleClearComparison}
-              onOpenFullModal={handleOpenFullModal}
             />
           </div>
         )}
@@ -809,14 +804,13 @@ function Compass() {
       {/* -------- mobile: tab 0 (Compare) -------- */}
       {selectedTab === 0 && (
         <div className="w-full max-w-2xl lg:hidden">
-          {comparePol ? (
+          {(comparePol || compareMode) ? (
             <ComparePanel
               politician={comparePol}
               dropdownValue={dropdownValue}
               setDropdownValue={setDropdownValue}
               onSwitchPolitician={handleSwitchPolitician}
               onClearComparison={handleClearComparison}
-              onOpenFullModal={handleOpenFullModal}
             />
           ) : (
             <div className="flex flex-col gap-6 w-full items-center mt-8">
@@ -825,7 +819,7 @@ function Compass() {
               </h1>
               {showChart && (
                 <button
-                  onClick={() => setIsCompareModal(true)}
+                  onClick={() => setCompareMode(true)}
                   className="px-6 py-2 bg-black text-white rounded-full hover:bg-opacity-90"
                 >
                   Compare
@@ -872,14 +866,6 @@ function Compass() {
         </div>
       )}
 
-      {/* -------- modals (shared) -------- */}
-      {isCompareModal && (
-        <CompareModal
-          selectedTopics={selectedTopics}
-          onCompare={(p) => setComparePol(p)}
-          onClose={() => setIsCompareModal(false)}
-        />
-      )}
       {/* -------- LibraryDrawer (spoke-click-to-drawer) -------- */}
       <LibraryDrawer
         topic={drawerTopic}
