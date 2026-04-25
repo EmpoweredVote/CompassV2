@@ -675,7 +675,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
                 />
               );
             })}
-            {/* User compass polygon — ev-coral fill */}
+            {/* User compass polygon — dusk purple fill */}
             <polygon
               points={[0, 1, 2, 3, 4, 5, 6, 7]
                 .map((i) => {
@@ -685,13 +685,13 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
                   return `${100 + r * Math.sin(angle)},${100 - r * Math.cos(angle)}`;
                 })
                 .join(" ")}
-              fill="#ff5740"
+              fill="#7C6B9E"
               fillOpacity="0.25"
-              stroke="#ff5740"
+              stroke="#7C6B9E"
               strokeWidth="2"
               strokeLinejoin="round"
             />
-            {/* Comparison polygon — ev-light-blue fill */}
+            {/* Comparison polygon — sage green fill */}
             <polygon
               points={[0, 1, 2, 3, 4, 5, 6, 7]
                 .map((i) => {
@@ -701,9 +701,9 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
                   return `${100 + r * Math.sin(angle)},${100 - r * Math.cos(angle)}`;
                 })
                 .join(" ")}
-              fill="#59b0c4"
+              fill="#5A9A6E"
               fillOpacity="0.2"
-              stroke="#59b0c4"
+              stroke="#5A9A6E"
               strokeWidth="2"
               strokeLinejoin="round"
             />
