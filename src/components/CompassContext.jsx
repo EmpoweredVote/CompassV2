@@ -54,6 +54,7 @@ export function CompassProvider({ children }) {
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [username, setUsername] = useState(null);
+  const [userId, setUserId] = useState(null);
   const [authChecking, setAuthChecking] = useState(true);
 
   const setInvertedSpokes = useCallback((updater) => {
@@ -87,22 +88,51 @@ export function CompassProvider({ children }) {
     localStorage.setItem("answers", JSON.stringify(answers));
   }, [answers]);
 
-  // Cross-subdomain shared state: write guest compass to ev-context broker
+  // Cross-subdomain shared state: write compass to ev-context broker
   // so essentials/readrank/etc. on other subdomains see the same data.
   // Wait until auth is resolved (authChecking=false) before writing —
   // otherwise stale localStorage state gets written while isLoggedIn is
   // still false but the user is actually logged in.
-  // Logged-in users use API as source of truth — skip the broker write.
+  //
+  // Two paths:
+  // - Guest: write top-level `compass` slice (existing behavior).
+  // - Authed (260426-mc5): mirror into the userId-stamped `authed.compass`
+  //   slice. API remains source of truth; this is the SWR cache. Excludes
+  //   `s` (selectedTopics) per D-01 — only answers/writeIns/invertedSpokes.
   useEffect(() => {
     if (authChecking) return;
-    if (isLoggedIn) return;
+    if (isLoggedIn) {
+      if (!userId) return;
+      evContext.setAuthedSlice(userId, {
+        compass: { a: answers, i: invertedSpokes, w: writeIns },
+      }).catch(() => {});
+      return;
+    }
     evContext.get().then((current) => {
       const next = { ...(current || {}), compass: {
         a: answers, s: selectedTopics, i: invertedSpokes, w: writeIns,
       }};
       return evContext.set(next);
     }).catch(() => {});
-  }, [authChecking, isLoggedIn, answers, selectedTopics, invertedSpokes, writeIns]);
+  }, [authChecking, isLoggedIn, userId, answers, selectedTopics, invertedSpokes, writeIns]);
+
+  // Authed SWR hydrate (260426-mc5): when we learn the userId, read the
+  // authed slice and seed local state. The /compass/answers fetch elsewhere
+  // will still run and replace this silently. Idempotent React state updates
+  // make a stale cache hit safe — API always wins on conflict.
+  const authedHydratedRef = useRef(false);
+  useEffect(() => {
+    if (!isLoggedIn || !userId) return;
+    if (authedHydratedRef.current) return;
+    authedHydratedRef.current = true;
+    evContext.getAuthedSlice(userId).then((slice) => {
+      const c = slice && slice.compass;
+      if (!c || typeof c !== 'object') return;
+      if (c.a && typeof c.a === 'object') setAnswers(c.a);
+      if (c.i && typeof c.i === 'object') setInvertedSpokesRaw(c.i);
+      if (c.w && typeof c.w === 'object') setWriteIns(c.w);
+    }).catch(() => {});
+  }, [isLoggedIn, userId]);
 
   // Cross-subdomain live receive: when another tab/subdomain updates the
   // shared compass (e.g. user calibrated on essentials), apply it locally
@@ -168,6 +198,9 @@ export function CompassProvider({ children }) {
             const data = await r.json();
             setIsLoggedIn(true);
             setUsername(data.display_name || null);
+            // Capture userId for authed ev-context slice (260426-mc5).
+            // /account/me returns the user's id at top level.
+            if (data.id) setUserId(data.id);
             // Seed help_seen from DB: if user completed onboarding, don't show /help again
             if (data.completed_onboarding) {
               localStorage.setItem("help_seen", "true");
@@ -318,6 +351,8 @@ export function CompassProvider({ children }) {
         setIsLoggedIn,
         username,
         setUsername,
+        userId,
+        setUserId,
         authChecking,
       }}
     >
