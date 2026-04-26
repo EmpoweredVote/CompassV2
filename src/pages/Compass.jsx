@@ -1,6 +1,7 @@
 // Compass.jsx
 import { useCompass } from "../components/CompassContext";
-import { apiFetch } from "../lib/auth";
+import { apiFetch, API_BASE } from "../lib/auth";
+import { useEvContextPromotion } from "@empoweredvote/ev-ui";
 import RadarChart from "../components/RadarChart";
 import CalibrationOverlay from "../components/CalibrationOverlay";
 import LibraryDrawer from "../components/LibraryDrawer";
@@ -9,6 +10,46 @@ import SavePromptModal from "../components/SavePromptModal";
 import CoachMark from "../components/CoachMark";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router";
+
+// 260426-mw6 — Inline banner shown to authed users who calibrated as a guest
+// (compass answers exist in ev-context but the API has none for this account).
+function CompassPromotionBanner({ payload, onSave, onDismiss, status, error }) {
+  const ans = (payload && (payload.answers || payload.a)) || {};
+  const count = Object.keys(ans).length;
+  if (count === 0) return null;
+  const saving = status === 'saving';
+  return (
+    <div
+      role="status"
+      className="w-full mb-4 flex items-center gap-3 px-4 py-3 rounded-lg border border-[#59b0c4] bg-[#E4F3F6]"
+      style={{ fontFamily: "'Manrope', sans-serif" }}
+    >
+      <div className="flex-1 min-w-0 text-sm text-[#003E4D]">
+        You answered <strong>{count}</strong> question{count === 1 ? '' : 's'} before signing up — save them to your account?
+        {status === 'error' && error && (
+          <div className="text-[#e64a34] text-xs mt-1">Couldn't save: {error.message}. Try again?</div>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={onSave}
+        disabled={saving}
+        className="px-4 py-1.5 rounded-full text-sm font-semibold text-white bg-[#00657c] hover:bg-[#005566] disabled:opacity-60 transition-colors"
+      >
+        {saving ? 'Saving…' : 'Save'}
+      </button>
+      <button
+        type="button"
+        onClick={onDismiss}
+        disabled={saving}
+        aria-label="Dismiss"
+        className="px-2 py-1 text-gray-500 hover:text-gray-800 text-lg leading-none"
+      >
+        ×
+      </button>
+    </div>
+  );
+}
 
 function BelowThresholdChart({ answeredCompassCount, needsMore, onStartCalibration, chartData, unansweredSpokesMap, invertedSpokes }) {
   return (
@@ -209,10 +250,69 @@ function Compass() {
     invertedSpokes,
     setInvertedSpokes,
     isLoggedIn,
+    userId,
     topicsLoaded,
     topicsError,
     retryLoadTopics,
   } = useCompass();
+
+  // 260426-mw6 — promotion banner for users who calibrated as a guest before
+  // signing up. Fires only when API has zero answers AND ev-context has a
+  // populated guest compass slice. Posts each guest answer to /compass/answers
+  // (no batch endpoint exists). After save, refreshes local state from the API.
+  const compassPromoteWriter = async (compassPayload) => {
+    const ans = (compassPayload && (compassPayload.answers || compassPayload.a)) || {};
+    const inv = (compassPayload && (compassPayload.invertedSpokes || compassPayload.i)) || {};
+    const writeIns = (compassPayload && (compassPayload.writeIns || compassPayload.w)) || {};
+    // Map short_title back to topic_id for the API.
+    const titleToId = new Map(topics.map((t) => [t.short_title, t.id]));
+    for (const [shortTitle, value] of Object.entries(ans)) {
+      const topic_id = titleToId.get(shortTitle);
+      if (!topic_id) continue;
+      const numeric = typeof value === 'number' ? value : Number(value);
+      if (!Number.isFinite(numeric) || numeric <= 0) continue;
+      const body = {
+        topic_id,
+        value: numeric,
+        inverted: !!inv[shortTitle],
+      };
+      if (typeof writeIns[shortTitle] === 'string' && writeIns[shortTitle].length > 0) {
+        body.write_in_text = writeIns[shortTitle];
+      }
+      const res = await apiFetch('/compass/answers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res || !res.ok) {
+        throw new Error(`Failed to save answer for ${shortTitle} (${res?.status ?? 'no response'})`);
+      }
+    }
+    // Mirror into local context so the chart/library reflect the new answers
+    // without a reload. This is layered on top of the hook's authed-slice
+    // mirror — both are idempotent.
+    setAnswers((prev) => ({ ...prev, ...ans }));
+    if (Object.keys(inv).length > 0) {
+      setInvertedSpokes((prev) => ({ ...prev, ...inv }));
+    }
+    if (Object.keys(writeIns).length > 0) {
+      setWriteIns((prev) => ({ ...prev, ...writeIns }));
+    }
+  };
+  const {
+    shouldPrompt: promoteCompassShouldPrompt,
+    payload: promoteCompassPayload,
+    promote: promoteCompass,
+    dismiss: dismissCompassPromotion,
+    status: promoteCompassStatus,
+    error: promoteCompassError,
+  } = useEvContextPromotion({
+    domain: 'compass',
+    isLoggedIn,
+    userId,
+    apiData: answers, // CompassContext's answers map; isApiEmpty(compass) treats {} as empty
+    apiWriter: compassPromoteWriter,
+  });
 
   // -------- Minimum topic gate --------
   const answeredCompassTopics = selectedTopics.filter((id) => {
@@ -732,6 +832,19 @@ function Compass() {
           Back to Library
         </button>
       </div>
+
+      {/* -------- 260426-mw6: guest → authed promotion banner -------- */}
+      {promoteCompassShouldPrompt && (
+        <div className="w-full max-w-6xl mx-auto lg:px-4">
+          <CompassPromotionBanner
+            payload={promoteCompassPayload}
+            onSave={promoteCompass}
+            onDismiss={dismissCompassPromotion}
+            status={promoteCompassStatus}
+            error={promoteCompassError}
+          />
+        </div>
+      )}
 
       {/* -------- mobile nav bar -------- */}
       <TabBar />
