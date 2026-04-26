@@ -142,10 +142,14 @@ export function Quiz() {
   // Build ordered list of topic IDs for full mode (grouped by category)
   const fullQuizTopicIds = useMemo(() => {
     if (mode !== "full" || !categories.length) return [];
+    const seen = new Set();
     const ids = [];
     for (const cat of categories) {
       for (const topic of cat.topics) {
-        ids.push(topic.id);
+        if (!seen.has(topic.id)) {
+          seen.add(topic.id);
+          ids.push(topic.id);
+        }
       }
     }
     return ids;

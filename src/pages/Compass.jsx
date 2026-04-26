@@ -659,7 +659,7 @@ function Compass() {
           })
           .filter(Boolean);
 
-        setAnswers(Object.fromEntries(mapped));
+        setAnswers(prev => ({ ...prev, ...Object.fromEntries(mapped) }));
 
         // Populate writeIns from saved write_in_text
         const writeInEntries = selectedTopics
