@@ -6,6 +6,7 @@ import RadarChart from "../components/RadarChart";
 import LibraryDrawer from "../components/LibraryDrawer";
 import CoachMark from "../components/CoachMark";
 import { getQuestionText, parseTensionTitle } from "../util/topic";
+import { TopicTierBadge } from "@empoweredvote/ev-ui";
 
 const CATEGORY_COLORS = [
   { bg: "bg-blue-50", border: "border-blue-400", text: "text-blue-700", accent: "bg-blue-400" },
@@ -15,39 +16,6 @@ const CATEGORY_COLORS = [
   { bg: "bg-rose-50", border: "border-rose-400", text: "text-rose-700", accent: "bg-rose-400" },
   { bg: "bg-cyan-50", border: "border-cyan-400", text: "text-cyan-700", accent: "bg-cyan-400" },
 ];
-
-const LEVEL_CONFIG = {
-  federal: {
-    label: "Federal",
-    icon: (
-      <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor">
-        <path d="M8 0L1 4v1h14V4L8 0zM2 6v6H1v2h14v-2h-1V6h-2v6H9V6H7v6H4V6H2z" />
-      </svg>
-    ),
-  },
-  state: {
-    label: "State",
-    icon: (
-      <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor">
-        <path d="M8 0L2 4v1h1v7H2v1h4v-3h4v3h4v-1h-1V5h1V4L8 0zM5 9V5h2v4H5zm4 0V5h2v4H9z" />
-      </svg>
-    ),
-  },
-  local: {
-    label: "Local",
-    icon: (
-      <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor">
-        <path d="M3 5v9h4v-4h2v4h4V5L8 1 3 5zm3 4V7h4v2H6z" />
-      </svg>
-    ),
-  },
-};
-
-const getLevels = (topic) => {
-  if (Array.isArray(topic.level)) return topic.level;
-  if (typeof topic.level === "string" && topic.level) return [topic.level];
-  return [];
-};
 
 function Library() {
   const {
@@ -576,8 +544,7 @@ function Library() {
                               setRemoveConfirm(null);
                               return;
                             }
-                            const fullTopic = topics.find(t => t.id === topic.id) || topic;
-                            setDrawerTopic(fullTopic);
+                            setDrawerTopic(topics.find((t) => t.id === topic.id) ?? topic);
                           }}
                           className={`w-full relative text-left px-4 py-3 rounded-xl border-2 transition-all duration-200 cursor-pointer ${
                             isOnCompass
@@ -590,9 +557,9 @@ function Library() {
                           />
                           <div className="flex items-start justify-between gap-1">
                             <div className="text-left pr-5">
-                              <p className="text-sm md:text-base font-medium leading-snug">{parseTensionTitle(topic).name}</p>
+                              <p className="text-sm md:text-base font-medium leading-snug">{getQuestionText(topic) || parseTensionTitle(topic).name}</p>
                               {getQuestionText(topic) && (
-                                <p className="text-xs text-gray-500 font-normal mt-0.5">{getQuestionText(topic)}</p>
+                                <p className="text-xs text-gray-500 font-normal mt-0.5">{parseTensionTitle(topic).name}</p>
                               )}
                             </div>
                             {isAnswered && (
@@ -610,16 +577,9 @@ function Library() {
                               </svg>
                             )}
                           </div>
-                          {getLevels(topic).filter(lvl => LEVEL_CONFIG[lvl]).length > 0 && (
-                            <div className="flex items-center gap-2 mt-2 flex-wrap">
-                              {getLevels(topic).filter(lvl => LEVEL_CONFIG[lvl]).map(lvl => (
-                                <div key={lvl} className="flex items-center gap-1 text-xs text-gray-400">
-                                  {LEVEL_CONFIG[lvl].icon}
-                                  <span>{LEVEL_CONFIG[lvl].label}</span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
+                          <div className="mt-2">
+                            <TopicTierBadge topic={topic} size="xs" variant="muted" />
+                          </div>
                         </button>
 
                         {/* Add / Remove toggle button */}

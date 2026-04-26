@@ -5,6 +5,11 @@
 //   onSelect(politician) - called when user picks from the list
 //   onClear() - called when user chooses "Clear comparison"
 //   onOpenFullModal() - called when user clicks the browse/expand button
+//
+// Cross-app contract: reads localStorage 'evUserAddress' written by essentials/src/lib/compass.js (G-114-011 D-02 Tier 1).
+// Shape: { addr: string, state: string (USPS 2-letter), ts: number (epoch ms) }. 30-day TTL.
+// Pre-selects state filter only if user has not already chosen one (stateFilter empty).
+// CompassV2 cannot import from essentials/ — inlines the localStorage read with the literal key string.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getPolName, normalizeOfficeTitle, getOfficeSubtitle } from "../util/name";
 import placeholder from "../assets/placeholder.png";
@@ -24,6 +29,7 @@ export default function InlinePoliticianPicker({
   onSelect,
   onClear,
   onOpenFullModal,
+  defaultOpen = false,
 }) {
   const { politicians, loading } = usePoliticianList();
   const {
@@ -37,7 +43,7 @@ export default function InlinePoliticianPicker({
     availableStates,
     filtered,
   } = useFilteredPoliticians(politicians);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [query, setQuery] = useState("");
   const [highlight, setHighlight] = useState(0);
 
@@ -53,6 +59,24 @@ export default function InlinePoliticianPicker({
       onSelect?.(fresh);
     }
   }, [politicians, currentPolitician, onSelect]);
+
+  // Pre-select state from the ev-context cross-subdomain bridge (one-shot on mount).
+  // Honors a 30-day TTL and respects any state the user has already chosen.
+  useEffect(() => {
+    if (stateFilter) return;
+    if (!availableStates || availableStates.length === 0) return;
+    let cancelled = false;
+    const TTL_MS = 30 * 24 * 60 * 60 * 1000;
+    import('@empoweredvote/ev-ui').then(({ evContext }) => evContext.get()).then((shared) => {
+      if (cancelled) return;
+      const a = shared && shared.address;
+      if (!a || typeof a.state !== 'string') return;
+      if (a.ts && Date.now() - a.ts > TTL_MS) return;
+      if (availableStates.some((s) => s.code === a.state)) setStateFilter(a.state);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availableStates]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -156,16 +180,24 @@ export default function InlinePoliticianPicker({
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-3 w-full text-left cursor-pointer hover:bg-neutral-50 rounded-lg px-1 py-1 transition-colors"
       >
-        <div className="size-16 rounded-full overflow-hidden shrink-0 ring-2 ring-neutral-100">
-          <img
-            src={polPhoto}
-            className="w-full h-full object-cover object-center"
-            alt={polName || "Politician"}
-          />
-        </div>
+        {currentPolitician ? (
+          <div className="size-16 rounded-full overflow-hidden shrink-0 ring-2 ring-neutral-100">
+            <img
+              src={polPhoto}
+              className="w-full h-full object-cover object-center"
+              alt={polName}
+            />
+          </div>
+        ) : (
+          <div className="size-16 rounded-full shrink-0 ring-2 ring-neutral-100 bg-neutral-50 flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-7 h-7 text-neutral-300">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+            </svg>
+          </div>
+        )}
         <div className="min-w-0 flex-1">
-          <h2 className="text-lg font-bold leading-tight truncate">
-            {polName || "Selected Politician"}
+          <h2 className={`text-lg font-bold leading-tight truncate ${!currentPolitician ? "text-neutral-400" : ""}`}>
+            {polName || "Select a politician to compare"}
           </h2>
           {currentPolitician?.office_title && (
             <p className="text-neutral-500 text-sm leading-snug">

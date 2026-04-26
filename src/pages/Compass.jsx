@@ -1,15 +1,55 @@
 // Compass.jsx
 import { useCompass } from "../components/CompassContext";
-import { apiFetch } from "../lib/auth";
+import { apiFetch, API_BASE } from "../lib/auth";
+import { useEvContextPromotion } from "@empoweredvote/ev-ui";
 import RadarChart from "../components/RadarChart";
 import CalibrationOverlay from "../components/CalibrationOverlay";
 import LibraryDrawer from "../components/LibraryDrawer";
-import CompareModal from "../components/CompareModal";
 import ComparePanel from "../components/ComparePanel";
 import SavePromptModal from "../components/SavePromptModal";
 import CoachMark from "../components/CoachMark";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router";
+
+// 260426-mw6 — Inline banner shown to authed users who calibrated as a guest
+// (compass answers exist in ev-context but the API has none for this account).
+function CompassPromotionBanner({ payload, onSave, onDismiss, status, error }) {
+  const ans = (payload && (payload.answers || payload.a)) || {};
+  const count = Object.keys(ans).length;
+  if (count === 0) return null;
+  const saving = status === 'saving';
+  return (
+    <div
+      role="status"
+      className="w-full mb-4 flex items-center gap-3 px-4 py-3 rounded-lg border border-[#59b0c4] bg-[#E4F3F6]"
+      style={{ fontFamily: "'Manrope', sans-serif" }}
+    >
+      <div className="flex-1 min-w-0 text-sm text-[#003E4D]">
+        You answered <strong>{count}</strong> question{count === 1 ? '' : 's'} before signing up — save them to your account?
+        {status === 'error' && error && (
+          <div className="text-[#e64a34] text-xs mt-1">Couldn't save: {error.message}. Try again?</div>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={onSave}
+        disabled={saving}
+        className="px-4 py-1.5 rounded-full text-sm font-semibold text-white bg-[#00657c] hover:bg-[#005566] disabled:opacity-60 transition-colors"
+      >
+        {saving ? 'Saving…' : 'Save'}
+      </button>
+      <button
+        type="button"
+        onClick={onDismiss}
+        disabled={saving}
+        aria-label="Dismiss"
+        className="px-2 py-1 text-gray-500 hover:text-gray-800 text-lg leading-none"
+      >
+        ×
+      </button>
+    </div>
+  );
+}
 
 function BelowThresholdChart({ answeredCompassCount, needsMore, onStartCalibration, chartData, unansweredSpokesMap, invertedSpokes }) {
   return (
@@ -186,7 +226,7 @@ function Compass() {
               // Only assign if this button is visible (has layout dimensions)
               if (el && el.offsetWidth > 0) compareRef.current = el;
             }}
-            onClick={() => setIsCompareModal(true)}
+            onClick={() => setCompareMode(true)}
             className="px-4 sm:px-6 py-2 text-sm sm:text-base bg-black text-white rounded-full hover:bg-ev-yellow-dark hover:text-black transition-colors cursor-pointer"
           >
             Compare
@@ -210,10 +250,69 @@ function Compass() {
     invertedSpokes,
     setInvertedSpokes,
     isLoggedIn,
+    userId,
     topicsLoaded,
     topicsError,
     retryLoadTopics,
   } = useCompass();
+
+  // 260426-mw6 — promotion banner for users who calibrated as a guest before
+  // signing up. Fires only when API has zero answers AND ev-context has a
+  // populated guest compass slice. Posts each guest answer to /compass/answers
+  // (no batch endpoint exists). After save, refreshes local state from the API.
+  const compassPromoteWriter = async (compassPayload) => {
+    const ans = (compassPayload && (compassPayload.answers || compassPayload.a)) || {};
+    const inv = (compassPayload && (compassPayload.invertedSpokes || compassPayload.i)) || {};
+    const writeIns = (compassPayload && (compassPayload.writeIns || compassPayload.w)) || {};
+    // Map short_title back to topic_id for the API.
+    const titleToId = new Map(topics.map((t) => [t.short_title, t.id]));
+    for (const [shortTitle, value] of Object.entries(ans)) {
+      const topic_id = titleToId.get(shortTitle);
+      if (!topic_id) continue;
+      const numeric = typeof value === 'number' ? value : Number(value);
+      if (!Number.isFinite(numeric) || numeric <= 0) continue;
+      const body = {
+        topic_id,
+        value: numeric,
+        inverted: !!inv[shortTitle],
+      };
+      if (typeof writeIns[shortTitle] === 'string' && writeIns[shortTitle].length > 0) {
+        body.write_in_text = writeIns[shortTitle];
+      }
+      const res = await apiFetch('/compass/answers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res || !res.ok) {
+        throw new Error(`Failed to save answer for ${shortTitle} (${res?.status ?? 'no response'})`);
+      }
+    }
+    // Mirror into local context so the chart/library reflect the new answers
+    // without a reload. This is layered on top of the hook's authed-slice
+    // mirror — both are idempotent.
+    setAnswers((prev) => ({ ...prev, ...ans }));
+    if (Object.keys(inv).length > 0) {
+      setInvertedSpokes((prev) => ({ ...prev, ...inv }));
+    }
+    if (Object.keys(writeIns).length > 0) {
+      setWriteIns((prev) => ({ ...prev, ...writeIns }));
+    }
+  };
+  const {
+    shouldPrompt: promoteCompassShouldPrompt,
+    payload: promoteCompassPayload,
+    promote: promoteCompass,
+    dismiss: dismissCompassPromotion,
+    status: promoteCompassStatus,
+    error: promoteCompassError,
+  } = useEvContextPromotion({
+    domain: 'compass',
+    isLoggedIn,
+    userId,
+    apiData: answers, // CompassContext's answers map; isApiEmpty(compass) treats {} as empty
+    apiWriter: compassPromoteWriter,
+  });
 
   // -------- Minimum topic gate --------
   const answeredCompassTopics = selectedTopics.filter((id) => {
@@ -377,14 +476,28 @@ function Compass() {
 
   // Tour messages indexed by step
   const tourMessages = [
-    "Tap any spoke label to flip its direction — this only changes the visual layout, not your actual stance",
+    "Tap any spoke label to flip its direction. It only changes how the chart looks, not your stance. We do the same flip on the quiz, at random, so neither side ever starts on top.",
     "See how your views line up with a politician",
     "Add or change topics anytime from the Library",
+    (
+      <>
+        Your compass may look scattered — that's intentional. We randomize stance spectrum direction and don't encode left/right on the chart, so the shape isn't a partisan score.{" "}
+        <a
+          href="/how-it-works#compass-positions"
+          target="_blank"
+          rel="noopener"
+          className="text-[#00657c] underline hover:text-[#ff5740]"
+          onClick={(e) => e.stopPropagation()}
+        >
+          Want the full story?
+        </a>
+      </>
+    ),
   ];
 
   // Tour advancement logic
   const advanceTour = () => {
-    if (tourStep < 2) {
+    if (tourStep < 3) {
       setTourStep(tourStep + 1);
     } else {
       // Final step — dismiss
@@ -398,7 +511,7 @@ function Compass() {
   };
 
   const [drawerTopic, setDrawerTopic] = useState(null);
-  const [isCompareModal, setIsCompareModal] = useState(false);
+  const [compareMode, setCompareMode] = useState(false);
 
   // -------- Compare deep-dive tour --------
   const [compareTourStep, setCompareTourStep] = useState(-1); // -1 = inactive, 0-3 = active
@@ -420,10 +533,7 @@ function Compass() {
   const handleClearComparison = () => {
     setComparePol(null);
     setCompareAnswers({});
-  };
-
-  const handleOpenFullModal = () => {
-    setIsCompareModal(true);
+    setCompareMode(false);
   };
 
   // -------- Compare tour trigger: fires on first compare selection --------
@@ -457,7 +567,7 @@ function Compass() {
   };
 
   const compareTourMessages = [
-    "Search for any politician to compare your views side by side. You can switch politicians anytime.",
+    "Search for any politician to compare your views side by side. You won't see their party here — we want you to look at the ideas first, not the labels.",
     "Pick a topic to see how you both answered — your stances appear side by side below.",
     "The blue overlay shows the politician's positions. The closer your points are on each spoke, the more you align on that topic.",
     "Flipping a spoke changes the visual layout, but your actual stance stays exactly the same — it's just a different perspective.",
@@ -723,6 +833,19 @@ function Compass() {
         </button>
       </div>
 
+      {/* -------- 260426-mw6: guest → authed promotion banner -------- */}
+      {promoteCompassShouldPrompt && (
+        <div className="w-full max-w-6xl mx-auto lg:px-4">
+          <CompassPromotionBanner
+            payload={promoteCompassPayload}
+            onSave={promoteCompass}
+            onDismiss={dismissCompassPromotion}
+            status={promoteCompassStatus}
+            error={promoteCompassError}
+          />
+        </div>
+      )}
+
       {/* -------- mobile nav bar -------- */}
       <TabBar />
 
@@ -737,6 +860,18 @@ function Compass() {
                 ref={(el) => { chartContainerRef.current = el; spokeRef.current = el; }}
                 className="w-full max-h-[calc(100dvh-220px)] max-w-2xl mx-auto relative"
               >
+                <a
+                  href="/how-it-works#compass-positions"
+                  target="_blank"
+                  rel="noopener"
+                  title="How do I read this?"
+                  aria-label="How to read the compass. Opens explanation in a new tab."
+                  className="absolute top-2 right-2 z-10 w-7 h-7 rounded-full bg-white/80 backdrop-blur-sm border border-gray-200 text-gray-400 hover:text-[#00657c] hover:border-[#00657c] transition-colors inline-flex items-center justify-center"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM8.94 6.94a.75.75 0 11-1.061-1.061 3 3 0 112.871 5.026v.345a.75.75 0 01-1.5 0v-.5c0-.72.57-1.172 1.081-1.287A1.5 1.5 0 108.94 6.94zM10 15a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                  </svg>
+                </a>
                 <RadarChart
                   data={chartData}
                   unansweredSpokes={unansweredSpokesMap}
@@ -766,7 +901,7 @@ function Compass() {
         </div>
 
         {/* right: compare panel */}
-        {showChart && comparePol && (
+        {showChart && (comparePol || compareMode) && (
           <div className="flex-1 min-w-[320px]">
             <ComparePanel
               politician={comparePol}
@@ -774,7 +909,6 @@ function Compass() {
               setDropdownValue={setDropdownValue}
               onSwitchPolitician={handleSwitchPolitician}
               onClearComparison={handleClearComparison}
-              onOpenFullModal={handleOpenFullModal}
             />
           </div>
         )}
@@ -783,14 +917,13 @@ function Compass() {
       {/* -------- mobile: tab 0 (Compare) -------- */}
       {selectedTab === 0 && (
         <div className="w-full max-w-2xl lg:hidden">
-          {comparePol ? (
+          {(comparePol || compareMode) ? (
             <ComparePanel
               politician={comparePol}
               dropdownValue={dropdownValue}
               setDropdownValue={setDropdownValue}
               onSwitchPolitician={handleSwitchPolitician}
               onClearComparison={handleClearComparison}
-              onOpenFullModal={handleOpenFullModal}
             />
           ) : (
             <div className="flex flex-col gap-6 w-full items-center mt-8">
@@ -799,7 +932,7 @@ function Compass() {
               </h1>
               {showChart && (
                 <button
-                  onClick={() => setIsCompareModal(true)}
+                  onClick={() => setCompareMode(true)}
                   className="px-6 py-2 bg-black text-white rounded-full hover:bg-opacity-90"
                 >
                   Compare
@@ -846,14 +979,6 @@ function Compass() {
         </div>
       )}
 
-      {/* -------- modals (shared) -------- */}
-      {isCompareModal && (
-        <CompareModal
-          selectedTopics={selectedTopics}
-          onCompare={(p) => setComparePol(p)}
-          onClose={() => setIsCompareModal(false)}
-        />
-      )}
       {/* -------- LibraryDrawer (spoke-click-to-drawer) -------- */}
       <LibraryDrawer
         topic={drawerTopic}
@@ -894,15 +1019,16 @@ function Compass() {
           targetRef={
             tourStep === 0 ? spokeRef
             : tourStep === 1 ? compareRef
-            : backToLibRef
+            : tourStep === 2 ? backToLibRef
+            : chartContainerRef
           }
           message={tourMessages[tourStep]}
-          stepLabel={`${tourStep + 1} of 3`}
+          stepLabel={`${tourStep + 1} of 4`}
           onNext={advanceTour}
           onSkipAll={skipTour}
           onDismiss={advanceTour}
           show={true}
-          allowSpotlightInteraction={tourStep === 0}
+          allowSpotlightInteraction={tourStep === 0 || tourStep === 3}
         />
       )}
     </div>

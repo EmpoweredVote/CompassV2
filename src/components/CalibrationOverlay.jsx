@@ -4,6 +4,7 @@ import { useCompass } from "./CompassContext";
 import { apiFetch } from "../lib/auth";
 import RadarChart from "./RadarChart";
 import { getQuestionText, parseTensionTitle } from "../util/topic";
+import { TopicTierBadge } from "@empoweredvote/ev-ui";
 import {
   DndContext,
   closestCenter,
@@ -674,7 +675,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
                 />
               );
             })}
-            {/* User compass polygon — ev-coral fill */}
+            {/* User compass polygon — dusk purple fill */}
             <polygon
               points={[0, 1, 2, 3, 4, 5, 6, 7]
                 .map((i) => {
@@ -684,13 +685,13 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
                   return `${100 + r * Math.sin(angle)},${100 - r * Math.cos(angle)}`;
                 })
                 .join(" ")}
-              fill="#ff5740"
+              fill="#7C6B9E"
               fillOpacity="0.25"
-              stroke="#ff5740"
+              stroke="#7C6B9E"
               strokeWidth="2"
               strokeLinejoin="round"
             />
-            {/* Comparison polygon — ev-light-blue fill */}
+            {/* Comparison polygon — sage green fill */}
             <polygon
               points={[0, 1, 2, 3, 4, 5, 6, 7]
                 .map((i) => {
@@ -700,9 +701,9 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
                   return `${100 + r * Math.sin(angle)},${100 - r * Math.cos(angle)}`;
                 })
                 .join(" ")}
-              fill="#59b0c4"
+              fill="#5A9A6E"
               fillOpacity="0.2"
-              stroke="#59b0c4"
+              stroke="#5A9A6E"
               strokeWidth="2"
               strokeLinejoin="round"
             />
@@ -810,10 +811,13 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
                         }`}
                       >
                         <div className="text-left">
-                          <p className="text-sm font-medium leading-snug">{parseTensionTitle(fullTopic).name}</p>
+                          <p className="text-sm font-medium leading-snug">{getQuestionText(fullTopic) || parseTensionTitle(fullTopic).name}</p>
                           {getQuestionText(fullTopic) && (
-                            <p className="text-xs text-gray-500 font-normal mt-0.5">{getQuestionText(fullTopic)}</p>
+                            <p className="text-xs text-gray-500 font-normal mt-0.5">{parseTensionTitle(fullTopic).name}</p>
                           )}
+                          <div className="mt-2">
+                            <TopicTierBadge topic={fullTopic} size="xs" variant="muted" />
+                          </div>
                         </div>
                         {isSelected && (
                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5 shrink-0 text-[#59b0c4]">
@@ -1077,7 +1081,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
             targetRef={answerTourStep === 0 ? stancesPanelRef : writeOwnBtnRef}
             message={
               answerTourStep === 0
-                ? "Select which stance on the spectrum best matches your own — your compass builds as you answer"
+                ? "Pick the stance that fits you best. We flip each topic's order at random, so neither side ever shows up 'first.' What matters is your pick, not where it sits in the list."
                 : "If none of the stances quite match, write your own and drag it to where it fits best on the spectrum"
             }
             stepLabel={`${answerTourStep + 1} of 2`}

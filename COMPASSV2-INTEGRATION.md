@@ -2,6 +2,26 @@
 
 Canonical integration guide for CompassV2 frontend against the Empowered Accounts API.
 
+## Local Development
+
+The production frontend talks to `https://api.empowered.vote` directly, but that origin's CORS policy only allows the production domain. To unblock local development against real prod data, the Vite dev server proxies `/api/*` requests through itself to the production API:
+
+- **`vite.config.js`** declares `server.proxy["/api"]` with `target: "https://api.empowered.vote"` and `changeOrigin: true`.
+- **`src/lib/auth.js`** uses `import.meta.env.DEV` to switch `API_BASE` between `/api` (dev, routed by the proxy) and `https://api.empowered.vote/api` (prod builds, direct).
+
+**To run locally:**
+
+```bash
+cd CompassV2
+npm install
+npm run dev
+# open http://localhost:5173
+```
+
+No backend setup required — you're hitting real production data through the proxy. Bearer-token auth works as normal because the `Authorization` header passes through the proxy. Cookie-based flows (e.g. logout's `credentials: "include"` call) won't set cookies in dev because the upstream `Set-Cookie` headers carry `Domain=api.empowered.vote`, which the browser won't accept on `localhost` — Bearer tokens stored in `localStorage` continue to work normally.
+
+If you ever need to point dev at a different backend (e.g. a local `ev-accounts` instance), edit the `target` in `vite.config.js`. There is currently no env-var override.
+
 ---
 
 ## 1. Quick Reference

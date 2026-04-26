@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router";
-import { SiteHeader } from "@chrisandrewsedu/ev-ui";
+import { SiteHeader } from "@empoweredvote/ev-ui";
 import { useCompass } from "../components/CompassContext";
 import { useIsAdmin } from "../hooks/IsAdmin";
 import ReturnBanner from "./ReturnBanner";
@@ -96,12 +96,12 @@ function Layout({ children }) {
         }
       />
       <main className="flex-1">{children}</main>
-      {/* Help button — always visible */}
+      {/* How It Works button — always visible */}
       <button
-        onClick={() => navigate("/help")}
+        onClick={() => navigate("/how-it-works")}
         className="fixed bottom-4 right-4 z-40 w-9 h-9 rounded-full bg-white border border-gray-300 shadow-md flex items-center justify-center text-gray-500 hover:text-[#00657c] hover:border-[#00657c] transition-colors cursor-pointer"
-        title="Help & walkthrough"
-        aria-label="Help"
+        title="How the Compass works"
+        aria-label="How the Compass works"
       >
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
           <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM8.94 6.94a.75.75 0 11-1.061-1.061 3 3 0 112.871 5.026v.345a.75.75 0 01-1.5 0v-.5c0-.72.57-1.172 1.081-1.287A1.5 1.5 0 108.94 6.94zM10 15a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />

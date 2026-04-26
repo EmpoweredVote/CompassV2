@@ -113,7 +113,7 @@ function ComparePanel({
           currentPolitician={politician}
           onSelect={onSwitchPolitician}
           onClear={onClearComparison}
-          onOpenFullModal={onOpenFullModal}
+          defaultOpen={!politician}
         />
         {politician?.id && (
           <a
@@ -137,7 +137,8 @@ function ComparePanel({
         )}
       </div>
 
-      {/* Topic selector */}
+      {/* Topic selector + content — only once a politician is selected */}
+      {politician?.id && <>
       <div className="px-5 pb-3">
         <select
           id="topic-dropdown"
@@ -300,6 +301,7 @@ function ComparePanel({
           Select a topic to compare
         </p>
       )}
+      </>}
     </div>
   );
 }
