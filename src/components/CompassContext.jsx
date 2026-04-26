@@ -89,16 +89,20 @@ export function CompassProvider({ children }) {
 
   // Cross-subdomain shared state: write guest compass to ev-context broker
   // so essentials/readrank/etc. on other subdomains see the same data.
+  // Wait until auth is resolved (authChecking=false) before writing —
+  // otherwise stale localStorage state gets written while isLoggedIn is
+  // still false but the user is actually logged in.
   // Logged-in users use API as source of truth — skip the broker write.
   useEffect(() => {
+    if (authChecking) return;
     if (isLoggedIn) return;
     evContext.get().then((current) => {
       const next = { ...(current || {}), compass: {
         a: answers, s: selectedTopics, i: invertedSpokes, w: writeIns,
       }};
-      evContext.set(next).catch(() => {});
+      return evContext.set(next);
     }).catch(() => {});
-  }, [isLoggedIn, answers, selectedTopics, invertedSpokes, writeIns]);
+  }, [authChecking, isLoggedIn, answers, selectedTopics, invertedSpokes, writeIns]);
 
   // Cross-subdomain live receive: when another tab/subdomain updates the
   // shared compass (e.g. user calibrated on essentials), apply it locally
@@ -108,9 +112,10 @@ export function CompassProvider({ children }) {
     const unsub = evContext.subscribe((shared) => {
       const c = shared && shared.compass;
       if (!c || typeof c !== 'object') return;
-      // Skip echo of our own writes by comparing serialized state
+      // Skip echo of our own writes by comparing serialized state.
+      // Use refs so this always reflects current values without re-registering.
       const incoming = JSON.stringify({ a: c.a, s: c.s, i: c.i, w: c.w });
-      const local = JSON.stringify({ a: answers, s: selectedTopics, i: invertedSpokes, w: writeIns });
+      const local = JSON.stringify({ a: answersRef.current, s: selectedTopicsRef.current, i: invertedSpokesRef.current, w: writeInsRef.current });
       if (incoming === local) return;
       if (c.a && typeof c.a === 'object') setAnswers(c.a);
       if (Array.isArray(c.s)) setSelected(c.s);
@@ -176,6 +181,18 @@ export function CompassProvider({ children }) {
       }
     })();
   }, []);
+
+  // Refs for current state — used by the subscribe echo-suppression guard
+  // so the callback always compares against the latest values without
+  // needing to re-register the subscription on every state change.
+  const answersRef = useRef(answers);
+  answersRef.current = answers;
+  const selectedTopicsRef = useRef(selectedTopics);
+  selectedTopicsRef.current = selectedTopics;
+  const invertedSpokesRef = useRef(invertedSpokes);
+  invertedSpokesRef.current = invertedSpokes;
+  const writeInsRef = useRef(writeIns);
+  writeInsRef.current = writeIns;
 
   // Track whether we've loaded server-side selectedTopics
   const serverLoaded = useRef(false);
