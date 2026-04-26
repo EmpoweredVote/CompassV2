@@ -60,23 +60,21 @@ export default function InlinePoliticianPicker({
     }
   }, [politicians, currentPolitician, onSelect]);
 
-  // G-114-011 Tier 1: pre-select state from Essentials cross-app address bridge (one-shot on mount)
-  // Only applies when user has not already chosen a filter and availableStates has loaded.
-  // Tier 3 fallback (unfiltered) is the existing default — no Indiana hardcoding.
+  // Pre-select state from the ev-context cross-subdomain bridge (one-shot on mount).
+  // Honors a 30-day TTL and respects any state the user has already chosen.
   useEffect(() => {
-    if (stateFilter) return; // respect existing user-chosen filter
+    if (stateFilter) return;
     if (!availableStates || availableStates.length === 0) return;
-    try {
-      // Read cross-subdomain cookie written by essentials (localStorage is origin-scoped, cookies are not)
-      const match = document.cookie.split('; ').find((c) => c.startsWith('evUserAddress='));
-      if (!match) return;
-      const parsed = JSON.parse(decodeURIComponent(match.split('=').slice(1).join('=')));
-      const TTL_MS = 30 * 24 * 60 * 60 * 1000;
-      if (parsed?.ts && Date.now() - parsed.ts > TTL_MS) return;
-      if (parsed?.state && availableStates.some((s) => s.code === parsed.state)) {
-        setStateFilter(parsed.state);
-      }
-    } catch { /* noop — malformed JSON or cookie unavailable */ }
+    let cancelled = false;
+    const TTL_MS = 30 * 24 * 60 * 60 * 1000;
+    import('@empoweredvote/ev-ui').then(({ evContext }) => evContext.get()).then((shared) => {
+      if (cancelled) return;
+      const a = shared && shared.address;
+      if (!a || typeof a.state !== 'string') return;
+      if (a.ts && Date.now() - a.ts > TTL_MS) return;
+      if (availableStates.some((s) => s.code === a.state)) setStateFilter(a.state);
+    }).catch(() => {});
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [availableStates]);
 

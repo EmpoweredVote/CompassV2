@@ -1,6 +1,7 @@
 // CompassContext.jsx
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
 import { extractHashToken, getToken, setToken, apiFetch, publicFetch, clearToken, API_BASE } from '../lib/auth';
+import { evContext } from '@empoweredvote/ev-ui';
 
 function safeParse(str, fallback) {
   try {
@@ -85,6 +86,39 @@ export function CompassProvider({ children }) {
   useEffect(() => {
     localStorage.setItem("answers", JSON.stringify(answers));
   }, [answers]);
+
+  // Cross-subdomain shared state: write guest compass to ev-context broker
+  // so essentials/readrank/etc. on other subdomains see the same data.
+  // Logged-in users use API as source of truth — skip the broker write.
+  useEffect(() => {
+    if (isLoggedIn) return;
+    evContext.get().then((current) => {
+      const next = { ...(current || {}), compass: {
+        a: answers, s: selectedTopics, i: invertedSpokes, w: writeIns,
+      }};
+      evContext.set(next).catch(() => {});
+    }).catch(() => {});
+  }, [isLoggedIn, answers, selectedTopics, invertedSpokes, writeIns]);
+
+  // Cross-subdomain live receive: when another tab/subdomain updates the
+  // shared compass (e.g. user calibrated on essentials), apply it locally
+  // so this tab stays in sync without a refresh. Guest only.
+  useEffect(() => {
+    if (isLoggedIn) return;
+    const unsub = evContext.subscribe((shared) => {
+      const c = shared && shared.compass;
+      if (!c || typeof c !== 'object') return;
+      // Skip echo of our own writes by comparing serialized state
+      const incoming = JSON.stringify({ a: c.a, s: c.s, i: c.i, w: c.w });
+      const local = JSON.stringify({ a: answers, s: selectedTopics, i: invertedSpokes, w: writeIns });
+      if (incoming === local) return;
+      if (c.a && typeof c.a === 'object') setAnswers(c.a);
+      if (Array.isArray(c.s)) setSelected(c.s);
+      if (c.i && typeof c.i === 'object') setInvertedSpokesRaw(c.i);
+      if (c.w && typeof c.w === 'object') setWriteIns(c.w);
+    });
+    return unsub;
+  }, [isLoggedIn]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Persist writeIns to localStorage on every change
   useEffect(() => {

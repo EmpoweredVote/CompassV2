@@ -15,7 +15,7 @@ import AdminDashboard from "./components/admin/AdminDashboard";
 import HowItWorks from "./pages/HowItWorks";
 
 // Routes that should bypass the calibration guard
-const GUARD_BYPASS = ["/help", "/how-it-works", "/login", "/register", "/admin", "/401", "/results"];
+const GUARD_BYPASS = ["/help", "/how-it-works", "/login", "/register", "/admin", "/401", "/results", "/library"];
 
 function HelpGuard({ children }) {
   const location = useLocation();
