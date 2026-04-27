@@ -88,6 +88,19 @@ export function CompassProvider({ children }) {
     localStorage.setItem("answers", JSON.stringify(answers));
   }, [answers]);
 
+  // Cache of the full ev-context object so writes don't need a prior get().
+  // Seeded on mount, kept fresh by the subscribe callback below.
+  // This lets the write effect call evContext.set() directly (one postMessage
+  // round-trip) instead of get().then(set()) (two), which is critical because
+  // the user may navigate away before a two-step async chain completes.
+  const evContextCacheRef = useRef({});
+
+  // Preload the broker iframe immediately so it's ready before any write.
+  useEffect(() => {
+    evContext.preload();
+    evContext.get().then((v) => { evContextCacheRef.current = v || {}; }).catch(() => {});
+  }, []);
+
   // Cross-subdomain shared state: write compass to ev-context broker
   // so essentials/readrank/etc. on other subdomains see the same data.
   // Wait until auth is resolved (authChecking=false) before writing —
@@ -95,7 +108,10 @@ export function CompassProvider({ children }) {
   // still false but the user is actually logged in.
   //
   // Two paths:
-  // - Guest: write top-level `compass` slice (existing behavior).
+  // - Guest: write top-level `compass` slice. Uses the cached ev-context value
+  //   (evContextCacheRef) so we only need one postMessage round-trip instead of
+  //   two — this prevents the write from being abandoned if the user navigates
+  //   away quickly after a change (e.g., removing a spoke then going to essentials).
   // - Authed (260426-mc5): mirror into the userId-stamped `authed.compass`
   //   slice. API remains source of truth; this is the SWR cache. Excludes
   //   `s` (selectedTopics) per D-01 — only answers/writeIns/invertedSpokes.
@@ -108,12 +124,11 @@ export function CompassProvider({ children }) {
       }).catch(() => {});
       return;
     }
-    evContext.get().then((current) => {
-      const next = { ...(current || {}), compass: {
-        a: answers, s: selectedTopics, i: invertedSpokes, w: writeIns,
-      }};
-      return evContext.set(next);
-    }).catch(() => {});
+    const next = { ...evContextCacheRef.current, compass: {
+      a: answers, s: selectedTopics, i: invertedSpokes, w: writeIns,
+    }};
+    evContextCacheRef.current = next;
+    evContext.set(next).catch(() => {});
   }, [authChecking, isLoggedIn, userId, answers, selectedTopics, invertedSpokes, writeIns]);
 
   // Authed SWR hydrate (260426-mc5): when we learn the userId, read the
@@ -140,6 +155,8 @@ export function CompassProvider({ children }) {
   useEffect(() => {
     if (isLoggedIn) return;
     const unsub = evContext.subscribe((shared) => {
+      // Keep the full-state cache up to date so writes can use it without a get().
+      if (shared && typeof shared === 'object') evContextCacheRef.current = shared;
       const c = shared && shared.compass;
       if (!c || typeof c !== 'object') return;
       // Skip echo of our own writes by comparing serialized state.
