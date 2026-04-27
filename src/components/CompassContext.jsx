@@ -53,6 +53,7 @@ export function CompassProvider({ children }) {
   );
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [username, setUsername] = useState(null);
   const [userId, setUserId] = useState(null);
   const [authChecking, setAuthChecking] = useState(true);
@@ -214,6 +215,7 @@ export function CompassProvider({ children }) {
           } else if (r.ok) {
             const data = await r.json();
             setIsLoggedIn(true);
+            setIsAdmin(!!data.is_admin);
             setUsername(data.display_name || null);
             // Capture userId for authed ev-context slice (260426-mc5).
             // /account/me returns the user's id at top level.
@@ -390,6 +392,7 @@ export function CompassProvider({ children }) {
         retryLoadTopics,
         isLoggedIn,
         setIsLoggedIn,
+        isAdmin,
         username,
         setUsername,
         userId,

@@ -1,15 +1,13 @@
 import { useNavigate, useLocation } from "react-router";
 import { SiteHeader } from "@empoweredvote/ev-ui";
 import { useCompass } from "../components/CompassContext";
-import { useIsAdmin } from "../hooks/IsAdmin";
 import ReturnBanner from "./ReturnBanner";
 import { apiFetch, getToken, clearToken, API_BASE } from "../lib/auth";
 
 function Layout({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { topics, selectedTopics, setSelectedTopics, answers, setAnswers, writeIns, setWriteIns, invertedSpokes, setInvertedSpokes, isLoggedIn, username, setIsLoggedIn, authChecking } = useCompass();
-  const isAdmin = useIsAdmin(isLoggedIn);
+  const { topics, selectedTopics, setSelectedTopics, answers, setAnswers, writeIns, setWriteIns, invertedSpokes, setInvertedSpokes, isLoggedIn, isAdmin, username, setIsLoggedIn, authChecking } = useCompass();
 
   const logout = async () => {
     try {
