@@ -9,7 +9,7 @@ function Layout({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
   const isAdmin = useIsAdmin();
-  const { setSelectedTopics, setAnswers, setWriteIns, setInvertedSpokes, isLoggedIn, username, setIsLoggedIn, authChecking } = useCompass();
+  const { topics, selectedTopics, setSelectedTopics, answers, setAnswers, writeIns, setWriteIns, invertedSpokes, setInvertedSpokes, isLoggedIn, username, setIsLoggedIn, authChecking } = useCompass();
 
   const logout = async () => {
     try {
@@ -66,6 +66,66 @@ function Layout({ children }) {
     }).catch(() => {});
   };
 
+  const ADMIN_SNAPSHOT_KEY = "admin_compass_snapshot";
+
+  const handleSaveStances = () => {
+    const count = Object.keys(answers).length;
+    if (count === 0) {
+      alert("No answers to save — calibrate your compass first.");
+      return;
+    }
+    const snapshot = { answers, writeIns, invertedSpokes, selectedTopics };
+    localStorage.setItem(ADMIN_SNAPSHOT_KEY, JSON.stringify(snapshot));
+    alert(`Stances saved (${count} topic${count === 1 ? "" : "s"}).`);
+  };
+
+  const handleRestoreStances = () => {
+    const raw = localStorage.getItem(ADMIN_SNAPSHOT_KEY);
+    if (!raw) {
+      alert("No saved stances found — use 'Save stances' first.");
+      return;
+    }
+    let snapshot;
+    try { snapshot = JSON.parse(raw); } catch {
+      alert("Saved snapshot is corrupted.");
+      return;
+    }
+    const ans = snapshot.answers || {};
+    const wi  = snapshot.writeIns || {};
+    const inv = snapshot.invertedSpokes || {};
+    const sel = snapshot.selectedTopics || [];
+    const count = Object.keys(ans).length;
+
+    // Restore local state + localStorage
+    setAnswers(ans);
+    setWriteIns(wi);
+    setInvertedSpokes(inv);
+    setSelectedTopics(sel);
+    localStorage.setItem("answers", JSON.stringify(ans));
+    localStorage.setItem("writeIns", JSON.stringify(wi));
+    localStorage.setItem("invertedSpokes", JSON.stringify(inv));
+    localStorage.setItem("selectedTopics", JSON.stringify(sel));
+    localStorage.setItem("calibration_completed", "true");
+    localStorage.removeItem("calibration_skipped");
+
+    // Re-sync answers to server (Reset compass wiped them via DELETE /compass/answers/me)
+    const titleToId = new Map(topics.map((t) => [t.short_title, t.id]));
+    for (const [shortTitle, value] of Object.entries(ans)) {
+      const topic_id = titleToId.get(shortTitle);
+      if (!topic_id) continue;
+      const body = { topic_id, value };
+      if (wi[shortTitle]) body.write_in_text = wi[shortTitle];
+      apiFetch('/compass/answers', { method: 'POST', body: JSON.stringify(body) }).catch(() => {});
+    }
+    // Re-sync selected topics to server
+    apiFetch('/compass/selected-topics', {
+      method: 'PUT',
+      body: JSON.stringify({ topic_ids: sel }),
+    }).catch(() => {});
+
+    alert(`Stances restored (${count} topic${count === 1 ? "" : "s"}).`);
+  };
+
   const handleNavigate = (href) => {
     if (href.startsWith("/")) {
       navigate(href);
@@ -75,7 +135,11 @@ function Layout({ children }) {
   };
 
   const profileItems = [
-    ...(isAdmin ? [{ label: "Admin", href: "/admin" }] : []),
+    ...(isAdmin ? [
+      { label: "Admin", href: "/admin" },
+      { label: "Save stances", onClick: handleSaveStances },
+      { label: "Restore stances", onClick: handleRestoreStances },
+    ] : []),
     { label: "Reset compass", onClick: handleClearCompass },
     { label: "Logout", onClick: logout },
   ];
