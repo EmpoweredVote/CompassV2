@@ -133,7 +133,7 @@ function SortableWriteInCard({ id, text, onChange, onCancel, showHint }) {
 }
 
 export function Quiz() {
-  const { topics, categories, selectedTopics, answers, setAnswers, writeIns, setWriteIns, invertedSpokes, setInvertedSpokes, initRandomInversions, isLoggedIn } =
+  const { topics, categories, selectedTopics, setSelectedTopics, answers, setAnswers, writeIns, setWriteIns, invertedSpokes, setInvertedSpokes, initRandomInversions, isLoggedIn } =
     useCompass();
 
   const [searchParams] = useSearchParams();
@@ -355,6 +355,15 @@ export function Quiz() {
       setSelectedAnswer(null);
       if (isLastQuestion) {
         localStorage.removeItem(QUIZ_STORAGE_KEY);
+        if (mode === "full") {
+          // Mark calibration complete and select all answered topics so the
+          // compass renders immediately at /build without re-triggering the overlay.
+          setSelectedTopics(fullQuizTopicIds);
+          localStorage.setItem("selectedTopics", JSON.stringify(fullQuizTopicIds));
+          localStorage.setItem("calibration_completed", "true");
+          localStorage.removeItem("calibration_skipped");
+          localStorage.removeItem("calibration_progress");
+        }
         navigate(mode === "full" ? "/build" : "/results");
       } else {
         setCurrentIndex((prev) => prev + 1);
@@ -409,7 +418,10 @@ export function Quiz() {
     setOrderedItems(reordered);
     setHasRepositioned(true);
     const writeInIndex = reordered.indexOf("write-in");
-    selectWriteInPlacement(writeInIndex + 0.5);
+    const displayMidpoint = writeInIndex + 0.5;
+    const stanceCount = currentTopic?.stances?.length || 0;
+    const midpointValue = isFlipped ? (stanceCount + 1 - displayMidpoint) : displayMidpoint;
+    selectWriteInPlacement(midpointValue);
   };
 
   const handleWriteInTextChange = (newText) => {
@@ -460,17 +472,17 @@ export function Quiz() {
     <>
       {!showWriteIn ? (
         <>
-          {ordered.map((stance, i) => (
+          {ordered.map((stance) => (
             <button
               key={stance.id}
               onClick={() => {
                 setShowWriteIn(false);
                 setWriteInText("");
-                selectAnswer(i + 1);
+                selectAnswer(stance.value);
               }}
               className={`text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm sm:text-base font-medium cursor-pointer
               ${
-                selectedAnswer === i + 1
+                selectedAnswer === stance.value
                   ? "border-ev-yellow border-2 bg-ev-yellow-light"
                   : "bg-white text-black border-2 border-gray-300 hover:bg-gray-50"
               }`}

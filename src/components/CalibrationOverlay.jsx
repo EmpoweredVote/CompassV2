@@ -356,6 +356,21 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     }
   }, [currentIndex, writeInHintShown]);
 
+  // Deduplicate topics across categories for the picker (same topic can appear in multiple categories)
+  const dedupedCategories = useMemo(() => {
+    const seen = new Set();
+    return categories
+      .map((cat) => ({
+        ...cat,
+        topics: cat.topics.filter((t) => {
+          if (seen.has(t.id)) return false;
+          seen.add(t.id);
+          return true;
+        }),
+      }))
+      .filter((cat) => cat.topics.length > 0);
+  }, [categories]);
+
   // Build chart data from answered picked topics
   const chartData = useMemo(() => {
     if (!pickedTopics.length) return {};
@@ -782,7 +797,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
 
         {/* Topic list */}
         <div className="px-4 py-4 max-w-2xl mx-auto pb-32">
-          {categories.map((category, catIdx) => {
+          {dedupedCategories.map((category, catIdx) => {
             if (!category.topics || category.topics.length === 0) return null;
             return (
               <div key={category.id} className="mb-6">
