@@ -8,8 +8,8 @@ import { apiFetch, getToken, clearToken, API_BASE } from "../lib/auth";
 function Layout({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const isAdmin = useIsAdmin();
   const { topics, selectedTopics, setSelectedTopics, answers, setAnswers, writeIns, setWriteIns, invertedSpokes, setInvertedSpokes, isLoggedIn, username, setIsLoggedIn, authChecking } = useCompass();
+  const isAdmin = useIsAdmin(isLoggedIn);
 
   const logout = async () => {
     try {
