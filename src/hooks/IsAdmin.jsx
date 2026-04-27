@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { apiFetch } from "../lib/auth";
+import { publicFetch } from "../lib/auth";
 
 // isLoggedIn must be passed in so the check only fires after the auth token
 // is confirmed in localStorage — otherwise the SSO flow may not have saved
@@ -13,7 +13,7 @@ export function useIsAdmin(isLoggedIn) {
       setIsAdmin(false);
       return;
     }
-    apiFetch('/admin/me')
+    publicFetch('/admin/me')
       .then((res) => {
         setIsAdmin(res && res.ok);
       })
