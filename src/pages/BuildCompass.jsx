@@ -27,10 +27,17 @@ function BuildCompass() {
   const answersRef = useRef(answers);
   answersRef.current = answers;
 
-  // Fetch which topics have been answered (guest-safe)
+  // Resolve answered topic IDs — prefer selectedTopics (set by Quiz finish
+  // flow) so we don't race with in-flight answer saves. Fall back to the
+  // API or localStorage if selectedTopics is empty.
   useEffect(() => {
+    if (selectedTopics.length > 0) {
+      setAnsweredTopicIDs(selectedTopics);
+      setLoaded(true);
+      return;
+    }
+
     if (!isLoggedIn) {
-      // Guest: derive answered IDs from localStorage-backed answers in context
       const cur = answersRef.current;
       const ids = topics
         .filter(t => cur[t.short_title] != null && cur[t.short_title] > 0)
@@ -51,7 +58,6 @@ function BuildCompass() {
         setLoaded(true);
       })
       .catch(() => {
-        // Fallback: use localStorage answers if server fetch fails
         const cur = answersRef.current;
         const ids = topics
           .filter(t => cur[t.short_title] != null && cur[t.short_title] > 0)
@@ -59,7 +65,7 @@ function BuildCompass() {
         setAnsweredTopicIDs(ids);
         setLoaded(true);
       });
-  }, [isLoggedIn, topics]);
+  }, [isLoggedIn, topics, selectedTopics]);
 
   const getCategoryColor = (index) =>
     CATEGORY_COLORS[index % CATEGORY_COLORS.length];
@@ -106,10 +112,15 @@ function BuildCompass() {
 
       {/* Topic Cards by Category (only answered topics) */}
       <div className="px-4 md:px-6 max-w-5xl mx-auto">
-        {categories.map((category, catIdx) => {
-          const answeredInCategory = category.topics.filter((t) =>
-            answeredTopicIDs.includes(t.id)
-          );
+        {(() => {
+          const seen = new Set();
+          return categories.map((category, catIdx) => {
+          const answeredInCategory = category.topics.filter((t) => {
+            if (!answeredTopicIDs.includes(t.id)) return false;
+            if (seen.has(t.id)) return false;
+            seen.add(t.id);
+            return true;
+          });
 
           if (answeredInCategory.length === 0) return null;
 
@@ -172,7 +183,8 @@ function BuildCompass() {
               </div>
             </div>
           );
-        })}
+        });
+        })()}
       </div>
 
       {/* Bottom spacer */}
