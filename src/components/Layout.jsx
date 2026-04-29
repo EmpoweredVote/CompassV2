@@ -7,7 +7,7 @@ import { apiFetch, getToken, clearToken, API_BASE } from "../lib/auth";
 function Layout({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { topics, selectedTopics, setSelectedTopics, answers, setAnswers, writeIns, setWriteIns, invertedSpokes, setInvertedSpokes, isLoggedIn, isAdmin, username, userId, setIsLoggedIn, authChecking } = useCompass();
+  const { topics, selectedTopics, setSelectedTopics, answers, setAnswers, writeIns, setWriteIns, invertedSpokes, setInvertedSpokes, isLoggedIn, isAdmin, username, userId, setIsLoggedIn, authChecking, setCompassVersion } = useCompass();
 
   const logout = async () => {
     try {
@@ -32,11 +32,18 @@ function Layout({ children }) {
     setAnswers({});
     setWriteIns({});
     setIsLoggedIn(false);
+    // Clear ev-context authed slice so other subdomains (Essentials, etc.)
+    // don't show stale compass data after logout.
+    if (userId) {
+      evContext.setAuthedSlice(userId, {
+        compass: { a: {}, i: {}, w: {} },
+      }).catch(() => {});
+    }
   };
 
   const handleClearCompass = () => {
-    if (!window.confirm("Reset your compass? This will remove all your topics, answers, and stances.")) return;
-    // Clear localStorage
+    if (!window.confirm("Start a demo compass? Your stances are preserved and can be restored from this menu at any time.")) return;
+    // Clear all local state and onboarding flags so the app looks brand-new
     localStorage.removeItem("answers");
     localStorage.removeItem("writeIns");
     localStorage.removeItem("selectedTopics");
@@ -58,15 +65,15 @@ function Layout({ children }) {
     setWriteIns({});
     setSelectedTopics([]);
     setInvertedSpokes({});
-    // Server clear for logged-in users — both calls fire immediately so a quick
-    // navigation away doesn't race with the debounced selectedTopics sync.
-    apiFetch('/compass/answers/me', {
-      method: "DELETE",
-    }).catch(() => {});
+    // Clear active topics on server so other EV features see an empty compass.
+    // Answers (stances) are intentionally preserved — Restore reactivates them.
     apiFetch('/compass/selected-topics', {
       method: "PUT",
       body: JSON.stringify({ topic_ids: [] }),
     }).catch(() => {});
+    // Remount Compass.jsx and navigate to it so the calibration tutorial fires.
+    setCompassVersion((v) => v + 1);
+    navigate('/results');
   };
 
   const ADMIN_SNAPSHOT_KEY = "admin_compass_snapshot";
@@ -158,6 +165,10 @@ function Layout({ children }) {
       }
     }
 
+    // Active compass topics are capped at 8 — the compass is designed for 3–8 spokes.
+    // Answers (stances) can exist for any number of topics regardless of this cap.
+    sel = (sel || []).slice(0, 8);
+
     const count = Object.keys(ans).length;
 
     // Restore local state + localStorage
@@ -172,32 +183,42 @@ function Layout({ children }) {
     localStorage.setItem("calibration_completed", "true");
     localStorage.removeItem("calibration_skipped");
 
-    // Re-sync answers to server (Reset compass wiped them via DELETE /compass/answers/me)
+    // Re-sync answers to server and WAIT before navigating — the batch fetch in
+    // Compass.jsx fires on mount and uses the server as its source of truth.
+    // If we navigate before the POSTs land, the batch fetch sees empty server
+    // state and the compass appears blank even though local state is correct.
     const titleToId = new Map(topics.map((t) => [t.short_title, t.id]));
-    for (const [shortTitle, value] of Object.entries(ans)) {
+    const syncPromises = Object.entries(ans).map(([shortTitle, value]) => {
       const topic_id = titleToId.get(shortTitle);
-      if (!topic_id) continue;
+      if (!topic_id) return Promise.resolve();
       const body = { topic_id, value };
       if (wi[shortTitle]) body.write_in_text = wi[shortTitle];
-      apiFetch('/compass/answers', { method: 'POST', body: JSON.stringify(body) }).catch(() => {});
-    }
-    apiFetch('/compass/selected-topics', {
-      method: 'PUT',
-      body: JSON.stringify({ topic_ids: sel }),
-    }).catch(() => {});
+      return apiFetch('/compass/answers', { method: 'POST', body: JSON.stringify(body) }).catch(() => {});
+    });
+    syncPromises.push(
+      apiFetch('/compass/selected-topics', {
+        method: 'PUT',
+        body: JSON.stringify({ topic_ids: sel }),
+      }).catch(() => {})
+    );
+    await Promise.all(syncPromises);
 
-    // Update ev-context authed slice BEFORE reloading so the SWR hydrate on the
-    // fresh mount reads the restored answers instead of the post-reset empty cache.
+    alert(`Stances restored (${count} topic${count === 1 ? "" : "s"}).`);
+
+    // Bump compassVersion to remount Compass.jsx — this resets its local calibration
+    // state (calibrationActive etc.) without a full page reload, so all the correctly
+    // restored CompassContext state (answers, selectedTopics) is preserved intact.
+    setCompassVersion((v) => v + 1);
+    // Navigate to /results so the user sees the compass. If already there the key
+    // change above is sufficient; navigate is still called to ensure they land there.
+    navigate('/results');
+
+    // Update ev-context cache in background so other subdomains see the restored data.
     if (userId) {
-      await evContext.setAuthedSlice(userId, {
+      evContext.setAuthedSlice(userId, {
         compass: { a: ans, i: inv, w: wi },
       }).catch(() => {});
     }
-
-    alert(`Stances restored (${count} topic${count === 1 ? "" : "s"}).`);
-    // Force remount so Compass.jsx re-reads calibration_completed from localStorage
-    // and clears any active CalibrationOverlay state left over from the reset.
-    window.location.reload();
   };
 
   const handleNavigate = (href) => {
