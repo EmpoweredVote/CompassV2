@@ -187,6 +187,9 @@ function Layout({ children }) {
     }).catch(() => {});
 
     alert(`Stances restored (${count} topic${count === 1 ? "" : "s"}).`);
+    // Force remount so Compass.jsx re-reads calibration_completed from localStorage
+    // and clears any active CalibrationOverlay state left over from the reset.
+    window.location.reload();
   };
 
   const handleNavigate = (href) => {
