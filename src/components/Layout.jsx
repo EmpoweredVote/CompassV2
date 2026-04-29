@@ -66,32 +66,93 @@ function Layout({ children }) {
 
   const ADMIN_SNAPSHOT_KEY = "admin_compass_snapshot";
 
-  const handleSaveStances = () => {
+  const handleSaveStances = async () => {
     const count = Object.keys(answers).length;
     if (count === 0) {
       alert("No answers to save — calibrate your compass first.");
       return;
     }
     const snapshot = { answers, writeIns, invertedSpokes, selectedTopics };
+
+    // Save to localStorage
     localStorage.setItem(ADMIN_SNAPSHOT_KEY, JSON.stringify(snapshot));
-    alert(`Stances saved (${count} topic${count === 1 ? "" : "s"}).`);
+
+    // Verify the write succeeded
+    const verify = localStorage.getItem(ADMIN_SNAPSHOT_KEY);
+    if (!verify) {
+      alert("localStorage save failed — your browser may be blocking storage. Stances NOT saved.");
+      return;
+    }
+
+    // Also back up to server: re-POST all current answers so the server copy
+    // is fresh even if localStorage is cleared before Restore is used.
+    const titleToId = new Map(topics.map((t) => [t.short_title, t.id]));
+    let serverSaveOk = true;
+    for (const [shortTitle, value] of Object.entries(answers)) {
+      const topic_id = titleToId.get(shortTitle);
+      if (!topic_id) continue;
+      const body = { topic_id, value };
+      if (writeIns[shortTitle]) body.write_in_text = writeIns[shortTitle];
+      const res = await apiFetch('/compass/answers', { method: 'POST', body: JSON.stringify(body) }).catch(() => null);
+      if (!res || !res.ok) serverSaveOk = false;
+    }
+    await apiFetch('/compass/selected-topics', {
+      method: 'PUT',
+      body: JSON.stringify({ topic_ids: selectedTopics }),
+    }).catch(() => { serverSaveOk = false; });
+
+    alert(`Stances saved (${count} topic${count === 1 ? "" : "s"})${serverSaveOk ? " — backed up to server." : " — localStorage only (server sync failed)."}`);
   };
 
-  const handleRestoreStances = () => {
+  const handleRestoreStances = async () => {
+    // Try localStorage first, fall back to server if missing
     const raw = localStorage.getItem(ADMIN_SNAPSHOT_KEY);
-    if (!raw) {
-      alert("No saved stances found — use 'Save stances' first.");
-      return;
+    let ans, wi, inv, sel;
+
+    if (raw) {
+      let snapshot;
+      try { snapshot = JSON.parse(raw); } catch {
+        alert("Saved snapshot is corrupted. Try restoring from server...");
+      }
+      if (snapshot) {
+        ans = snapshot.answers || {};
+        wi  = snapshot.writeIns || {};
+        inv = snapshot.invertedSpokes || {};
+        sel = snapshot.selectedTopics || [];
+      }
     }
-    let snapshot;
-    try { snapshot = JSON.parse(raw); } catch {
-      alert("Saved snapshot is corrupted.");
-      return;
+
+    // Fall back to fetching from server
+    if (!ans || Object.keys(ans).length === 0) {
+      const res = await apiFetch('/compass/answers').catch(() => null);
+      if (!res || !res.ok) {
+        alert("No saved stances found locally or on the server. Use 'Save stances' first.");
+        return;
+      }
+      const data = await res.json();
+      if (!data || data.length === 0) {
+        alert("No saved stances found — use 'Save stances' first.");
+        return;
+      }
+      // Rebuild answers map from server data
+      ans = {};
+      wi  = {};
+      for (const row of data) {
+        const topic = topics.find(t => t.id === row.topic_id);
+        if (!topic) continue;
+        ans[topic.short_title] = row.value;
+        if (row.write_in_text) wi[topic.short_title] = row.write_in_text;
+      }
+      inv = invertedSpokes; // can't recover from server, keep current
+      sel = data.map(r => r.topic_id);
+      // Also fetch selected topics from server
+      const selRes = await apiFetch('/compass/selected-topics').catch(() => null);
+      if (selRes && selRes.ok) {
+        const selData = await selRes.json();
+        if (Array.isArray(selData) && selData.length > 0) sel = selData;
+      }
     }
-    const ans = snapshot.answers || {};
-    const wi  = snapshot.writeIns || {};
-    const inv = snapshot.invertedSpokes || {};
-    const sel = snapshot.selectedTopics || [];
+
     const count = Object.keys(ans).length;
 
     // Restore local state + localStorage
@@ -115,7 +176,6 @@ function Layout({ children }) {
       if (wi[shortTitle]) body.write_in_text = wi[shortTitle];
       apiFetch('/compass/answers', { method: 'POST', body: JSON.stringify(body) }).catch(() => {});
     }
-    // Re-sync selected topics to server
     apiFetch('/compass/selected-topics', {
       method: 'PUT',
       body: JSON.stringify({ topic_ids: sel }),
