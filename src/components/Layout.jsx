@@ -58,9 +58,14 @@ function Layout({ children }) {
     setWriteIns({});
     setSelectedTopics([]);
     setInvertedSpokes({});
-    // Server clear for logged-in users
+    // Server clear for logged-in users — both calls fire immediately so a quick
+    // navigation away doesn't race with the debounced selectedTopics sync.
     apiFetch('/compass/answers/me', {
       method: "DELETE",
+    }).catch(() => {});
+    apiFetch('/compass/selected-topics', {
+      method: "PUT",
+      body: JSON.stringify({ topic_ids: [] }),
     }).catch(() => {});
   };
 
