@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router";
-import { SiteHeader } from "@empoweredvote/ev-ui";
+import { SiteHeader, evContext } from "@empoweredvote/ev-ui";
 import { useCompass } from "../components/CompassContext";
 import ReturnBanner from "./ReturnBanner";
 import { apiFetch, getToken, clearToken, API_BASE } from "../lib/auth";
@@ -7,7 +7,7 @@ import { apiFetch, getToken, clearToken, API_BASE } from "../lib/auth";
 function Layout({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { topics, selectedTopics, setSelectedTopics, answers, setAnswers, writeIns, setWriteIns, invertedSpokes, setInvertedSpokes, isLoggedIn, isAdmin, username, setIsLoggedIn, authChecking } = useCompass();
+  const { topics, selectedTopics, setSelectedTopics, answers, setAnswers, writeIns, setWriteIns, invertedSpokes, setInvertedSpokes, isLoggedIn, isAdmin, username, userId, setIsLoggedIn, authChecking } = useCompass();
 
   const logout = async () => {
     try {
@@ -185,6 +185,14 @@ function Layout({ children }) {
       method: 'PUT',
       body: JSON.stringify({ topic_ids: sel }),
     }).catch(() => {});
+
+    // Update ev-context authed slice BEFORE reloading so the SWR hydrate on the
+    // fresh mount reads the restored answers instead of the post-reset empty cache.
+    if (userId) {
+      await evContext.setAuthedSlice(userId, {
+        compass: { a: ans, i: inv, w: wi },
+      }).catch(() => {});
+    }
 
     alert(`Stances restored (${count} topic${count === 1 ? "" : "s"}).`);
     // Force remount so Compass.jsx re-reads calibration_completed from localStorage
