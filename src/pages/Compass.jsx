@@ -393,12 +393,14 @@ function Compass() {
   // Auto-route to calibration pick screen when below threshold (< 3 answered topics).
   // This replaces the BelowThresholdChart overlay — instead of showing a message,
   // send the user straight to the pick screen so they can add more topics.
+  // Guard with calibrationCompleted so a Restore (which sets calibration_completed=true)
+  // doesn't accidentally trigger this if answers are momentarily empty during remount.
   useEffect(() => {
-    if (topicsLoaded && !showChart && !calibrationActive && selectedTopics.length > 0) {
+    if (topicsLoaded && !showChart && !calibrationActive && !calibrationCompleted && selectedTopics.length > 0) {
       setStartAtPick(true);
       setCalibrationActive(true);
     }
-  }, [topicsLoaded, showChart, calibrationActive, selectedTopics.length]);
+  }, [topicsLoaded, showChart, calibrationActive, calibrationCompleted, selectedTopics.length]);
 
   // Show overlay when active (stays shown even as answers change mid-flow)
   const showCalibration = calibrationActive;
