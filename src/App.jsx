@@ -10,7 +10,7 @@ import { Quiz } from "./pages/Quiz";
 import Compass from "./pages/Compass";
 import BuildCompass from "./pages/BuildCompass";
 import Layout from "./components/Layout";
-import { CompassProvider } from "./components/CompassContext";
+import { CompassProvider, useCompass } from "./components/CompassContext";
 import AdminDashboard from "./components/admin/AdminDashboard";
 import HowItWorks from "./pages/HowItWorks";
 
@@ -40,6 +40,7 @@ function HelpGuard({ children }) {
 }
 
 function App() {
+  const { compassVersion } = useCompass();
   return (
     <>
       <Routes>
@@ -101,7 +102,7 @@ function App() {
           path="/results"
           element={
             <HelpGuard>
-              <Layout><Compass /></Layout>
+              <Layout><Compass key={compassVersion} /></Layout>
             </HelpGuard>
           }
         />

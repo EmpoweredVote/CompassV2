@@ -57,6 +57,10 @@ export function CompassProvider({ children }) {
   const [username, setUsername] = useState(null);
   const [userId, setUserId] = useState(null);
   const [authChecking, setAuthChecking] = useState(true);
+  // Incremented by Restore Stances to force Compass.jsx to remount and reset
+  // its local calibration state (calibrationActive, calibrationCompleted, etc.)
+  // without a full page reload — preserving all the correctly-restored context state.
+  const [compassVersion, setCompassVersion] = useState(0);
 
   const setInvertedSpokes = useCallback((updater) => {
     setInvertedSpokesRaw((prev) => {
@@ -144,9 +148,13 @@ export function CompassProvider({ children }) {
     evContext.getAuthedSlice(userId).then((slice) => {
       const c = slice && slice.compass;
       if (!c || typeof c !== 'object') return;
-      if (c.a && typeof c.a === 'object') setAnswers(c.a);
-      if (c.i && typeof c.i === 'object') setInvertedSpokesRaw(c.i);
-      if (c.w && typeof c.w === 'object') setWriteIns(c.w);
+      // Only hydrate from cache when local state is empty — if localStorage already
+      // has answers (e.g. after a Restore Stances flow), the cache may be stale
+      // (the pre-reload setAuthedSlice write races with the reload and often loses).
+      // The write effect will push the correct local data to ev-context momentarily.
+      if (c.a && typeof c.a === 'object' && Object.keys(answersRef.current).length === 0) setAnswers(c.a);
+      if (c.i && typeof c.i === 'object' && Object.keys(invertedSpokesRef.current).length === 0) setInvertedSpokesRaw(c.i);
+      if (c.w && typeof c.w === 'object' && Object.keys(writeInsRef.current).length === 0) setWriteIns(c.w);
     }).catch(() => {});
   }, [isLoggedIn, userId]);
 
@@ -280,8 +288,9 @@ export function CompassProvider({ children }) {
       if (res && res.ok) {
         const ids = await res.json();
         if (Array.isArray(ids) && ids.length > 0) {
-          setSelected(ids);
-          localStorage.setItem("selectedTopics", JSON.stringify(ids));
+          const capped = ids.slice(0, 8);
+          setSelected(capped);
+          localStorage.setItem("selectedTopics", JSON.stringify(capped));
         }
       }
     } catch {
@@ -398,6 +407,8 @@ export function CompassProvider({ children }) {
         userId,
         setUserId,
         authChecking,
+        compassVersion,
+        setCompassVersion,
       }}
     >
       {children}
