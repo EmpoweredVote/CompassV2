@@ -182,6 +182,7 @@ function Layout({ children }) {
     localStorage.setItem("selectedTopics", JSON.stringify(sel));
     localStorage.setItem("calibration_completed", "true");
     localStorage.removeItem("calibration_skipped");
+    localStorage.removeItem("calibration_progress");
 
     // Re-sync answers to server and WAIT before navigating — the batch fetch in
     // Compass.jsx fires on mount and uses the server as its source of truth.
