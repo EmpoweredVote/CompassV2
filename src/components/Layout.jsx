@@ -212,6 +212,7 @@ function Layout({ children }) {
     // Bump compassVersion to remount Compass.jsx — this resets its local calibration
     // state (calibrationActive etc.) without a full page reload, so all the correctly
     // restored CompassContext state (answers, selectedTopics) is preserved intact.
+    console.log('[Restore] setCompassVersion type:', typeof setCompassVersion);
     setCompassVersion((v) => v + 1);
     // Navigate to /results so the user sees the compass. If already there the key
     // change above is sufficient; navigate is still called to ensure they land there.
