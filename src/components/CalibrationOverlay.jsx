@@ -42,8 +42,8 @@ const DARK_THEME = {
   border:         '#41454E',
   borderAccent:   '#59B0C4',
   textHead:       '#EBEDEF',
-  textBody:       '#B3BBCC',
-  textMuted:      '#6B7280',
+  textBody:       '#D3D7DE',
+  textMuted:      '#9CA3AF',
   textAccent:     '#59B0C4',
   btnBg:          '#005366',
   btnText:        '#FFFFFF',
@@ -798,8 +798,8 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     const journeySteps = [
       {
         num: "01",
-        title: "Choose Your Topics",
-        desc: "Pick the issues that actually shape how you vote. Three to eight. No wrong choices.",
+        title: "Choose Your Wedge Issues",
+        desc: "Pick the issues that actually shape how you vote.",
         color: '#59B0C4',
         active: true,
       },
@@ -813,7 +813,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
       {
         num: "03",
         title: "Compare & Discover",
-        desc: "See which politicians actually line up with your priorities. You might be surprised.",
+        desc: "Sort your leaders by your priorities.",
         color: '#5A9A6E',
         active: false,
       },
@@ -850,16 +850,16 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
             </h1>
 
             <p
-              className="text-base md:text-lg max-w-md leading-relaxed mb-3"
+              className="text-base md:text-lg font-semibold max-w-md leading-relaxed mb-3"
               style={{ color: t.textBody }}
             >
-              We can&apos;t tell you what you believe — but we can help you see it clearly.
+              Three steps. Takes about 6 minutes.
             </p>
             <p
-              className="text-sm max-w-sm leading-relaxed mb-10"
+              className="text-base max-w-sm leading-relaxed mb-10"
               style={{ color: t.textMuted }}
             >
-              Three steps. About three minutes. And honestly, we think you&apos;ll find at least one result that surprises you.
+              Have you ever got down to the bottom of your ballot, and found you didn&apos;t know a thing about any of the candidates, let alone their stances and priorities&hellip;? We hate that.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 items-start">
