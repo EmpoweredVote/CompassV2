@@ -282,8 +282,12 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
   const hasReturnBanner = !!sessionStorage.getItem("essentials_return_url");
   const overlayTop = hasReturnBanner ? "top-9" : "top-0";
 
-  // Dark mode: OS preference as default → localStorage override
+  // Dark mode: shared cookie (ev_theme, set by profile page on .empowered.vote)
+  // → localStorage override → OS preference → default dark
   const [isDark, setIsDark] = useState(() => {
+    const cookie = document.cookie.split(';').map(c => c.trim())
+      .find(c => c.startsWith('ev_theme='));
+    if (cookie) return cookie.split('=')[1] === 'dark';
     const saved = localStorage.getItem("compass_dark_mode");
     if (saved !== null) return saved === "true";
     return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? true;
@@ -859,7 +863,9 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
               className="text-base max-w-sm leading-relaxed mb-10"
               style={{ color: t.textMuted }}
             >
-              Have you ever got down to the bottom of your ballot, and found you didn&apos;t know a thing about any of the candidates, let alone their stances and priorities&hellip;? We hate that.
+              Have you ever got down to the bottom of your ballot, and found you didn&apos;t know a thing about any of the candidates, let alone their stances and priorities&hellip;?
+              <br /><br />
+              We hate that.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 items-start">
@@ -1180,7 +1186,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
         </div>
 
         {/* Topic pill strip */}
-        <div className="flex gap-2 px-4 py-2 overflow-x-auto shrink-0">
+        <div className="flex gap-2 px-4 py-2 overflow-x-auto shrink-0 justify-center">
           {pickedTopics.map((id, idx) => {
             const topic = topics.find((tp) => tp.id === id);
             const isAnswered = topic && answers[topic.short_title] != null && answers[topic.short_title] > 0;
