@@ -27,6 +27,70 @@ const STORAGE_KEY = "calibration_progress";
 const MAX_TOPICS = 8;
 const MIN_TOPICS = 3;
 
+// Category accent colors — cycles through EV data viz palette
+const CATEGORY_COLORS = [
+  '#00657C', '#FF5740', '#59B0C4', '#5A9A6E', '#7C6B9E', '#D4940B', '#FED12E',
+];
+
+// ────────────────────────────────────────────────
+// Theme palettes (EV semantic tokens)
+// ────────────────────────────────────────────────
+const DARK_THEME = {
+  bg:             '#131416',
+  card:           '#2F3237',
+  cardElev:       '#41454E',
+  border:         '#41454E',
+  borderAccent:   '#59B0C4',
+  textHead:       '#EBEDEF',
+  textBody:       '#B3BBCC',
+  textMuted:      '#6B7280',
+  textAccent:     '#59B0C4',
+  btnBg:          '#005366',
+  btnText:        '#FFFFFF',
+  selBg:          'rgba(89,176,196,0.12)',
+  selBorder:      '#59B0C4',
+  yellow:         '#FED12E',
+  yellowDark:     '#D0A301',
+  yellowBg:       'rgba(254,209,46,0.12)',
+  progressBg:     '#41454E',
+  divider:        '#41454E',
+  stickyBg:       'rgba(19,20,22,0.97)',
+  stanceBg:       '#2F3237',
+  stanceText:     '#D3D7DE',
+  stanceBorder:   '#41454E',
+  writeOwnColor:  '#6B7280',
+};
+
+const LIGHT_THEME = {
+  bg:             '#F7F7F8',
+  card:           '#FFFFFF',
+  cardElev:       '#EBEDEF',
+  border:         '#D3D7DE',
+  borderAccent:   '#00657C',
+  textHead:       '#2F3237',
+  textBody:       '#535964',
+  textMuted:      '#8F9EBC',
+  textAccent:     '#00657C',
+  btnBg:          '#005366',
+  btnText:        '#FFFFFF',
+  selBg:          '#E4F3F6',
+  selBorder:      '#00657C',
+  yellow:         '#FED12E',
+  yellowDark:     '#D0A301',
+  yellowBg:       '#FEF3C7',
+  progressBg:     '#D3D7DE',
+  divider:        '#D3D7DE',
+  stickyBg:       'rgba(247,247,248,0.97)',
+  stanceBg:       '#FFFFFF',
+  stanceText:     '#2F3237',
+  stanceBorder:   '#D3D7DE',
+  writeOwnColor:  '#8F9EBC',
+};
+
+// ────────────────────────────────────────────────
+// Sub-components
+// ────────────────────────────────────────────────
+
 function GhostRadar({ size = "w-64 md:w-80" }) {
   return (
     <div className={`${size} mx-auto`}>
@@ -69,30 +133,32 @@ const SMOOTH_TRANSITION = {
   easing: "cubic-bezier(0.25, 1, 0.5, 1)",
 };
 
-function SortableStanceLabel({ id, text }) {
+function SortableStanceLabel({ id, text, isDark }) {
+  const t = isDark ? DARK_THEME : LIGHT_THEME;
   const { setNodeRef, transform, transition } = useSortable({
     id,
     disabled: { draggable: true },
     transition: SMOOTH_TRANSITION,
   });
-
-  const style = {
-    transform: CSS.Translate.toString(transform),
-    transition,
-  };
-
+  const style = { transform: CSS.Translate.toString(transform), transition };
   return (
     <div
       ref={setNodeRef}
-      style={style}
-      className="px-4 py-2.5 rounded-lg text-sm font-medium bg-gray-50 text-gray-600 border border-gray-200"
+      style={{
+        ...style,
+        background: t.card,
+        color: t.textBody,
+        border: `1px solid ${t.border}`,
+      }}
+      className="px-4 py-2.5 rounded-lg text-sm font-medium"
     >
       {text}
     </div>
   );
 }
 
-function SortableWriteInCard({ id, text, onChange, onCancel, showHint }) {
+function SortableWriteInCard({ id, text, onChange, onCancel, showHint, isDark }) {
+  const t = isDark ? DARK_THEME : LIGHT_THEME;
   const {
     attributes,
     listeners,
@@ -111,28 +177,22 @@ function SortableWriteInCard({ id, text, onChange, onCancel, showHint }) {
   return (
     <div
       ref={setNodeRef}
-      style={style}
+      style={{
+        ...style,
+        border: `2px solid ${t.yellow}`,
+        background: t.yellowBg,
+      }}
+      className="flex items-start gap-2 px-3 py-2.5 rounded-lg"
       {...attributes}
-      className={`flex items-start gap-2 px-3 py-2.5 rounded-lg
-        ${
-          text.trim()
-            ? "border-2 border-ev-yellow bg-ev-yellow-light"
-            : "border-2 border-dashed border-gray-400"
-        }`}
     >
       <div
         {...listeners}
         className={`cursor-grab active:cursor-grabbing pt-1.5 shrink-0 rounded p-1 ${
-          showHint
-            ? "animate-pulse bg-ev-yellow/30 text-ev-coral"
-            : ""
+          showHint ? "animate-pulse" : ""
         }`}
+        style={{ color: showHint ? '#E85D26' : t.textMuted }}
       >
-        <svg
-          viewBox="0 0 24 24"
-          className="w-5 h-5"
-          fill="currentColor"
-        >
+        <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
           <circle cx="9" cy="6" r="1.5" />
           <circle cx="15" cy="6" r="1.5" />
           <circle cx="9" cy="12" r="1.5" />
@@ -149,29 +209,58 @@ function SortableWriteInCard({ id, text, onChange, onCancel, showHint }) {
           placeholder="Write your stance here..."
           rows={2}
           className="text-sm font-medium resize-none bg-transparent focus:outline-none"
+          style={{ color: t.textHead }}
         />
         {showHint && (
-          <p className="text-xs font-medium text-ev-coral">
+          <p className="text-xs font-medium" style={{ color: '#E85D26' }}>
             Drag your own view to where it fits among these stances
           </p>
         )}
       </div>
       <button
         onClick={onCancel}
-        className="text-gray-400 hover:text-black shrink-0 pt-1 cursor-pointer"
+        className="shrink-0 pt-1 cursor-pointer hover:opacity-70 transition-opacity"
+        style={{ color: t.textMuted }}
       >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 20 20"
-          fill="currentColor"
-          className="w-4 h-4"
-        >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
           <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
         </svg>
       </button>
     </div>
   );
 }
+
+// ────────────────────────────────────────────────
+// Icon helpers
+// ────────────────────────────────────────────────
+
+function SunIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+      <path d="M10 2a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 0110 2zM10 15a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 0110 15zM10 7a3 3 0 100 6 3 3 0 000-6zM15.657 5.404a.75.75 0 10-1.06-1.06l-1.061 1.06a.75.75 0 001.06 1.06l1.061-1.06zM6.464 14.596a.75.75 0 10-1.06-1.06l-1.061 1.06a.75.75 0 001.06 1.06l1.061-1.06zM18 10a.75.75 0 01-.75.75h-1.5a.75.75 0 010-1.5h1.5A.75.75 0 0118 10zM5 10a.75.75 0 01-.75.75h-1.5a.75.75 0 010-1.5h1.5A.75.75 0 015 10zM14.596 15.657a.75.75 0 001.06-1.06l-1.06-1.061a.75.75 0 10-1.06 1.06l1.06 1.061zM5.404 6.464a.75.75 0 001.06-1.06l-1.06-1.061a.75.75 0 10-1.06 1.06l1.06 1.061z" />
+    </svg>
+  );
+}
+
+function MoonIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+      <path fillRule="evenodd" d="M7.455 2.004a.75.75 0 01.26.77 7 7 0 009.958 7.967.75.75 0 011.067.853A8.5 8.5 0 116.647 1.921a.75.75 0 01.808.083z" clipRule="evenodd" />
+    </svg>
+  );
+}
+
+function BackArrow() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+      <path fillRule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clipRule="evenodd" />
+    </svg>
+  );
+}
+
+// ────────────────────────────────────────────────
+// Main component
+// ────────────────────────────────────────────────
 
 export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = false, startAtPick = false }) {
   const {
@@ -193,10 +282,23 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
   const hasReturnBanner = !!sessionStorage.getItem("essentials_return_url");
   const overlayTop = hasReturnBanner ? "top-9" : "top-0";
 
+  // Dark mode: OS preference as default → localStorage override
+  const [isDark, setIsDark] = useState(() => {
+    const saved = localStorage.getItem("compass_dark_mode");
+    if (saved !== null) return saved === "true";
+    return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? true;
+  });
+  const toggleDark = () => {
+    setIsDark(v => {
+      const next = !v;
+      localStorage.setItem("compass_dark_mode", String(next));
+      return next;
+    });
+  };
+  const t = isDark ? DARK_THEME : LIGHT_THEME;
+
   // Load persisted progress on mount, honouring resumeMode and startAtPick
   const getInitialState = () => {
-    // Always check localStorage first — this handles refresh during any step,
-    // including resume-mode sessions (which now persist their progress).
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
@@ -211,8 +313,6 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
       }
     } catch {}
 
-    // startAtPick: enter at pick step with existing selectedTopics pre-selected
-    // (used from below-3 overlay — does NOT reset calibration_completed/skipped)
     if (startAtPick) {
       return {
         step: "pick",
@@ -221,9 +321,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
       };
     }
 
-    // In resume mode: skip welcome/pick, go straight to answer from selectedTopics
     if (resumeMode) {
-      // Find first unanswered topic index to start at
       const firstUnanswered = selectedTopics.findIndex((id) => {
         const topic = topics.find((t) => t.id === id);
         if (!topic) return false;
@@ -240,8 +338,6 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     return { step: "welcome", pickedTopics: [], currentIndex: 0 };
   };
 
-  // We use a ref to track whether initial state has been computed so it only
-  // runs once even though selectedTopics/topics/answers may not be loaded yet.
   const initializedRef = useRef(false);
   const [step, setStep] = useState("welcome");
   const [pickedTopics, setPickedTopics] = useState([]);
@@ -259,12 +355,8 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     })
   );
 
-  // Initialize state once topics are loaded (needed because resumeMode/startAtPick reads selectedTopics + answers)
   useEffect(() => {
     if (initializedRef.current) return;
-    // Always wait for topics to be available — prevents initializing with stale/empty data.
-    // Since Compass.jsx now gates on topicsLoaded, topics will be non-empty when we mount,
-    // but the defensive check is good practice for any edge cases.
     if (topics.length === 0) return;
     const initial = getInitialState();
     setStep(initial.step);
@@ -274,15 +366,12 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [topics, resumeMode, startAtPick]);
 
-  // Persist progress on every state change (skip welcome and complete steps)
-  // Resume-mode sessions now persist too so refresh during resume-mode restores position.
   useEffect(() => {
     if (step === "welcome" || step === "complete") return;
     const progress = { step, pickedTopics, currentIndex, resumeMode: resumeMode || false };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
   }, [step, pickedTopics, currentIndex, resumeMode]);
 
-  // Load current answer when index changes in answer step (also restores write-in state)
   useEffect(() => {
     if (step !== "answer") return;
     const topicId = pickedTopics[currentIndex];
@@ -291,13 +380,11 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     const val = answers[topic.short_title];
     setSelectedAnswer(typeof val === "number" && val > 0 ? val : null);
 
-    // Derive stances inside effect to avoid stale closure
     const isFlippedInEffect = invertedSpokes[topic.short_title];
     const effectStances = topic.stances
       ? isFlippedInEffect ? [...topic.stances].reverse() : topic.stances
       : [];
 
-    // Restore or reset write-in state
     const savedWriteIn = writeIns?.[topic.short_title];
     if (savedWriteIn && val != null && !Number.isInteger(val)) {
       setShowWriteIn(true);
@@ -317,13 +404,11 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     }
   }, [currentIndex, step, pickedTopics, topics, answers, writeIns, invertedSpokes]);
 
-  // Topic picker coach mark — shown once on first visit to pick step
   const firstTopicRef = useRef(null);
   const [topicPickHintDismissed, setTopicPickHintDismissed] = useState(
     () => !!localStorage.getItem("onboarding_topicPickHint")
   );
 
-  // Answer step 2-step tour: (0) stances panel, (1) write-your-own button
   const stancesPanelRef = useRef(null);
   const writeOwnBtnRef = useRef(null);
   const [answerTourStep, setAnswerTourStep] = useState(() =>
@@ -342,13 +427,10 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     setAnswerTourStep(-1);
   };
 
-  // Write-in awareness hint — shown only on the first question (currentIndex === 0)
-  // Dismissed permanently after advancing past first question or clicking "Write your own..."
   const [writeInHintShown, setWriteInHintShown] = useState(
     () => !!localStorage.getItem("onboarding_writeInHint")
   );
 
-  // Dismiss write-in hint when user advances past first question
   useEffect(() => {
     if (currentIndex > 0 && !writeInHintShown) {
       localStorage.setItem("onboarding_writeInHint", "1");
@@ -356,7 +438,6 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     }
   }, [currentIndex, writeInHintShown]);
 
-  // Deduplicate topics across categories for the picker (same topic can appear in multiple categories)
   const dedupedCategories = useMemo(() => {
     const seen = new Set();
     return categories
@@ -371,7 +452,6 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
       .filter((cat) => cat.topics.length > 0);
   }, [categories]);
 
-  // Build chart data from answered picked topics
   const chartData = useMemo(() => {
     if (!pickedTopics.length) return {};
     return Object.fromEntries(
@@ -386,14 +466,12 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     );
   }, [pickedTopics, topics, answers]);
 
-  // Current topic for answer step
   const currentTopic = useMemo(() => {
     if (step !== "answer") return null;
     const id = pickedTopics[currentIndex];
     return topics.find((t) => t.id === id) || null;
   }, [step, pickedTopics, currentIndex, topics]);
 
-  // Count answered topics among picked
   const answeredCount = useMemo(() => {
     return pickedTopics.filter((id) => {
       const topic = topics.find((t) => t.id === id);
@@ -403,7 +481,6 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     }).length;
   }, [pickedTopics, topics, answers]);
 
-  // Count unanswered topics among picked
   const unansweredCount = useMemo(() => {
     return pickedTopics.filter((id) => {
       const topic = topics.find((t) => t.id === id);
@@ -436,13 +513,11 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
 
   const handleContinueToAnswer = () => {
     if (pickedTopics.length < MIN_TOPICS) return;
-    // Add picked topics to context selectedTopics (union)
     setSelectedTopics((prev) => {
       const existing = new Set(prev);
       const newIds = pickedTopics.filter((id) => !existing.has(id));
       return [...prev, ...newIds];
     });
-    // Init random inversions for picked topics
     const pickedTopicObjects = pickedTopics
       .map((id) => topics.find((t) => t.id === id))
       .filter(Boolean);
@@ -453,7 +528,6 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
 
   const handleSelectStance = async (value) => {
     if (!currentTopic) return;
-    // Clear any active write-in when selecting a predefined stance
     if (writeIns?.[currentTopic?.short_title]) {
       setWriteIns((prev) => {
         const updated = { ...prev };
@@ -471,10 +545,8 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
         });
       } catch {}
     }
-    // No auto-advance — user clicks Next manually
   };
 
-  // handleNext: find the next UNANSWERED topic, not just next index
   const handleNext = () => {
     const nextUnanswered = pickedTopics.findIndex((id, idx) => {
       if (idx <= currentIndex) return false;
@@ -500,7 +572,6 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
   };
 
   const handleFinish = () => {
-    // Remove unanswered picked topics from selectedTopics
     const unansweredIds = pickedTopics.filter((id) => {
       const topic = topics.find((t) => t.id === id);
       if (!topic) return true;
@@ -509,7 +580,6 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     });
     if (unansweredIds.length > 0) {
       setSelectedTopics((prev) => prev.filter((id) => !unansweredIds.includes(id)));
-      // Also clear inversions for removed topics
       setInvertedSpokes((prev) => {
         const updated = { ...prev };
         for (const id of unansweredIds) {
@@ -521,11 +591,8 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     }
     localStorage.removeItem(STORAGE_KEY);
 
-    // Count how many topics will be answered after removing unanswered ones
     const finalAnsweredCount = pickedTopics.length - unansweredIds.length;
     if (finalAnsweredCount < MIN_TOPICS) {
-      // Skip the "Your compass is ready" celebration — it's misleading when chart won't render.
-      // Dismiss overlay directly; user will see grayed chart with below-3 overlay.
       onComplete();
       return;
     }
@@ -533,10 +600,8 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     setStep("complete");
   };
 
-  // Exit during answer step — gated on answeredCount >= MIN_TOPICS
-  // Only shows "View Compass" button when enough topics answered; otherwise hidden
   const handleExitDuringAnswer = () => {
-    if (answeredCount < MIN_TOPICS) return; // Button should not be visible, but guard anyway
+    if (answeredCount < MIN_TOPICS) return;
     const unansweredIds = pickedTopics.filter((id) => {
       const topic = topics.find((t) => t.id === id);
       if (!topic) return true;
@@ -641,7 +706,6 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
         : currentTopic.stances
       : [];
 
-  // Whether all remaining topics after current are answered (used for footer button label)
   const allRemainingAnswered = pickedTopics.every((id, idx) => {
     if (idx <= currentIndex) return true;
     const topic = topics.find((t) => t.id === id);
@@ -651,114 +715,206 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
   });
   const isLastUnanswered = allRemainingAnswered;
 
+  // Shared dark-mode toggle button rendered inline in each step header
+  const DarkToggle = ({ style: extraStyle = {} }) => (
+    <button
+      onClick={toggleDark}
+      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      className="w-8 h-8 rounded-full flex items-center justify-center cursor-pointer transition-opacity hover:opacity-70 shrink-0"
+      style={{ background: t.cardElev, color: t.textMuted, ...extraStyle }}
+    >
+      {isDark ? <SunIcon /> : <MoonIcon />}
+    </button>
+  );
+
+  // Phase progress bar used in pick + answer steps
+  const PhaseBar = ({ current }) => (
+    <div className="flex items-center justify-center gap-1.5 text-xs font-bold tracking-widest uppercase select-none">
+      {[
+        { n: 1, label: "Choose Topics" },
+        { n: 2, label: "Stances" },
+        { n: 3, label: "Discover" },
+      ].map(({ n, label }, i) => (
+        <span key={n} className="flex items-center gap-1.5">
+          {i > 0 && (
+            <span style={{ color: t.divider, fontWeight: 400, letterSpacing: 0 }}>—</span>
+          )}
+          <span style={{ color: current === n ? t.textAccent : t.textMuted }}>
+            {n === current ? `① `.replace('1', String(n)) : `○ `.replace('○', `${n}.`)}
+            {n === current ? `⬤ ` : ''}
+            {label}
+          </span>
+        </span>
+      ))}
+    </div>
+  );
+
+  // Simpler phase indicator — numbered dots + labels
+  const PhaseIndicator = ({ current }) => {
+    const phases = ["Choose Topics", "Your Stances", "Compare & Discover"];
+    return (
+      <div className="flex items-center justify-center gap-0 select-none">
+        {phases.map((label, i) => {
+          const n = i + 1;
+          const active = n === current;
+          const done = n < current;
+          return (
+            <div key={n} className="flex items-center">
+              {i > 0 && (
+                <div
+                  className="w-8 h-px"
+                  style={{ background: done ? t.textAccent : t.divider }}
+                />
+              )}
+              <div className="flex flex-col items-center gap-0.5">
+                <div
+                  className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-all"
+                  style={{
+                    background: active ? t.textAccent : done ? t.textAccent : t.cardElev,
+                    color: active || done ? '#FFFFFF' : t.textMuted,
+                    boxShadow: active ? `0 0 0 3px ${t.textAccent}30` : 'none',
+                  }}
+                >
+                  {done ? '✓' : n}
+                </div>
+                <span
+                  className="text-xs font-medium whitespace-nowrap hidden sm:block"
+                  style={{ color: active ? t.textAccent : t.textMuted }}
+                >
+                  {label}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   // ============================
   // STEP: WELCOME
   // ============================
   if (step === "welcome") {
+    const journeySteps = [
+      {
+        num: "01",
+        title: "Choose Your Topics",
+        desc: "Pick the issues that actually shape how you vote. Three to eight. No wrong choices.",
+        color: '#59B0C4',
+        active: true,
+      },
+      {
+        num: "02",
+        title: "Find Your Stances",
+        desc: "Tell us where you stand on each one. There are no right answers — only yours.",
+        color: '#FED12E',
+        active: false,
+      },
+      {
+        num: "03",
+        title: "Compare & Discover",
+        desc: "See which politicians actually line up with your priorities. You might be surprised.",
+        color: '#5A9A6E',
+        active: false,
+      },
+    ];
+
     return (
-      <div className={`fixed ${overlayTop} left-0 right-0 bottom-0 z-50 bg-white overflow-y-auto flex flex-col items-center justify-center px-6 py-12`}>
-        {/* Static SVG compass illustration — replaces calibration-demo.gif */}
-        <div className="w-full max-w-sm mx-auto mb-8">
-          <svg viewBox="0 0 200 200" className="w-full h-full">
-            {/* Grid rings */}
-            {[1, 2, 3, 4, 5].map((level) => {
-              const r = (level / 5) * 80;
-              return (
-                <circle
-                  key={level}
-                  cx="100"
-                  cy="100"
-                  r={r}
-                  fill="none"
-                  stroke="#e5e7eb"
-                  strokeWidth="1.5"
-                />
-              );
-            })}
-            {/* Spoke lines */}
-            {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => {
-              const angle = (2 * Math.PI * i) / 8;
-              return (
-                <line
-                  key={i}
-                  x1="100"
-                  y1="100"
-                  x2={100 + 80 * Math.sin(angle)}
-                  y2={100 - 80 * Math.cos(angle)}
-                  stroke="#e5e7eb"
-                  strokeWidth="1.5"
-                />
-              );
-            })}
-            {/* User compass polygon — dusk purple fill */}
-            <polygon
-              points={[0, 1, 2, 3, 4, 5, 6, 7]
-                .map((i) => {
-                  const angle = (2 * Math.PI * i) / 8;
-                  const values = [0.7, 0.9, 0.5, 0.8, 0.6, 0.85, 0.4, 0.75];
-                  const r = values[i] * 80;
-                  return `${100 + r * Math.sin(angle)},${100 - r * Math.cos(angle)}`;
-                })
-                .join(" ")}
-              fill="#7C6B9E"
-              fillOpacity="0.25"
-              stroke="#7C6B9E"
-              strokeWidth="2"
-              strokeLinejoin="round"
-            />
-            {/* Comparison polygon — sage green fill */}
-            <polygon
-              points={[0, 1, 2, 3, 4, 5, 6, 7]
-                .map((i) => {
-                  const angle = (2 * Math.PI * i) / 8;
-                  const values = [0.5, 0.6, 0.8, 0.4, 0.9, 0.55, 0.7, 0.45];
-                  const r = values[i] * 80;
-                  return `${100 + r * Math.sin(angle)},${100 - r * Math.cos(angle)}`;
-                })
-                .join(" ")}
-              fill="#5A9A6E"
-              fillOpacity="0.2"
-              stroke="#5A9A6E"
-              strokeWidth="2"
-              strokeLinejoin="round"
-            />
-            {/* Accent dots on user polygon vertices */}
-            {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => {
-              const angle = (2 * Math.PI * i) / 8;
-              const values = [0.7, 0.9, 0.5, 0.8, 0.6, 0.85, 0.4, 0.75];
-              const r = values[i] * 80;
-              return (
-                <circle
-                  key={i}
-                  cx={100 + r * Math.sin(angle)}
-                  cy={100 - r * Math.cos(angle)}
-                  r="4"
-                  fill="#fed12e"
-                  stroke="white"
-                  strokeWidth="1.5"
-                />
-              );
-            })}
-          </svg>
+      <div
+        className={`fixed ${overlayTop} left-0 right-0 bottom-0 z-50 overflow-y-auto flex flex-col`}
+        style={{ background: t.bg }}
+      >
+        {/* Dark mode toggle — top right */}
+        <div className="absolute top-4 right-4 z-10">
+          <DarkToggle />
         </div>
-        <h1 className="text-3xl md:text-4xl font-semibold text-center mb-4">
-          Build Your Political Compass
-        </h1>
-        <p className="text-gray-600 text-base md:text-lg text-center max-w-sm mb-8">
-          Pick topics that matter to you, answer where you stand, and see your political compass take shape.
-        </p>
-        <button
-          onClick={handleGetStarted}
-          className="px-8 py-3 bg-ev-yellow text-black font-semibold rounded-full text-base md:text-lg shadow-sm hover:opacity-90 transition-opacity cursor-pointer"
-        >
-          Get Started
-        </button>
-        <button
-          onClick={handleSkip}
-          className="mt-4 text-gray-400 underline text-sm cursor-pointer hover:text-gray-600 transition-colors"
-        >
-          Skip for now
-        </button>
+
+        <div className="flex flex-col lg:flex-row min-h-full">
+
+          {/* ── Left: hero copy ── */}
+          <div className="flex flex-col justify-center px-8 py-16 lg:py-24 lg:w-1/2 lg:pl-16 lg:pr-10">
+
+            <p
+              className="text-xs font-bold tracking-widest uppercase mb-5"
+              style={{ color: t.textAccent }}
+            >
+              Your Political Compass
+            </p>
+
+            <h1
+              className="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight mb-5"
+              style={{ color: t.textHead, letterSpacing: '-0.03em' }}
+            >
+              Let&apos;s calibrate your compass{' '}
+              <span style={{ color: t.textAccent }}>to you.</span>
+            </h1>
+
+            <p
+              className="text-base md:text-lg max-w-md leading-relaxed mb-3"
+              style={{ color: t.textBody }}
+            >
+              We can&apos;t tell you what you believe — but we can help you see it clearly.
+            </p>
+            <p
+              className="text-sm max-w-sm leading-relaxed mb-10"
+              style={{ color: t.textMuted }}
+            >
+              Three steps. About three minutes. And honestly, we think you&apos;ll find at least one result that surprises you.
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-3 items-start">
+              <button
+                onClick={handleGetStarted}
+                className="px-8 py-3.5 rounded-full font-bold text-base transition-all hover:opacity-90 active:scale-95 cursor-pointer shadow-md"
+                style={{ background: t.yellow, color: '#1C1C1C' }}
+              >
+                Start Step 1 →
+              </button>
+              <button
+                onClick={handleSkip}
+                className="px-6 py-3.5 rounded-full text-sm font-medium transition-opacity hover:opacity-70 cursor-pointer"
+                style={{ color: t.textMuted }}
+              >
+                Not now
+              </button>
+            </div>
+          </div>
+
+          {/* ── Right: 3-step cards ── */}
+          <div className="flex flex-col justify-center px-8 pb-16 lg:py-24 lg:w-1/2 lg:pr-16 lg:pl-8">
+            <div className="flex flex-col gap-4 max-w-md w-full mx-auto lg:mx-0">
+              {journeySteps.map((s) => (
+                <div
+                  key={s.num}
+                  className="flex items-start gap-4 p-5 rounded-2xl transition-all"
+                  style={{
+                    background: s.active ? `${s.color}18` : t.card,
+                    border: `1.5px solid ${s.active ? s.color : t.border}`,
+                  }}
+                >
+                  <div
+                    className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+                    style={{
+                      background: s.active ? s.color : t.cardElev,
+                      color: s.active ? '#1C1C1C' : t.textMuted,
+                    }}
+                  >
+                    {s.num}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-base mb-1" style={{ color: t.textHead }}>
+                      {s.title}
+                    </p>
+                    <p className="text-sm leading-relaxed" style={{ color: t.textBody }}>
+                      {s.desc}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+        </div>
       </div>
     );
   }
@@ -768,74 +924,138 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
   // ============================
   if (step === "pick") {
     return (
-      <div className={`fixed ${overlayTop} left-0 right-0 bottom-0 z-50 bg-white overflow-y-auto`}>
-        {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-100 z-10 px-4 pt-4 pb-3">
-          <div className="flex items-center gap-3 max-w-2xl mx-auto">
+      <div
+        className={`fixed ${overlayTop} left-0 right-0 bottom-0 z-50 overflow-y-auto`}
+        style={{ background: t.bg }}
+      >
+        {/* ── Sticky header ── */}
+        <div
+          className="sticky top-0 z-10 px-4 pt-3 pb-3"
+          style={{ background: t.stickyBg, borderBottom: `1px solid ${t.border}` }}
+        >
+          {/* Phase indicator */}
+          <div className="max-w-5xl mx-auto mb-3">
+            <PhaseIndicator current={1} />
+          </div>
+
+          {/* Title row */}
+          <div className="flex items-center gap-3 max-w-5xl mx-auto">
             <button
               onClick={handleSkip}
-              className="p-1.5 rounded-full text-gray-400 hover:text-black hover:bg-gray-100 transition-colors cursor-pointer shrink-0"
+              className="p-1.5 rounded-full transition-colors cursor-pointer shrink-0 hover:opacity-70"
+              style={{ color: t.textMuted }}
               aria-label="Close"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
-                <path fillRule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clipRule="evenodd" />
-              </svg>
+              <BackArrow />
             </button>
-            <div className="flex-1">
-              <h1 className="text-xl font-semibold">Pick 3–8 Topics</h1>
-              <p className="text-gray-500 text-sm">Choose the issues that matter most to you</p>
+
+            <div className="flex-1 min-w-0">
+              <h1 className="text-lg font-bold leading-tight" style={{ color: t.textHead }}>
+                What matters to you?
+              </h1>
+              <p className="text-xs" style={{ color: t.textMuted }}>
+                Pick 3 to 8 topics — you can always change these later
+              </p>
             </div>
-            <span className={`shrink-0 text-sm font-medium px-3 py-1 rounded-full ${
-              pickedTopics.length >= MIN_TOPICS
-                ? "bg-ev-yellow text-black"
-                : "bg-gray-100 text-gray-600"
-            }`}>
+
+            <span
+              className="shrink-0 text-sm font-bold px-3 py-1 rounded-full transition-all"
+              style={{
+                background: pickedTopics.length >= MIN_TOPICS ? t.yellow : t.cardElev,
+                color: pickedTopics.length >= MIN_TOPICS ? '#1C1C1C' : t.textMuted,
+              }}
+            >
               {pickedTopics.length}/{MAX_TOPICS}
             </span>
+
+            <DarkToggle />
           </div>
         </div>
 
-        {/* Topic list */}
-        <div className="px-4 py-4 max-w-2xl mx-auto pb-32">
+        {/* ── Topic list ── */}
+        <div className="px-4 py-4 max-w-5xl mx-auto pb-32">
           {dedupedCategories.map((category, catIdx) => {
             if (!category.topics || category.topics.length === 0) return null;
+            const catColor = CATEGORY_COLORS[catIdx % CATEGORY_COLORS.length];
             return (
-              <div key={category.id} className="mb-6">
-                <h3 className="text-base font-semibold text-gray-700 mb-3">
-                  {category.title}
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div key={category.id} className="mb-8">
+                {/* Category header */}
+                <div className="flex items-center gap-2 mb-3">
+                  <div
+                    className="w-1 h-5 rounded-full shrink-0"
+                    style={{ background: catColor }}
+                  />
+                  <h3
+                    className="text-xs font-bold uppercase tracking-widest"
+                    style={{ color: catColor }}
+                  >
+                    {category.title}
+                  </h3>
+                </div>
+
+                {/* Topic cards — 1 col mobile, 2 col sm, 3 col lg */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                   {category.topics.map((topic, topicIdx) => {
-                    const fullTopic = topics.find((t) => t.id === topic.id) || topic;
+                    const fullTopic = topics.find((tp) => tp.id === topic.id) || topic;
                     const isSelected = pickedTopics.includes(topic.id);
                     const atCap = pickedTopics.length >= MAX_TOPICS && !isSelected;
-                    // Attach ref to the very first topic card for the coach mark
                     const isFirstTopic = catIdx === 0 && topicIdx === 0;
+
                     return (
                       <button
                         key={topic.id}
                         ref={isFirstTopic ? firstTopicRef : undefined}
                         onClick={() => !atCap && togglePick(topic.id)}
                         disabled={atCap}
-                        className={`text-left px-4 py-3 rounded-xl border-2 transition-all duration-200 cursor-pointer flex items-center justify-between gap-2 ${
+                        className="text-left px-4 py-3 rounded-xl transition-all duration-200 cursor-pointer flex items-start justify-between gap-2"
+                        style={
                           isSelected
-                            ? "border-[#59b0c4] bg-sky-50/50 shadow-sm"
+                            ? {
+                                background: `${catColor}18`,
+                                border: `2px solid ${catColor}`,
+                              }
                             : atCap
-                            ? "border-gray-100 bg-gray-50 opacity-40 cursor-not-allowed"
-                            : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm"
-                        }`}
+                            ? {
+                                background: t.card,
+                                border: `1px solid ${t.border}`,
+                                borderLeft: `4px solid ${catColor}`,
+                                opacity: 0.3,
+                                cursor: 'not-allowed',
+                              }
+                            : {
+                                background: t.card,
+                                border: `1px solid ${t.border}`,
+                                borderLeft: `4px solid ${catColor}`,
+                              }
+                        }
                       >
-                        <div className="text-left">
-                          <p className="text-sm font-medium leading-snug">{getQuestionText(fullTopic) || parseTensionTitle(fullTopic).name}</p>
+                        <div className="text-left min-w-0">
+                          <p
+                            className="text-sm font-semibold leading-snug"
+                            style={{ color: t.textHead }}
+                          >
+                            {getQuestionText(fullTopic) || parseTensionTitle(fullTopic).name}
+                          </p>
                           {getQuestionText(fullTopic) && (
-                            <p className="text-xs text-gray-500 font-normal mt-0.5">{parseTensionTitle(fullTopic).name}</p>
+                            <p
+                              className="text-xs font-normal mt-0.5"
+                              style={{ color: t.textMuted }}
+                            >
+                              {parseTensionTitle(fullTopic).name}
+                            </p>
                           )}
                           <div className="mt-2">
                             <TopicTierBadge topic={fullTopic} size="xs" variant="muted" />
                           </div>
                         </div>
                         {isSelected && (
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5 shrink-0 text-[#59b0c4]">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                            className="w-5 h-5 shrink-0"
+                            style={{ color: catColor }}
+                          >
                             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
                           </svg>
                         )}
@@ -848,29 +1068,40 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
           })}
         </div>
 
-        {/* Footer */}
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-4 py-4 z-10">
-          <div className="max-w-2xl mx-auto">
+        {/* ── Footer ── */}
+        <div
+          className="fixed bottom-0 left-0 right-0 px-4 py-4 z-10"
+          style={{ background: t.stickyBg, borderTop: `1px solid ${t.border}` }}
+        >
+          <div className="max-w-5xl mx-auto flex flex-col gap-2">
             {pickedTopics.length < MIN_TOPICS && pickedTopics.length > 0 && (
-              <p className="text-center text-sm text-gray-400 mb-2">
+              <p className="text-center text-sm" style={{ color: t.textMuted }}>
                 {MIN_TOPICS - pickedTopics.length} more to go
+              </p>
+            )}
+            {pickedTopics.length === 0 && (
+              <p className="text-center text-sm" style={{ color: t.textMuted }}>
+                Pick at least 3 topics to continue
               </p>
             )}
             <button
               onClick={handleContinueToAnswer}
               disabled={pickedTopics.length < MIN_TOPICS}
-              className={`w-full py-3 rounded-full font-semibold text-base transition-all duration-200 ${
+              className="w-full py-3.5 rounded-full font-bold text-base transition-all duration-200 cursor-pointer"
+              style={
                 pickedTopics.length >= MIN_TOPICS
-                  ? "bg-black text-white cursor-pointer hover:opacity-90"
-                  : "bg-gray-200 text-gray-400 cursor-not-allowed"
-              }`}
+                  ? { background: t.btnBg, color: t.btnText }
+                  : { background: t.cardElev, color: t.textMuted, cursor: 'not-allowed' }
+              }
             >
-              Continue
+              {pickedTopics.length >= MIN_TOPICS
+                ? `Continue to Step 2 — Find Your Stances →`
+                : 'Continue'}
             </button>
           </div>
         </div>
 
-        {/* Topic picker coach mark — highlights first topic, explains why */}
+        {/* Coach mark */}
         {!topicPickHintDismissed && !startAtPick && (
           <CoachMark
             targetRef={firstTopicRef}
@@ -891,64 +1122,85 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
   // ============================
   if (step === "answer" && currentTopic) {
     return (
-      <div className={`fixed ${overlayTop} left-0 right-0 bottom-0 z-50 bg-white overflow-y-auto flex flex-col`}>
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 pt-4 pb-2 shrink-0">
-          <button
-            onClick={handleBack}
-            className="p-1.5 rounded-full text-gray-400 hover:text-black hover:bg-gray-100 transition-colors cursor-pointer"
-            aria-label="Back"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
-              <path fillRule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clipRule="evenodd" />
-            </svg>
-          </button>
-
-          {/* Progress indicator */}
-          <div className="flex flex-col items-center">
-            <div className="w-32 md:w-48 h-1.5 bg-gray-200 rounded-full overflow-hidden mb-1">
-              <div
-                className="h-full bg-ev-yellow rounded-full transition-all duration-300"
-                style={{ width: `${(answeredCount / pickedTopics.length) * 100}%` }}
-              />
-            </div>
-            <p className="text-xs text-gray-500">
-              {answeredCount} of {pickedTopics.length} answered
-            </p>
+      <div
+        className={`fixed ${overlayTop} left-0 right-0 bottom-0 z-50 overflow-y-auto flex flex-col`}
+        style={{ background: t.bg }}
+      >
+        {/* ── Header ── */}
+        <div className="flex flex-col px-4 pt-3 pb-2 shrink-0">
+          {/* Phase indicator */}
+          <div className="mb-3">
+            <PhaseIndicator current={2} />
           </div>
 
-          {/* Exit button: hidden until 3+ answered, then shows "View Compass" */}
-          {answeredCount >= MIN_TOPICS ? (
+          <div className="flex items-center justify-between gap-2">
             <button
-              onClick={handleExitDuringAnswer}
-              className="text-sm font-medium text-[#59b0c4] hover:text-[#00657c] transition-colors cursor-pointer px-2 py-1"
+              onClick={handleBack}
+              className="p-1.5 rounded-full transition-colors cursor-pointer hover:opacity-70"
+              style={{ color: t.textMuted }}
+              aria-label="Back"
             >
-              View Compass
+              <BackArrow />
             </button>
-          ) : (
-            <div className="w-9" aria-hidden="true" />
-          )}
+
+            {/* Progress bar */}
+            <div className="flex flex-col items-center flex-1 max-w-xs">
+              <div
+                className="w-full h-1.5 rounded-full overflow-hidden mb-1"
+                style={{ background: t.progressBg }}
+              >
+                <div
+                  className="h-full rounded-full transition-all duration-300"
+                  style={{
+                    width: `${(answeredCount / pickedTopics.length) * 100}%`,
+                    background: t.yellow,
+                  }}
+                />
+              </div>
+              <p className="text-xs" style={{ color: t.textMuted }}>
+                {answeredCount} of {pickedTopics.length} answered
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {answeredCount >= MIN_TOPICS ? (
+                <button
+                  onClick={handleExitDuringAnswer}
+                  className="text-sm font-medium transition-colors cursor-pointer px-2 py-1"
+                  style={{ color: t.textAccent }}
+                >
+                  View Compass
+                </button>
+              ) : (
+                <div className="w-9" aria-hidden="true" />
+              )}
+              <DarkToggle />
+            </div>
+          </div>
         </div>
 
-        {/* Topic pill list — scrollable horizontal strip showing all topics */}
+        {/* Topic pill strip */}
         <div className="flex gap-2 px-4 py-2 overflow-x-auto shrink-0">
           {pickedTopics.map((id, idx) => {
-            const topic = topics.find((t) => t.id === id);
+            const topic = topics.find((tp) => tp.id === id);
             const isAnswered = topic && answers[topic.short_title] != null && answers[topic.short_title] > 0;
             const isCurrent = idx === currentIndex;
             return (
               <button
                 key={id}
                 onClick={() => { setCurrentIndex(idx); setSelectedAnswer(null); }}
-                className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer ${
+                className="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer"
+                style={
                   isCurrent
-                    ? "border-2 border-[#59b0c4] bg-sky-50 text-[#00657c]"
+                    ? { border: `2px solid ${t.borderAccent}`, background: t.selBg, color: t.textAccent }
                     : isAnswered
-                    ? "bg-gray-100 text-gray-400"
-                    : "bg-white border border-gray-200 text-gray-700"
-                }`}
+                    ? { background: t.cardElev, color: t.textMuted, border: '2px solid transparent' }
+                    : { background: t.card, border: `1px solid ${t.border}`, color: t.textBody }
+                }
               >
-                {isAnswered && !isCurrent && <span className="mr-1 text-green-500">&#10003;</span>}
+                {isAnswered && !isCurrent && (
+                  <span className="mr-1" style={{ color: '#5A9A6E' }}>✓</span>
+                )}
                 {topic ? parseTensionTitle(topic).name : "..."}
               </button>
             );
@@ -957,7 +1209,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
 
         {/* Main content: compass + stances */}
         <div className="flex-1 flex flex-col md:flex-row md:pb-4">
-          {/* Compass (live updating) — left 50%, vertically centered */}
+          {/* Compass — left 50% */}
           <div className="md:basis-1/2 flex items-start justify-center px-2 md:pt-6">
             <div className="w-full max-w-[340px] md:max-w-xl aspect-[1/0.75] md:aspect-square">
               <RadarChart
@@ -975,23 +1227,24 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
             </div>
           </div>
 
-          {/* Question + Stance buttons — right 50%, stacked from top */}
+          {/* Question + Stance buttons — right 50% */}
           <div ref={stancesPanelRef} className="md:basis-1/2 flex flex-col gap-1.5 px-3 pb-4 md:pb-0 md:pt-6 md:pr-6 max-w-md mx-auto md:mx-0">
-            {/* Question text anchored above stances */}
             <div className="mb-2">
-              <p className="text-base md:text-lg font-semibold leading-snug">
+              <p className="text-base md:text-lg font-semibold leading-snug" style={{ color: t.textHead }}>
                 {getQuestionText(currentTopic) || parseTensionTitle(currentTopic).name}
               </p>
               {getQuestionText(currentTopic) && (
-                <p className="text-sm text-gray-500 font-normal mt-0.5">
+                <p className="text-sm font-normal mt-0.5" style={{ color: t.textMuted }}>
                   {parseTensionTitle(currentTopic).name}
                 </p>
               )}
             </div>
+
             {!showWriteIn ? (
               <>
-                {orderedStances.map((stance, i) => {
+                {orderedStances.map((stance) => {
                   const stanceValue = stance.value;
+                  const isSelected = selectedAnswer === stanceValue;
                   return (
                     <button
                       key={stance.id}
@@ -1000,11 +1253,20 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
                         setWriteInText("");
                         handleSelectStance(stanceValue);
                       }}
-                      className={`text-left px-3 py-2.5 rounded-lg transition-all duration-200 text-sm leading-snug font-medium cursor-pointer ${
-                        selectedAnswer === stanceValue
-                          ? "border-ev-yellow border-2 bg-ev-yellow-light"
-                          : "bg-white text-black border-2 border-gray-300 hover:bg-gray-50"
-                      }`}
+                      className="text-left px-3 py-2.5 rounded-lg transition-all duration-200 text-sm leading-snug font-medium cursor-pointer"
+                      style={
+                        isSelected
+                          ? {
+                              border: `2px solid ${t.yellow}`,
+                              background: t.yellowBg,
+                              color: t.textHead,
+                            }
+                          : {
+                              background: t.stanceBg,
+                              color: t.stanceText,
+                              border: `2px solid ${t.stanceBorder}`,
+                            }
+                      }
                     >
                       {stance.text}
                     </button>
@@ -1016,18 +1278,22 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
                     setShowWriteIn(true);
                     setHasRepositioned(false);
                     setOrderedItems([...orderedStances.map((s) => s.id), "write-in"]);
-                    // Dismiss write-in hint when user clicks "Write your own..."
                     if (!writeInHintShown) {
                       localStorage.setItem("onboarding_writeInHint", "1");
                       setWriteInHintShown(true);
                     }
                   }}
-                  className="text-left px-3 py-2.5 rounded-lg transition-all duration-200 text-sm leading-snug font-medium cursor-pointer border-2 border-dashed border-gray-400 text-gray-500 hover:border-ev-yellow hover:text-black"
+                  className="text-left px-3 py-2.5 rounded-lg transition-all duration-200 text-sm leading-snug font-medium cursor-pointer"
+                  style={{
+                    border: `2px dashed ${t.writeOwnColor}`,
+                    color: t.writeOwnColor,
+                    background: 'transparent',
+                  }}
                 >
                   Write your own...
                 </button>
                 {currentIndex === 0 && !writeInHintShown && !showWriteIn && (
-                  <p className="text-xs text-gray-400 text-center mt-1">
+                  <p className="text-xs text-center mt-1" style={{ color: t.textMuted }}>
                     You can always write your own stance if none of these fit
                   </p>
                 )}
@@ -1050,12 +1316,14 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
                           onChange={handleWriteInTextChange}
                           onCancel={handleCancelWriteIn}
                           showHint={!!writeInText.trim() && !hasRepositioned}
+                          isDark={isDark}
                         />
                       ) : (
                         <SortableStanceLabel
                           key={itemId}
                           id={itemId}
                           text={orderedStances.find((s) => s.id === itemId)?.text ?? ""}
+                          isDark={isDark}
                         />
                       )
                     )}
@@ -1067,27 +1335,35 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
         </div>
 
         {/* Footer nav */}
-        <div className="sticky bottom-0 bg-white/90 backdrop-blur-sm border-t border-gray-100 px-4 py-3 shrink-0">
+        <div
+          className="sticky bottom-0 px-4 py-3 shrink-0"
+          style={{
+            background: t.stickyBg,
+            borderTop: `1px solid ${t.border}`,
+          }}
+        >
           <div className="flex justify-between items-center max-w-2xl mx-auto">
             <button
               onClick={handleBack}
-              className="px-5 py-2 rounded-full border border-black text-sm font-medium text-black bg-white hover:bg-gray-100 transition-colors cursor-pointer"
+              className="px-5 py-2 rounded-full border text-sm font-medium transition-colors cursor-pointer"
+              style={{
+                borderColor: t.border,
+                color: t.textBody,
+                background: 'transparent',
+              }}
             >
               Back
             </button>
             <button
               onClick={isLastUnanswered ? handleFinish : handleNext}
-              className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+              className="px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 cursor-pointer"
+              style={
                 selectedAnswer
-                  ? "bg-black text-white cursor-pointer hover:opacity-90"
-                  : "bg-gray-100 text-gray-500 cursor-pointer hover:bg-gray-200"
-              }`}
+                  ? { background: t.btnBg, color: t.btnText }
+                  : { background: t.cardElev, color: t.textMuted }
+              }
             >
-              {isLastUnanswered
-                ? "Finish"
-                : selectedAnswer
-                ? "Next"
-                : "Skip"}
+              {isLastUnanswered ? "Finish" : selectedAnswer ? "Next" : "Skip"}
             </button>
           </div>
         </div>
@@ -1118,40 +1394,86 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
   // ============================
   if (step === "complete") {
     return (
-      <div className={`fixed ${overlayTop} left-0 right-0 bottom-0 z-50 bg-white overflow-y-auto flex flex-col items-center justify-center px-6 py-12`}>
-        <h1 className="text-3xl md:text-4xl font-semibold text-center mb-6">
-          Your Compass is Ready!
-        </h1>
-        <div className="w-56 md:w-72 aspect-square">
-          <RadarChart
-            data={chartData}
-            invertedSpokes={invertedSpokes}
-            writeIns={writeIns}
-            onToggleInversion={(topic) =>
-              setInvertedSpokes((prev) => ({ ...prev, [topic]: !prev[topic] }))
-            }
-          />
+      <div
+        className={`fixed ${overlayTop} left-0 right-0 bottom-0 z-50 overflow-y-auto flex flex-col`}
+        style={{ background: t.bg }}
+      >
+        {/* Dark toggle */}
+        <div className="absolute top-4 right-4 z-10">
+          <DarkToggle />
         </div>
-        <p className="text-gray-500 text-center mt-6 mb-6 max-w-xs">
-          You can always refine your compass from the Library
-        </p>
-        <button
-          onClick={() => {
-            localStorage.removeItem(STORAGE_KEY);
-            onComplete();
-          }}
-          className="px-8 py-3 bg-black text-white font-semibold rounded-full text-base hover:opacity-90 transition-opacity cursor-pointer"
-        >
-          View My Compass
-        </button>
+
+        <div className="flex flex-col lg:flex-row min-h-full">
+
+          {/* Left: compass */}
+          <div className="flex flex-col items-center justify-center px-8 py-16 lg:py-24 lg:w-1/2 lg:pl-16">
+            <div className="w-64 md:w-80 lg:w-96 aspect-square">
+              <RadarChart
+                data={chartData}
+                invertedSpokes={invertedSpokes}
+                writeIns={writeIns}
+                onToggleInversion={(topic) =>
+                  setInvertedSpokes((prev) => ({ ...prev, [topic]: !prev[topic] }))
+                }
+              />
+            </div>
+          </div>
+
+          {/* Right: copy + CTA */}
+          <div className="flex flex-col justify-center px-8 pb-16 lg:py-24 lg:w-1/2 lg:pr-16 lg:pl-8">
+
+            <p
+              className="text-xs font-bold tracking-widest uppercase mb-4"
+              style={{ color: t.textAccent }}
+            >
+              Step 3 — Compare &amp; Discover
+            </p>
+
+            <h1
+              className="text-3xl md:text-4xl lg:text-5xl font-extrabold leading-tight mb-4"
+              style={{ color: t.textHead, letterSpacing: '-0.025em' }}
+            >
+              Your compass is ready.
+            </h1>
+
+            <p
+              className="text-base md:text-lg leading-relaxed mb-3 max-w-md"
+              style={{ color: t.textBody }}
+            >
+              Now comes the interesting part — see how your priorities actually compare to the politicians asking for your vote.
+            </p>
+
+            <p
+              className="text-sm leading-relaxed mb-8 max-w-sm"
+              style={{ color: t.textMuted }}
+            >
+              You can refine any stance from the Library at any time. Your compass is always yours to adjust.
+            </p>
+
+            <button
+              onClick={() => {
+                localStorage.removeItem(STORAGE_KEY);
+                onComplete();
+              }}
+              className="w-full sm:w-auto px-8 py-3.5 rounded-full font-bold text-base transition-all hover:opacity-90 active:scale-95 cursor-pointer shadow-md"
+              style={{ background: t.yellow, color: '#1C1C1C' }}
+            >
+              Compare &amp; Discover →
+            </button>
+          </div>
+
+        </div>
       </div>
     );
   }
 
   // Fallback (loading / initializing)
   return (
-    <div className={`fixed ${overlayTop} left-0 right-0 bottom-0 z-50 bg-white flex items-center justify-center`}>
-      <p className="text-gray-400">Loading...</p>
+    <div
+      className={`fixed ${overlayTop} left-0 right-0 bottom-0 z-50 flex items-center justify-center`}
+      style={{ background: t.bg }}
+    >
+      <p style={{ color: t.textMuted }}>Loading...</p>
     </div>
   );
 }
