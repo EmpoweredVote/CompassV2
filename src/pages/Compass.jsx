@@ -60,6 +60,7 @@ function BelowThresholdChart({ answeredCompassCount, needsMore, onStartCalibrati
       {/* Grayed, non-interactive chart */}
       <div className="w-full max-h-[calc(100dvh-300px)] aspect-square mx-auto opacity-25 pointer-events-none select-none">
         <RadarChart
+          key={Object.keys(chartData).length}
           data={chartData}
           unansweredSpokes={unansweredSpokesMap}
           invertedSpokes={invertedSpokes}
@@ -875,10 +876,12 @@ function Compass() {
                   </svg>
                 </a>
                 <RadarChart
+                  key={selectedTopics.length}
                   data={chartData}
                   unansweredSpokes={unansweredSpokesMap}
                   compareData={compareAnswers}
                   invertedSpokes={invertedSpokes}
+                  writeIns={writeIns}
                   onToggleInversion={(topic) =>
                     setInvertedSpokes((prev) => ({
                       ...prev,
@@ -953,10 +956,12 @@ function Compass() {
               <Legend />
               <div className="w-full max-h-[calc(100dvh-300px)] mx-auto relative">
                 <RadarChart
+                  key={selectedTopics.length}
                   data={chartData}
                   unansweredSpokes={unansweredSpokesMap}
                   compareData={compareAnswers}
                   invertedSpokes={invertedSpokes}
+                  writeIns={writeIns}
                   onToggleInversion={(topic) =>
                     setInvertedSpokes((prev) => ({
                       ...prev,

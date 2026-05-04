@@ -963,6 +963,8 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
               <RadarChart
                 data={chartData}
                 invertedSpokes={invertedSpokes}
+                activeSpoke={currentTopic?.short_title}
+                writeIns={writeIns}
                 onToggleInversion={(topic) =>
                   setInvertedSpokes((prev) => ({
                     ...prev,
@@ -1124,6 +1126,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
           <RadarChart
             data={chartData}
             invertedSpokes={invertedSpokes}
+            writeIns={writeIns}
             onToggleInversion={(topic) =>
               setInvertedSpokes((prev) => ({ ...prev, [topic]: !prev[topic] }))
             }
