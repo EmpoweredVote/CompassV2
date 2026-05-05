@@ -10,6 +10,7 @@ import SavePromptModal from "../components/SavePromptModal";
 import CoachMark from "../components/CoachMark";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router";
+import { useTheme } from "../ThemeProvider";
 
 // 260426-mw6 — Inline banner shown to authed users who calibrated as a guest
 // (compass answers exist in ev-context but the API has none for this account).
@@ -64,6 +65,7 @@ function BelowThresholdChart({ answeredCompassCount, needsMore, onStartCalibrati
           data={chartData}
           unansweredSpokes={unansweredSpokesMap}
           invertedSpokes={invertedSpokes}
+          darkMode={isDark}
         />
       </div>
       {/* Overlay message centered on top of chart */}
@@ -236,6 +238,8 @@ function Compass() {
       </div>
     );
   }
+
+  const { isDark } = useTheme();
 
   // -------- Compass Context --------
   const {
@@ -821,7 +825,7 @@ function Compass() {
         }}
       />
     ) : (
-    <div className="px-4 py-6 pb-16 flex flex-col items-center overflow-hidden">
+    <div className="px-4 py-6 pb-16 flex flex-col items-center overflow-hidden dark:bg-[#131416] min-h-full">
       {/* -------- back button -------- */}
       <div className="self-start w-full lg:px-4">
         <button
@@ -882,6 +886,7 @@ function Compass() {
                   compareData={compareAnswers}
                   invertedSpokes={invertedSpokes}
                   writeIns={writeIns}
+                  darkMode={isDark}
                   onToggleInversion={(topic) =>
                     setInvertedSpokes((prev) => ({
                       ...prev,
@@ -962,6 +967,7 @@ function Compass() {
                   compareData={compareAnswers}
                   invertedSpokes={invertedSpokes}
                   writeIns={writeIns}
+                  darkMode={isDark}
                   onToggleInversion={(topic) =>
                     setInvertedSpokes((prev) => ({
                       ...prev,

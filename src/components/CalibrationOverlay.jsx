@@ -1,5 +1,6 @@
 // CalibrationOverlay.jsx
 import { useState, useEffect, useMemo, useRef } from "react";
+import { useTheme } from "../ThemeProvider";
 import { useCompass } from "./CompassContext";
 import { apiFetch } from "../lib/auth";
 import RadarChart from "./RadarChart";
@@ -282,23 +283,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
   const hasReturnBanner = !!sessionStorage.getItem("essentials_return_url");
   const overlayTop = hasReturnBanner ? "top-9" : "top-0";
 
-  // Dark mode: shared cookie (ev_theme, set by profile page on .empowered.vote)
-  // → localStorage override → OS preference → default dark
-  const [isDark, setIsDark] = useState(() => {
-    const cookie = document.cookie.split(';').map(c => c.trim())
-      .find(c => c.startsWith('ev_theme='));
-    if (cookie) return cookie.split('=')[1] === 'dark';
-    const saved = localStorage.getItem("compass_dark_mode");
-    if (saved !== null) return saved === "true";
-    return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? true;
-  });
-  const toggleDark = () => {
-    setIsDark(v => {
-      const next = !v;
-      localStorage.setItem("compass_dark_mode", String(next));
-      return next;
-    });
-  };
+  const { isDark, toggle: toggleDark } = useTheme();
   const t = isDark ? DARK_THEME : LIGHT_THEME;
 
   // Load persisted progress on mount, honouring resumeMode and startAtPick

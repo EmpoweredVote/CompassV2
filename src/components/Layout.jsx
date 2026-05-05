@@ -241,7 +241,7 @@ function Layout({ children }) {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-white dark:bg-[#131416] text-gray-900 dark:text-[#D3D7DE]">
       <ReturnBanner />
       <SiteHeader
         logoSrc="/EVLogo.svg"
