@@ -1,12 +1,14 @@
 import { useNavigate, useLocation } from "react-router";
 import { SiteHeader, evContext } from "@empoweredvote/ev-ui";
 import { useCompass } from "../components/CompassContext";
+import { useTheme } from "../ThemeProvider";
 import ReturnBanner from "./ReturnBanner";
 import { apiFetch, getToken, clearToken, API_BASE } from "../lib/auth";
 
 function Layout({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { isDark } = useTheme();
   const { topics, selectedTopics, setSelectedTopics, answers, setAnswers, writeIns, setWriteIns, invertedSpokes, setInvertedSpokes, isLoggedIn, isAdmin, username, userId, setIsLoggedIn, authChecking, setCompassVersion } = useCompass();
 
   const logout = async () => {
@@ -247,6 +249,7 @@ function Layout({ children }) {
         logoSrc="/EVLogo.svg"
         currentPath={location.pathname}
         onNavigate={handleNavigate}
+        darkMode={isDark}
         profileMenu={
           authChecking
             ? { label: null, items: [] }

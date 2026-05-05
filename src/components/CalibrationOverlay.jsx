@@ -567,8 +567,10 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
       const val = answers[topic.short_title];
       return !(val != null && val > 0);
     });
+    const answeredIds = pickedTopics.filter((id) => !unansweredIds.includes(id));
+    // Replace selectedTopics entirely — don't merge with prior full-quiz topics
+    setSelectedTopics(answeredIds);
     if (unansweredIds.length > 0) {
-      setSelectedTopics((prev) => prev.filter((id) => !unansweredIds.includes(id)));
       setInvertedSpokes((prev) => {
         const updated = { ...prev };
         for (const id of unansweredIds) {
@@ -580,8 +582,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     }
     localStorage.removeItem(STORAGE_KEY);
 
-    const finalAnsweredCount = pickedTopics.length - unansweredIds.length;
-    if (finalAnsweredCount < MIN_TOPICS) {
+    if (answeredIds.length < MIN_TOPICS) {
       onComplete();
       return;
     }
@@ -599,7 +600,6 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     });
     if (unansweredIds.length > 0) {
       if (!window.confirm("You have unanswered topics. They'll be removed from your compass. Continue?")) return;
-      setSelectedTopics((prev) => prev.filter((id) => !unansweredIds.includes(id)));
       setInvertedSpokes((prev) => {
         const updated = { ...prev };
         for (const id of unansweredIds) {
@@ -609,6 +609,9 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
         return updated;
       });
     }
+    const answeredIds = pickedTopics.filter((id) => !unansweredIds.includes(id));
+    // Replace selectedTopics entirely — don't merge with prior full-quiz topics
+    setSelectedTopics(answeredIds);
     localStorage.removeItem(STORAGE_KEY);
     setStep("complete");
   };
