@@ -509,8 +509,13 @@ function Library() {
         {answeredLoaded &&
           (() => {
             let firstAddBtnFound = false;
+            const seenTopicIds = new Set();
             return categories.map((category, catIdx) => {
-            const visible = getVisibleTopics(category);
+            const visible = getVisibleTopics(category).filter(t => {
+              if (seenTopicIds.has(t.id)) return false;
+              seenTopicIds.add(t.id);
+              return true;
+            });
             if (visible.length === 0) return null;
 
             const color = getCategoryColor(catIdx);
