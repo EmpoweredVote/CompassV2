@@ -1214,15 +1214,16 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
         </div>
 
         {/* Main content: compass + stances */}
-        <div className="flex-1 flex flex-col md:flex-row md:pb-4">
-          {/* Compass — left 50% */}
-          <div className="md:basis-1/2 flex items-start justify-center px-2 md:pt-6">
-            <div className="w-full max-w-[340px] md:max-w-xl aspect-[1/0.75] md:aspect-square">
+        <div className="flex-1 flex flex-col md:flex-row md:overflow-hidden">
+          {/* Compass — left side, sized to viewport height so it grows big on larger screens */}
+          <div className="md:basis-1/2 flex items-center justify-center px-2 md:pt-4">
+            <div className="w-full max-w-[440px] md:max-w-[min(calc(50vw-2rem),calc(100vh-200px))] aspect-square mx-auto">
               <RadarChart
                 data={chartData}
                 invertedSpokes={invertedSpokes}
                 activeSpoke={currentTopic?.short_title}
                 writeIns={writeIns}
+                darkMode={isDark}
                 onToggleInversion={(topic) =>
                   setInvertedSpokes((prev) => ({
                     ...prev,
@@ -1413,11 +1414,12 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
 
           {/* Left: compass */}
           <div className="flex flex-col items-center justify-center px-8 py-16 lg:py-24 lg:w-1/2 lg:pl-16">
-            <div className="w-64 md:w-80 lg:w-96 aspect-square">
+            <div className="w-72 md:w-[min(calc(45vw-4rem),calc(100vh-360px))] aspect-square">
               <RadarChart
                 data={chartData}
                 invertedSpokes={invertedSpokes}
                 writeIns={writeIns}
+                darkMode={isDark}
                 onToggleInversion={(topic) =>
                   setInvertedSpokes((prev) => ({ ...prev, [topic]: !prev[topic] }))
                 }

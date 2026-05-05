@@ -70,17 +70,19 @@ export function CompassProvider({ children }) {
     });
   }, []);
 
-  // Deterministically invert ~50% of given topics using guestId + topicId hash
-  // (only if none of them are already inverted — guard prevents re-randomizing)
+  // Deterministically invert ~50% of given topics using guestId + topicId hash.
+  // Always recomputes for the given topics (shouldFlip is deterministic, so same
+  // user+topic always produces the same result). Explicitly clears topics that
+  // should NOT be flipped, preventing stale inversion state from prior sessions.
   const initRandomInversions = useCallback((topicsArray) => {
     setInvertedSpokesRaw((prev) => {
-      const hasExisting = topicsArray.some((t) => t.short_title in prev);
-      if (hasExisting) return prev;
       const guestId = getOrCreateGuestId();
       const next = { ...prev };
       for (const topic of topicsArray) {
         if (shouldFlip(guestId, topic.id)) {
           next[topic.short_title] = true;
+        } else {
+          delete next[topic.short_title];
         }
       }
       localStorage.setItem("invertedSpokes", JSON.stringify(next));
