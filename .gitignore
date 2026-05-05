@@ -23,3 +23,12 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local ev-ui dev copy (published to npm, not part of this repo)
+ev-ui/
+
+# Screenshot reference images
+public/*.JPG
+public/*.jpg
+public/*.PNG
+public/*.png
