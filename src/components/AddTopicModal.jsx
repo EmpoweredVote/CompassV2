@@ -44,10 +44,10 @@ function AddTopicModal({
 
   return (
     <div className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
-        <h2 className="text-xl font-semibold mb-4">
+      <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-xl p-6 w-full max-w-md">
+        <h2 className="text-xl font-semibold dark:text-white mb-4">
           Manage Topics{" "}
-          <span className="text-sm font-normal text-gray-500">
+          <span className="text-sm font-normal text-gray-500 dark:text-gray-400">
             ({selectedTopics.length}/8 on compass)
           </span>
         </h2>
@@ -55,13 +55,13 @@ function AddTopicModal({
         <div className="space-y-4 max-h-80 overflow-y-auto">
           {selectedTopicObjects.length > 0 && (
             <div>
-              <h3 className="text-sm font-medium mb-1 text-gray-700">
+              <h3 className="text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
                 Currently Selected
               </h3>
               {selectedTopicObjects.map((topic) => (
                 <div
                   key={topic.id}
-                  className="flex items-center justify-between border rounded px-3 py-2 mb-1 cursor-pointer"
+                  className="flex items-center justify-between border dark:border-zinc-600 rounded px-3 py-2 mb-1 cursor-pointer dark:text-white"
                 >
                   <span>{topic.short_title}</span>
                   <button
@@ -79,14 +79,14 @@ function AddTopicModal({
           )}
 
           <div>
-            <h3 className="text-sm font-medium mb-1 text-gray-700">
+            <h3 className="text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
               Available to Add
             </h3>
             {availableTopics.length > 0 ? (
               availableTopics.map((topic) => (
                 <div
                   key={topic.id}
-                  className="flex items-center justify-between border rounded px-3 py-2 mb-1"
+                  className="flex items-center justify-between border dark:border-zinc-600 rounded px-3 py-2 mb-1 dark:text-white"
                 >
                   <span>{topic.short_title}</span>
                   <button
@@ -96,8 +96,8 @@ function AddTopicModal({
                       selected.includes(topic.id)
                         ? "bg-black text-white"
                         : isAtCap
-                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                        : "bg-gray-200"
+                        ? "bg-gray-100 dark:bg-zinc-700 text-gray-400 cursor-not-allowed"
+                        : "bg-gray-200 dark:bg-zinc-600 dark:text-gray-200"
                     }`}
                   >
                     {selected.includes(topic.id) ? "Remove" : "Add"}
@@ -105,7 +105,7 @@ function AddTopicModal({
                 </div>
               ))
             ) : (
-              <p className="text-gray-500 text-sm">
+              <p className="text-gray-500 dark:text-gray-400 text-sm">
                 No additional topics available.
               </p>
             )}
@@ -115,7 +115,7 @@ function AddTopicModal({
         <div className="flex justify-end gap-2 mt-6">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 cursor-pointer"
+            className="px-4 py-2 bg-gray-200 dark:bg-zinc-700 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-zinc-600 cursor-pointer"
           >
             Cancel
           </button>

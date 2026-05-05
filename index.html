@@ -34,6 +34,9 @@
     <link href="/src/index.css" rel="stylesheet" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Empowered Compass</title>
+    <script>
+      (function(){var s=localStorage.getItem('ev:color-scheme');if(s==='dark'||(!s&&!window.matchMedia('(prefers-color-scheme: light)').matches))document.documentElement.classList.add('dark')})();
+    </script>
   </head>
   <body>
     <div id="root"></div>

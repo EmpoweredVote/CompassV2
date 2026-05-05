@@ -39,7 +39,7 @@ function SortableStanceLabel({ id, text }) {
     <div
       ref={setNodeRef}
       style={style}
-      className="px-4 py-2.5 rounded-lg text-sm sm:text-base font-medium bg-gray-50 text-gray-600 border border-gray-200"
+      className="px-4 py-2.5 rounded-lg text-sm sm:text-base font-medium bg-gray-50 dark:bg-zinc-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-zinc-700"
     >
       {text}
     </div>
@@ -246,23 +246,23 @@ function LibraryDrawer({
           {/* Drawer panel */}
           <motion.div
             key="drawer"
-            className="fixed right-0 top-0 h-full w-full sm:w-96 bg-white shadow-xl z-50 flex flex-col"
+            className="fixed right-0 top-0 h-full w-full sm:w-96 bg-white dark:bg-zinc-900 shadow-xl z-50 flex flex-col"
             initial={{ x: "100%" }}
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 30, stiffness: 300 }}
           >
             {/* Header with close button */}
-            <div className="flex items-start justify-between p-4 border-b border-gray-100">
+            <div className="flex items-start justify-between p-4 border-b border-gray-100 dark:border-zinc-700">
               <div className="flex-1 min-w-0 pr-2">
-                <p className="text-base font-semibold text-neutral-800 leading-snug">{getQuestionText(topic) || parseTensionTitle(topic).name}</p>
+                <p className="text-base font-semibold text-neutral-800 dark:text-white leading-snug">{getQuestionText(topic) || parseTensionTitle(topic).name}</p>
                 {getQuestionText(topic) && (
-                  <p className="text-sm text-gray-500 font-normal mt-0.5">{parseTensionTitle(topic).name}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 font-normal mt-0.5">{parseTensionTitle(topic).name}</p>
                 )}
               </div>
               <button
                 onClick={onClose}
-                className="p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer shrink-0"
+                className="p-1.5 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors cursor-pointer shrink-0"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -281,7 +281,7 @@ function LibraryDrawer({
                       onRemoveFromCompass(topic);
                     }
                   }}
-                  className="flex items-center gap-2 text-sm text-gray-500 hover:text-red-500 transition-colors cursor-pointer"
+                  className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
@@ -293,8 +293,8 @@ function LibraryDrawer({
 
             {/* Remove confirmation inline panel */}
             {showRemoveConfirm && (
-              <div className="mx-4 mt-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                <p className="text-sm font-medium text-gray-700 mb-1">Remove from compass?</p>
+              <div className="mx-4 mt-2 p-3 bg-gray-50 dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Remove from compass?</p>
                 {compassTopicCount <= 3 && (
                   <p className="text-xs text-amber-600 mb-2">Your compass needs 3+ topics to display</p>
                 )}
@@ -310,7 +310,7 @@ function LibraryDrawer({
                   </button>
                   <button
                     onClick={() => setShowRemoveConfirm(false)}
-                    className="text-sm px-3 py-1 bg-gray-100 text-gray-600 rounded hover:bg-gray-200 cursor-pointer"
+                    className="text-sm px-3 py-1 bg-gray-100 dark:bg-zinc-700 text-gray-600 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-zinc-600 cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -325,7 +325,7 @@ function LibraryDrawer({
                   href={`https://fc.empowered.vote/communities/${topic.fc_community_slug}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-between px-4 py-3 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:text-gray-900 hover:border-gray-300 hover:bg-gray-50 transition-colors"
+                  className="flex items-center justify-between px-4 py-3 rounded-lg border border-gray-200 dark:border-zinc-700 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:border-gray-300 dark:hover:border-zinc-500 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors"
                 >
                   Discuss on Focused Communities
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 shrink-0">
@@ -347,7 +347,7 @@ function LibraryDrawer({
                       className={`text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm sm:text-base font-medium cursor-pointer ${
                         currentAnswer === stance.value
                           ? "border-ev-yellow border-2 bg-ev-yellow-light"
-                          : "bg-white text-black border-2 border-gray-300 hover:bg-gray-50"
+                          : "bg-white dark:bg-zinc-800 text-black dark:text-white border-2 border-gray-300 dark:border-zinc-600 hover:bg-gray-50 dark:hover:bg-zinc-700"
                       }`}
                     >
                       {stance.text}
@@ -363,7 +363,7 @@ function LibraryDrawer({
                         "write-in",
                       ]);
                     }}
-                    className="text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm sm:text-base font-medium cursor-pointer border-2 border-dashed border-gray-400 text-gray-500 hover:border-ev-yellow hover:text-black"
+                    className="text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm sm:text-base font-medium cursor-pointer border-2 border-dashed border-gray-400 dark:border-zinc-500 text-gray-500 dark:text-gray-400 hover:border-ev-yellow hover:text-black dark:hover:text-white"
                   >
                     Write your own...
                   </button>

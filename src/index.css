@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
   /* Empowered Vote - Inform Pillar Color */
@@ -7,4 +8,5 @@
   --color-ev-yellow-dark: #eab308;
   --color-ev-coral: #ff5740;
   --color-ev-muted-blue: #00657c;
+  --color-ev-teal-light: #59B0C4;
 }

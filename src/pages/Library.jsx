@@ -347,7 +347,7 @@ function Library() {
               </div>
               {belowThreshold && (
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <p className="text-sm font-medium text-gray-500 text-center px-4">
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400 text-center px-4">
                     Add {needsMore} more topic{needsMore !== 1 ? "s" : ""} to see your compass
                   </p>
                 </div>
@@ -355,12 +355,12 @@ function Library() {
             </div>
 
             <div className="flex items-center gap-3 mt-2">
-              <h1 className="text-xl md:text-2xl font-semibold">
+              <h1 className="text-xl md:text-2xl font-semibold dark:text-white">
                 Your Compass
               </h1>
               <button
                 onClick={() => navigate("/help")}
-                className="p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer"
+                className="p-1.5 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors cursor-pointer"
                 title="How it works"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
@@ -388,12 +388,12 @@ function Library() {
             </div>
 
             <div className="flex items-center gap-3 mt-2">
-              <h1 className="text-xl md:text-2xl font-semibold">
+              <h1 className="text-xl md:text-2xl font-semibold dark:text-white">
                 Calibrate Your Compass
               </h1>
               <button
                 onClick={() => navigate("/help")}
-                className="p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer"
+                className="p-1.5 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors cursor-pointer"
                 title="How it works"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
@@ -401,7 +401,7 @@ function Library() {
                 </svg>
               </button>
             </div>
-            <p className="text-gray-500 text-sm mt-1">
+            <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
               Answer questions on the topics that matter to you and see where you stand
             </p>
           </div>
@@ -409,7 +409,7 @@ function Library() {
       </div>
 
       {/* ── Divider ── */}
-      <div className="border-t border-gray-200 mx-6 my-4" />
+      <div className="border-t border-gray-200 dark:border-zinc-700 mx-6 my-4" />
 
       {/* ── Full Quiz CTA ── */}
       <div className="mx-4 md:mx-auto max-w-3xl mb-6">
@@ -445,21 +445,21 @@ function Library() {
       <div className="px-4 md:px-6 max-w-5xl mx-auto">
         <div className="mb-4">
           <div className="flex items-center gap-3 mb-1">
-            <h2 className="text-xl md:text-2xl font-semibold">
+            <h2 className="text-xl md:text-2xl font-semibold dark:text-white">
               Or, pick your own topics
             </h2>
-            <span className="text-sm text-gray-500 font-medium bg-gray-100 rounded-full px-2.5 py-0.5">
+            <span className="text-sm text-gray-500 dark:text-gray-400 font-medium bg-gray-100 dark:bg-zinc-700 rounded-full px-2.5 py-0.5">
               {selectedTopics.length}/8
             </span>
           </div>
-          <p className="text-gray-500 text-sm md:text-base">
+          <p className="text-gray-500 dark:text-gray-400 text-sm md:text-base">
             Choose the issues you care about most, then answer a question on each one to plot your position on the compass.
           </p>
         </div>
 
         {/* Search + filter row */}
         <div className="flex flex-col sm:flex-row gap-3 mb-6">
-          <div className="flex-1 flex items-center bg-gray-100 rounded-xl px-4 py-2">
+          <div className="flex-1 flex items-center bg-gray-100 dark:bg-zinc-800 rounded-xl px-4 py-2">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
@@ -479,13 +479,13 @@ function Library() {
               onChange={(e) => setSearch(e.target.value)}
               value={search}
               placeholder="Search topics..."
-              className="w-full bg-transparent outline-none text-sm"
+              className="w-full bg-transparent outline-none text-sm dark:text-white dark:placeholder-gray-500"
             />
           </div>
           {answeredLoaded && unansweredCount > 0 && (
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <span className={showAll ? "font-medium text-gray-900" : "text-gray-400"}>All</span>
+              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                <span className={showAll ? "font-medium text-gray-900 dark:text-white" : "text-gray-400 dark:text-zinc-500"}>All</span>
                 <button
                   onClick={() => setShowAll(!showAll)}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 cursor-pointer ${
@@ -499,7 +499,7 @@ function Library() {
                     }`}
                   />
                 </button>
-                <span className={!showAll ? "font-medium text-gray-900" : "text-gray-400"}>Unanswered ({unansweredCount})</span>
+                <span className={!showAll ? "font-medium text-gray-900 dark:text-white" : "text-gray-400 dark:text-zinc-500"}>Unanswered ({unansweredCount})</span>
               </div>
             </div>
           )}
@@ -548,8 +548,8 @@ function Library() {
                           }}
                           className={`w-full relative text-left px-4 py-3 rounded-xl border-2 transition-all duration-200 cursor-pointer ${
                             isOnCompass
-                              ? "bg-sky-50/50 border-[#59b0c4] shadow-sm"
-                              : "bg-white border-gray-200 hover:border-gray-300 hover:shadow-sm"
+                              ? "bg-sky-50/50 dark:bg-[#0e2b36] border-[#59b0c4] shadow-sm"
+                              : "bg-white dark:bg-zinc-800 border-gray-200 dark:border-zinc-700 hover:border-gray-300 dark:hover:border-zinc-500 hover:shadow-sm"
                           }`}
                         >
                           <div
@@ -557,9 +557,9 @@ function Library() {
                           />
                           <div className="flex items-start justify-between gap-1">
                             <div className="text-left pr-5">
-                              <p className="text-sm md:text-base font-medium leading-snug">{getQuestionText(topic) || parseTensionTitle(topic).name}</p>
+                              <p className="text-sm md:text-base font-medium leading-snug dark:text-white">{getQuestionText(topic) || parseTensionTitle(topic).name}</p>
                               {getQuestionText(topic) && (
-                                <p className="text-xs text-gray-500 font-normal mt-0.5">{parseTensionTitle(topic).name}</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 font-normal mt-0.5">{parseTensionTitle(topic).name}</p>
                               )}
                             </div>
                             {isAnswered && (
@@ -613,8 +613,8 @@ function Library() {
                             disabled={atCap}
                             className={`absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center transition-colors ${
                               atCap
-                                ? "bg-gray-100 text-gray-300 cursor-not-allowed"
-                                : "bg-gray-200 text-gray-500 hover:bg-[#59b0c4] hover:text-white cursor-pointer"
+                                ? "bg-gray-100 dark:bg-zinc-700 text-gray-300 dark:text-zinc-500 cursor-not-allowed"
+                                : "bg-gray-200 dark:bg-zinc-600 text-gray-500 dark:text-gray-300 hover:bg-[#59b0c4] hover:text-white cursor-pointer"
                             }`}
                             title={atCap ? "Compass is full (max 8 topics)" : "Add to compass"}
                             aria-label="Add to compass"
@@ -627,8 +627,8 @@ function Library() {
 
                         {/* Confirmation popover for removal */}
                         {removeConfirm === topic.id && (
-                          <div className="absolute z-20 top-10 right-0 bg-white rounded-lg shadow-lg border border-gray-200 p-3 min-w-[180px]">
-                            <p className="text-sm font-medium text-gray-800 mb-1">Remove from compass?</p>
+                          <div className="absolute z-20 top-10 right-0 bg-white dark:bg-zinc-800 rounded-lg shadow-lg border border-gray-200 dark:border-zinc-700 p-3 min-w-[180px]">
+                            <p className="text-sm font-medium text-gray-800 dark:text-white mb-1">Remove from compass?</p>
                             {wouldDropBelow3 && (
                               <p className="text-xs text-amber-600 mb-2">Your compass needs 3+ topics to display</p>
                             )}
@@ -648,7 +648,7 @@ function Library() {
                                   e.stopPropagation();
                                   setRemoveConfirm(null);
                                 }}
-                                className="text-sm px-3 py-1 bg-gray-100 text-gray-600 rounded hover:bg-gray-200 cursor-pointer"
+                                className="text-sm px-3 py-1 bg-gray-100 dark:bg-zinc-700 text-gray-600 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-zinc-600 cursor-pointer"
                               >
                                 Cancel
                               </button>

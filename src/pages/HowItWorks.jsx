@@ -26,18 +26,18 @@ export default function HowItWorks() {
 
   return (
     <Layout>
-      <article className="max-w-[720px] mx-auto px-6 py-10 text-gray-800 leading-relaxed">
+      <article className="max-w-[720px] mx-auto px-6 py-10 text-gray-800 dark:text-gray-200 leading-relaxed">
         <header className="mb-10">
-          <h1 className="text-3xl md:text-4xl font-semibold text-[#00657c] mb-3">
+          <h1 className="text-3xl md:text-4xl font-semibold text-[#00657c] dark:text-ev-teal-light mb-3">
             How the Compass Works
           </h1>
-          <p className="text-lg text-gray-600">
+          <p className="text-lg text-gray-600 dark:text-gray-400">
             Our approach to helping you think about politics without taking sides.
           </p>
         </header>
 
         <section id="spectrum-direction" className="mb-10 scroll-mt-24">
-          <h2 className="text-2xl font-semibold text-[#00657c] mb-3">
+          <h2 className="text-2xl font-semibold text-[#00657c] dark:text-ev-teal-light mb-3">
             Why stances don't always run the same direction
           </h2>
           <p className="mb-4">
@@ -54,7 +54,7 @@ export default function HowItWorks() {
             the stances into nonsense.
           </p>
 
-          <figure className="my-6 border border-gray-200 rounded-xl p-5 bg-gray-50">
+          <figure className="my-6 border border-gray-200 dark:border-zinc-700 rounded-xl p-5 bg-gray-50 dark:bg-zinc-800">
             <svg
               viewBox="0 0 520 180"
               role="img"
@@ -112,7 +112,7 @@ export default function HowItWorks() {
                 </text>
               </g>
             </svg>
-            <figcaption className="text-sm text-gray-600 mt-3 text-center italic">
+            <figcaption className="text-sm text-gray-600 dark:text-gray-400 mt-3 text-center italic">
               Same answer, two possible orientations. That's why your compass shape isn't
               a partisan score.
             </figcaption>
@@ -120,7 +120,7 @@ export default function HowItWorks() {
         </section>
 
         <section id="compass-positions" className="mb-10 scroll-mt-24">
-          <h2 className="text-2xl font-semibold text-[#00657c] mb-3">
+          <h2 className="text-2xl font-semibold text-[#00657c] dark:text-ev-teal-light mb-3">
             Why your compass positions may look counterintuitive
           </h2>
           <p className="mb-4">
@@ -138,7 +138,7 @@ export default function HowItWorks() {
         </section>
 
         <section id="no-parties-no-colors" className="mb-10 scroll-mt-24">
-          <h2 className="text-2xl font-semibold text-[#00657c] mb-3">
+          <h2 className="text-2xl font-semibold text-[#00657c] dark:text-ev-teal-light mb-3">
             We don't show parties or use red and blue
           </h2>
           <p className="mb-4">
@@ -153,7 +153,7 @@ export default function HowItWorks() {
         </section>
 
         <section id="topic-selection" className="mb-10 scroll-mt-24">
-          <h2 className="text-2xl font-semibold text-[#00657c] mb-3">
+          <h2 className="text-2xl font-semibold text-[#00657c] dark:text-ev-teal-light mb-3">
             How we pick topics
           </h2>
           <p className="mb-4">
@@ -169,7 +169,7 @@ export default function HowItWorks() {
         </section>
 
         <section id="reading-the-radar" className="mb-10 scroll-mt-24">
-          <h2 className="text-2xl font-semibold text-[#00657c] mb-3">
+          <h2 className="text-2xl font-semibold text-[#00657c] dark:text-ev-teal-light mb-3">
             How to read the radar chart
           </h2>
           <p className="mb-4">
@@ -184,7 +184,7 @@ export default function HowItWorks() {
             a single "score."
           </p>
 
-          <figure className="my-6 border border-gray-200 rounded-xl p-5 bg-gray-50">
+          <figure className="my-6 border border-gray-200 dark:border-zinc-700 rounded-xl p-5 bg-gray-50 dark:bg-zinc-800">
             <svg
               viewBox="0 0 320 280"
               role="img"
@@ -269,7 +269,7 @@ export default function HowItWorks() {
                 distances across spokes = not comparable
               </text>
             </svg>
-            <figcaption className="text-sm text-gray-600 mt-3 text-center italic">
+            <figcaption className="text-sm text-gray-600 dark:text-gray-400 mt-3 text-center italic">
               Each spoke is a topic. Each dot is your pick. Compare your shape with a
               politician's, topic by topic.
             </figcaption>
@@ -277,7 +277,7 @@ export default function HowItWorks() {
         </section>
 
         <section id="our-commitment" className="mb-10 scroll-mt-24">
-          <h2 className="text-2xl font-semibold text-[#00657c] mb-3">
+          <h2 className="text-2xl font-semibold text-[#00657c] dark:text-ev-teal-light mb-3">
             Our antipartisan commitment
           </h2>
           <p className="mb-4">

@@ -178,7 +178,7 @@ export default function InlinePoliticianPicker({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-3 w-full text-left cursor-pointer hover:bg-neutral-50 rounded-lg px-1 py-1 transition-colors"
+        className="flex items-center gap-3 w-full text-left cursor-pointer hover:bg-neutral-50 dark:hover:bg-zinc-700 rounded-lg px-1 py-1 transition-colors"
       >
         {currentPolitician ? (
           <div className="size-16 rounded-full overflow-hidden shrink-0 ring-2 ring-neutral-100">
@@ -189,18 +189,18 @@ export default function InlinePoliticianPicker({
             />
           </div>
         ) : (
-          <div className="size-16 rounded-full shrink-0 ring-2 ring-neutral-100 bg-neutral-50 flex items-center justify-center">
+          <div className="size-16 rounded-full shrink-0 ring-2 ring-neutral-100 dark:ring-zinc-600 bg-neutral-50 dark:bg-zinc-700 flex items-center justify-center">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-7 h-7 text-neutral-300">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
             </svg>
           </div>
         )}
         <div className="min-w-0 flex-1">
-          <h2 className={`text-lg font-bold leading-tight truncate ${!currentPolitician ? "text-neutral-400" : ""}`}>
+          <h2 className={`text-lg font-bold leading-tight truncate dark:text-white ${!currentPolitician ? "text-neutral-400 dark:text-zinc-500" : ""}`}>
             {polName || "Select a politician to compare"}
           </h2>
           {currentPolitician?.office_title && (
-            <p className="text-neutral-500 text-sm leading-snug">
+            <p className="text-neutral-500 dark:text-gray-400 text-sm leading-snug">
               {getOfficeSubtitle(currentPolitician)}
             </p>
           )}
@@ -222,13 +222,13 @@ export default function InlinePoliticianPicker({
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute left-0 right-0 z-50 mt-1 bg-white rounded-xl border border-neutral-200 shadow-lg overflow-hidden">
+        <div className="absolute left-0 right-0 z-50 mt-1 bg-white dark:bg-zinc-800 rounded-xl border border-neutral-200 dark:border-zinc-700 shadow-lg overflow-hidden">
           {/* Search input */}
-          <div className="p-2 border-b border-neutral-100">
+          <div className="p-2 border-b border-neutral-100 dark:border-zinc-700">
             <input
               ref={inputRef}
               type="text"
-              className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#59b0c4]/40 focus:border-[#59b0c4] transition-colors"
+              className="w-full border border-neutral-200 dark:border-zinc-600 dark:bg-zinc-700 dark:text-white dark:placeholder-gray-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#59b0c4]/40 focus:border-[#59b0c4] transition-colors"
               placeholder="Search politician by name or office..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -249,14 +249,14 @@ export default function InlinePoliticianPicker({
           />
 
           {/* Divider between filters and action rows */}
-          <div className="border-t border-neutral-100" />
+          <div className="border-t border-neutral-100 dark:border-zinc-700" />
 
           {/* Clear comparison row */}
           <button
             type="button"
             onMouseDown={(e) => e.preventDefault()}
             onClick={handleClear}
-            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-neutral-500 hover:bg-neutral-50 transition-colors cursor-pointer"
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-neutral-500 dark:text-gray-400 hover:bg-neutral-50 dark:hover:bg-zinc-700 transition-colors cursor-pointer"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -270,14 +270,14 @@ export default function InlinePoliticianPicker({
           </button>
 
           {/* Divider */}
-          <div className="border-t border-neutral-100" />
+          <div className="border-t border-neutral-100 dark:border-zinc-700" />
 
           {/* Browse all row */}
           <button
             type="button"
             onMouseDown={(e) => e.preventDefault()}
             onClick={handleOpenFullModal}
-            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-neutral-500 hover:bg-neutral-50 transition-colors cursor-pointer"
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-neutral-500 dark:text-gray-400 hover:bg-neutral-50 dark:hover:bg-zinc-700 transition-colors cursor-pointer"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -292,7 +292,7 @@ export default function InlinePoliticianPicker({
           </button>
 
           {/* Divider */}
-          <div className="border-t border-neutral-100" />
+          <div className="border-t border-neutral-100 dark:border-zinc-700" />
 
           {/* Politician list */}
           <div
@@ -300,12 +300,12 @@ export default function InlinePoliticianPicker({
             className="max-h-64 overflow-auto"
           >
             {loading && politicians.length === 0 && (
-              <div className="px-4 py-3 text-sm text-neutral-400 text-center">
+              <div className="px-4 py-3 text-sm text-neutral-400 dark:text-gray-500 text-center">
                 Loading...
               </div>
             )}
             {!loading && options.length === 0 && (
-              <div className="px-4 py-3 text-sm text-neutral-400 text-center">
+              <div className="px-4 py-3 text-sm text-neutral-400 dark:text-gray-500 text-center">
                 {hasActiveFilters
                   ? "No politicians match the current filters"
                   : "No results"}
@@ -323,7 +323,7 @@ export default function InlinePoliticianPicker({
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => handleSelect(p)}
                   className={`w-full text-left px-4 py-2 text-sm transition-colors cursor-pointer ${
-                    active ? "bg-neutral-100" : isCurrent ? "bg-[#59b0c4]/10" : ""
+                    active ? "bg-neutral-100 dark:bg-zinc-700" : isCurrent ? "bg-[#59b0c4]/10 dark:bg-[#59b0c4]/15" : ""
                   }`}
                 >
                   <div className="flex flex-row gap-3 items-center">
@@ -336,8 +336,8 @@ export default function InlinePoliticianPicker({
                       />
                     </div>
                     <div className="flex flex-col min-w-0 flex-1">
-                      <div className="font-medium truncate">{getPolName(p)}</div>
-                      <div className="text-neutral-500 text-xs truncate">
+                      <div className="font-medium truncate dark:text-white">{getPolName(p)}</div>
+                      <div className="text-neutral-500 dark:text-gray-400 text-xs truncate">
                         {getOfficeSubtitle(p)}
                       </div>
                     </div>

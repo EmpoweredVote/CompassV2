@@ -44,7 +44,7 @@ function SortableStanceLabel({ id, text }) {
     <div
       ref={setNodeRef}
       style={style}
-      className="px-4 py-2.5 rounded-lg text-sm sm:text-base font-medium bg-gray-50 text-gray-600 border border-gray-200"
+      className="px-4 py-2.5 rounded-lg text-sm sm:text-base font-medium bg-gray-50 dark:bg-zinc-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-zinc-700"
     >
       {text}
     </div>
@@ -306,7 +306,7 @@ export function Quiz() {
   }, [currentIndex, quizTopicIds, topics, answers, writeIns]);
 
   if (!quizTopicIds.length || !topics.length) {
-    return <div className="flex items-center justify-center min-h-screen text-gray-500">Loading calibration...</div>;
+    return <div className="flex items-center justify-center min-h-screen text-gray-500 dark:text-gray-400">Loading calibration...</div>;
   }
 
   const currentTopicId = quizTopicIds[currentIndex];
@@ -484,7 +484,7 @@ export function Quiz() {
               ${
                 selectedAnswer === stance.value
                   ? "border-ev-yellow border-2 bg-ev-yellow-light"
-                  : "bg-white text-black border-2 border-gray-300 hover:bg-gray-50"
+                  : "bg-white dark:bg-zinc-800 text-black dark:text-white border-2 border-gray-300 dark:border-zinc-600 hover:bg-gray-50 dark:hover:bg-zinc-700"
               }`}
             >
               {stance.text}
@@ -500,7 +500,7 @@ export function Quiz() {
                 "write-in",
               ]);
             }}
-            className="text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm sm:text-base font-medium cursor-pointer border-2 border-dashed border-gray-400 text-gray-500 hover:border-ev-yellow hover:text-black"
+            className="text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm sm:text-base font-medium cursor-pointer border-2 border-dashed border-gray-400 dark:border-zinc-500 text-gray-500 dark:text-gray-400 hover:border-ev-yellow hover:text-black dark:hover:text-white"
           >
             Write your own...
           </button>
@@ -553,7 +553,7 @@ export function Quiz() {
           <div />
           <button
             onClick={() => navigate("/library")}
-            className="p-2 rounded-full text-gray-400 hover:text-black hover:bg-gray-100 transition-colors duration-200 cursor-pointer"
+            className="p-2 rounded-full text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors duration-200 cursor-pointer"
             aria-label="Exit calibration"
           >
             <svg
@@ -574,7 +574,7 @@ export function Quiz() {
         {/* Category label */}
         {currentCategory && (
           <div className="text-center mt-2">
-            <span className="inline-block px-3 py-1 rounded-full bg-gray-100 text-xs font-medium text-gray-600 uppercase tracking-wide">
+            <span className="inline-block px-3 py-1 rounded-full bg-gray-100 dark:bg-zinc-800 text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
               {currentCategory.title}
             </span>
           </div>
@@ -587,14 +587,14 @@ export function Quiz() {
           return (
             <div className="text-center px-4 mt-4 mb-2">
               <div className="flex items-center justify-center gap-2">
-                <h1 className="text-xl md:text-2xl font-semibold">{question || topicName}</h1>
+                <h1 className="text-xl md:text-2xl font-semibold dark:text-white">{question || topicName}</h1>
                 <a
                   href="/how-it-works#spectrum-direction"
                   target="_blank"
                   rel="noopener"
                   title="Why is the order of stances not fixed?"
                   aria-label="Why is the stance order not fixed? Opens explanation in a new tab."
-                  className="flex-shrink-0 w-6 h-6 rounded-full text-gray-400 hover:text-[#00657c] transition-colors inline-flex items-center justify-center"
+                  className="flex-shrink-0 w-6 h-6 rounded-full text-gray-400 hover:text-[#00657c] dark:hover:text-ev-teal-light transition-colors inline-flex items-center justify-center"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
                     <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM8.94 6.94a.75.75 0 11-1.061-1.061 3 3 0 112.871 5.026v.345a.75.75 0 01-1.5 0v-.5c0-.72.57-1.172 1.081-1.287A1.5 1.5 0 108.94 6.94zM10 15a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
@@ -602,7 +602,7 @@ export function Quiz() {
                 </a>
               </div>
               {question && (
-                <p className="text-base text-gray-500 font-normal mt-1">{topicName}</p>
+                <p className="text-base text-gray-500 dark:text-gray-400 font-normal mt-1">{topicName}</p>
               )}
             </div>
           );
@@ -616,7 +616,7 @@ export function Quiz() {
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 bg-white/80 backdrop-blur-sm border-t border-gray-100">
+        <div className="sticky bottom-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm border-t border-gray-100 dark:border-zinc-700">
           <footer className="flex justify-between items-center mx-4 my-3 md:mx-10">
             <button
               onClick={handleBack}
@@ -624,15 +624,15 @@ export function Quiz() {
               className={`px-6 py-2 rounded-full border text-sm font-medium transition-colors duration-200
               ${
                 currentIndex === 0
-                  ? "bg-gray-200 text-gray-400 border-gray-200 cursor-not-allowed"
-                  : "bg-white text-black border-black hover:bg-gray-100 cursor-pointer"
+                  ? "bg-gray-200 dark:bg-zinc-700 text-gray-400 border-gray-200 dark:border-zinc-700 cursor-not-allowed"
+                  : "bg-white dark:bg-zinc-800 text-black dark:text-white border-black dark:border-zinc-500 hover:bg-gray-100 dark:hover:bg-zinc-700 cursor-pointer"
               }`}
             >
               Back
             </button>
 
             <div className="flex flex-col text-center items-center">
-              <div className="w-32 md:w-48 h-1.5 bg-gray-200 rounded-full overflow-hidden mb-1">
+              <div className="w-32 md:w-48 h-1.5 bg-gray-200 dark:bg-zinc-700 rounded-full overflow-hidden mb-1">
                 <div
                   className="h-full bg-ev-yellow rounded-full transition-all duration-300"
                   style={{
@@ -640,7 +640,7 @@ export function Quiz() {
                   }}
                 />
               </div>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
                 {currentIndex + 1} of {quizTopicIds.length}
               </p>
             </div>
@@ -652,7 +652,7 @@ export function Quiz() {
               ${
                 selectedAnswer
                   ? "bg-black text-white border-black hover:opacity-90 cursor-pointer"
-                  : "bg-gray-200 text-gray-400 border-gray-200 cursor-not-allowed"
+                  : "bg-gray-200 dark:bg-zinc-700 text-gray-400 border-gray-200 dark:border-zinc-700 cursor-not-allowed"
               }`}
             >
               {isLastQuestion ? "Finish" : "Next"}
@@ -670,7 +670,7 @@ export function Quiz() {
       <div className="flex justify-end px-4 pt-3 md:px-6 md:pt-4">
         <button
           onClick={() => navigate("/library")}
-          className="p-2 rounded-full text-gray-400 hover:text-black hover:bg-gray-100 transition-colors duration-200 cursor-pointer"
+          className="p-2 rounded-full text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors duration-200 cursor-pointer"
           aria-label="Exit calibration"
         >
           <svg
@@ -695,14 +695,14 @@ export function Quiz() {
           return (
             <div className="text-center mt-1 md:mt-4 px-4">
               <div className="flex items-center justify-center gap-2">
-                <h1 className="text-xl md:text-2xl font-semibold">{question || topicName}</h1>
+                <h1 className="text-xl md:text-2xl font-semibold dark:text-white">{question || topicName}</h1>
                 <a
                   href="/how-it-works#spectrum-direction"
                   target="_blank"
                   rel="noopener"
                   title="Why is the order of stances not fixed?"
                   aria-label="Why is the stance order not fixed? Opens explanation in a new tab."
-                  className="flex-shrink-0 w-6 h-6 rounded-full text-gray-400 hover:text-[#00657c] transition-colors inline-flex items-center justify-center"
+                  className="flex-shrink-0 w-6 h-6 rounded-full text-gray-400 hover:text-[#00657c] dark:hover:text-ev-teal-light transition-colors inline-flex items-center justify-center"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
                     <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM8.94 6.94a.75.75 0 11-1.061-1.061 3 3 0 112.871 5.026v.345a.75.75 0 01-1.5 0v-.5c0-.72.57-1.172 1.081-1.287A1.5 1.5 0 108.94 6.94zM10 15a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
@@ -710,7 +710,7 @@ export function Quiz() {
                 </a>
               </div>
               {question && (
-                <p className="text-base text-gray-500 font-normal mt-1">{topicName}</p>
+                <p className="text-base text-gray-500 dark:text-gray-400 font-normal mt-1">{topicName}</p>
               )}
             </div>
           );
@@ -748,15 +748,15 @@ export function Quiz() {
             className={`px-6 py-2 rounded-full border text-sm font-medium transition-colors duration-200
             ${
               currentIndex === 0
-                ? "bg-gray-200 text-gray-400 border-gray-200 cursor-not-allowed"
-                : "bg-white text-black border-black hover:bg-gray-100 cursor-pointer"
+                ? "bg-gray-200 dark:bg-zinc-700 text-gray-400 border-gray-200 dark:border-zinc-700 cursor-not-allowed"
+                : "bg-white dark:bg-zinc-800 text-black dark:text-white border-black dark:border-zinc-500 hover:bg-gray-100 dark:hover:bg-zinc-700 cursor-pointer"
             }`}
           >
             Back
           </button>
 
           <div className="flex flex-col text-center items-center">
-            <div className="w-32 md:w-48 h-1.5 bg-gray-200 rounded-full overflow-hidden mb-2">
+            <div className="w-32 md:w-48 h-1.5 bg-gray-200 dark:bg-zinc-700 rounded-full overflow-hidden mb-2">
               <div
                 className="h-full bg-ev-yellow rounded-full transition-all duration-300"
                 style={{
@@ -764,7 +764,7 @@ export function Quiz() {
                 }}
               />
             </div>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
               {currentIndex + 1} of {selectedTopics.length}
             </p>
           </div>
@@ -776,7 +776,7 @@ export function Quiz() {
             ${
               selectedAnswer
                 ? "bg-black text-white border-black hover:opacity-90 cursor-pointer"
-                : "bg-gray-200 text-gray-400 border-gray-200 cursor-not-allowed"
+                : "bg-gray-200 dark:bg-zinc-700 text-gray-400 border-gray-200 dark:border-zinc-700 cursor-not-allowed"
             }`}
           >
             {isLastQuestion ? "Finish" : "Next"}

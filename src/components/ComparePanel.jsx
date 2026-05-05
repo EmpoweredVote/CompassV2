@@ -106,7 +106,7 @@ function ComparePanel({
     reasoning || (Array.isArray(sources) && sources.length > 0);
 
   return (
-    <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm w-full flex flex-col">
+    <div className="bg-white dark:bg-zinc-800 rounded-2xl border border-neutral-200 dark:border-zinc-700 shadow-sm w-full flex flex-col">
       {/* Politician header — inline switcher */}
       <div className="p-5 pb-3">
         <InlinePoliticianPicker
@@ -118,7 +118,7 @@ function ComparePanel({
         {politician?.id && (
           <a
             href={`${ESSENTIALS_URL}/politician/${politician.id}${serializeCompassFragment()}`}
-            className="text-xs text-[#59b0c4] hover:text-[#00657c] transition-colors mt-1 inline-flex items-center gap-1"
+            className="text-xs text-[#59b0c4] hover:text-[#00657c] dark:hover:text-ev-teal-light transition-colors mt-1 inline-flex items-center gap-1"
           >
             View full profile on Essentials
             <svg
@@ -144,7 +144,7 @@ function ComparePanel({
           id="topic-dropdown"
           value={dropdownValue}
           onChange={handleChange}
-          className="w-full font-semibold text-base py-2 px-3 rounded-lg bg-neutral-50 border border-neutral-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#59b0c4]/40 focus:border-[#59b0c4] transition-colors"
+          className="w-full font-semibold text-base py-2 px-3 rounded-lg bg-neutral-50 dark:bg-zinc-700 dark:text-white border border-neutral-200 dark:border-zinc-600 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#59b0c4]/40 focus:border-[#59b0c4] transition-colors"
         >
           <option value="default">Select a topic...</option>
           {topicNames.map((topic) => {
@@ -167,9 +167,9 @@ function ComparePanel({
             const question = getQuestionText(selectedTopic);
             return (
               <div className="px-5 pb-3">
-                <h3 className="text-base font-semibold text-neutral-800">{question || name}</h3>
+                <h3 className="text-base font-semibold text-neutral-800 dark:text-white">{question || name}</h3>
                 {question && (
-                  <p className="text-sm text-gray-500 font-normal mt-0.5">{name}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 font-normal mt-0.5">{name}</p>
                 )}
               </div>
             );
@@ -178,7 +178,7 @@ function ComparePanel({
           {polHasAnswered ? (
             <>
               {/* Legend */}
-              <div className="flex items-center gap-3 text-xs text-neutral-400 px-5 pb-2">
+              <div className="flex items-center gap-3 text-xs text-neutral-400 dark:text-gray-500 px-5 pb-2">
                 <span className="flex items-center gap-1">
                   <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#ff5740]" />
                   You
@@ -207,13 +207,13 @@ function ComparePanel({
                         ${isWriteIn ? "cursor-default" : "cursor-pointer"}
                         ${
                           isActive
-                            ? "bg-neutral-50 border border-neutral-200"
-                            : "border border-transparent hover:bg-neutral-50"
+                            ? "bg-neutral-50 dark:bg-zinc-700 border border-neutral-200 dark:border-zinc-600"
+                            : "border border-transparent hover:bg-neutral-50 dark:hover:bg-zinc-700"
                         }
                       `}
                     >
                       <span
-                        className={`pr-6 ${isActive ? "text-neutral-900" : "text-neutral-500"}`}
+                        className={`pr-6 ${isActive ? "text-neutral-900 dark:text-white" : "text-neutral-500 dark:text-gray-400"}`}
                       >
                         {stance.text}
                       </span>
@@ -233,8 +233,8 @@ function ComparePanel({
                 })}
 
                 {isWriteIn && (
-                  <div className="relative px-3 py-3 rounded-xl bg-[#ff5740]/5 border border-[#ff5740]/20">
-                    <span className="text-sm text-neutral-900 pr-6">
+                  <div className="relative px-3 py-3 rounded-xl bg-[#ff5740]/5 dark:bg-[#ff5740]/10 border border-[#ff5740]/20">
+                    <span className="text-sm text-neutral-900 dark:text-white pr-6">
                       {writeIns[dropdownValue] || "(Custom stance)"}
                     </span>
                     <span className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -246,18 +246,18 @@ function ComparePanel({
 
               {/* Scrollable reasoning + sources */}
               {hasContent && (
-                <div className="px-5 pb-5 border-t border-neutral-100 overflow-y-auto lg:max-h-[20rem]">
+                <div className="px-5 pb-5 border-t border-neutral-100 dark:border-zinc-700 overflow-y-auto lg:max-h-[20rem]">
                   {reasoning && (
-                    <p className="whitespace-pre-wrap text-[0.94rem] leading-relaxed text-neutral-800 pt-4">
+                    <p className="whitespace-pre-wrap text-[0.94rem] leading-relaxed text-neutral-800 dark:text-gray-200 pt-4">
                       {reasoning}
                     </p>
                   )}
 
                   {Array.isArray(sources) && sources.length > 0 && (
                     <div
-                      className={reasoning ? "mt-5 pt-4 border-t border-neutral-100" : "pt-4"}
+                      className={reasoning ? "mt-5 pt-4 border-t border-neutral-100 dark:border-zinc-700" : "pt-4"}
                     >
-                      <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-2.5">
+                      <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-gray-500 mb-2.5">
                         References
                       </h3>
                       <ol className="flex flex-col gap-1.5">
@@ -267,13 +267,13 @@ function ComparePanel({
                               href={source}
                               target="_blank"
                               rel="noreferrer"
-                              className="flex items-center gap-2.5 px-2.5 py-2 -mx-2.5 rounded-lg hover:bg-neutral-50 transition-colors"
+                              className="flex items-center gap-2.5 px-2.5 py-2 -mx-2.5 rounded-lg hover:bg-neutral-50 dark:hover:bg-zinc-700 transition-colors"
                             >
-                              <span className="text-xs font-medium text-neutral-400 w-4 shrink-0 text-right">
+                              <span className="text-xs font-medium text-neutral-400 dark:text-gray-500 w-4 shrink-0 text-right">
                                 {i + 1}
                               </span>
                               <Favicon url={source} size={16} />
-                              <span className="text-sm text-[#00657c] group-hover:underline truncate">
+                              <span className="text-sm text-[#00657c] dark:text-ev-teal-light group-hover:underline truncate">
                                 {getDisplayUrl(source)}
                               </span>
                             </a>
@@ -287,7 +287,7 @@ function ComparePanel({
             </>
           ) : (
             <div className="px-5 py-6">
-              <p className="text-sm text-neutral-500 text-center italic">
+              <p className="text-sm text-neutral-500 dark:text-gray-400 text-center italic">
                 {polName} hasn&apos;t answered this topic yet.
               </p>
             </div>
@@ -297,7 +297,7 @@ function ComparePanel({
 
       {/* Empty state: no topic selected */}
       {!topicSelected && (
-        <p className="text-center text-neutral-400 text-sm px-5 pb-5">
+        <p className="text-center text-neutral-400 dark:text-gray-500 text-sm px-5 pb-5">
           Select a topic to compare
         </p>
       )}

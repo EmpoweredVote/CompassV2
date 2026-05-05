@@ -42,10 +42,10 @@ export default function SavePromptModal() {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 100, opacity: 0 }}
           transition={{ duration: 0.3 }}
-          className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 shadow-lg"
+          className="fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-zinc-900 border-t border-gray-200 dark:border-zinc-700 shadow-lg"
         >
           <div className="max-w-2xl mx-auto flex items-center justify-between px-4 py-3">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
               <span className="font-medium">Save your compass results</span> — create a free account to keep your answers.
             </p>
             <div className="flex items-center gap-2 shrink-0 ml-4">
@@ -57,7 +57,7 @@ export default function SavePromptModal() {
               </a>
               <button
                 onClick={dismissBanner}
-                className="text-gray-400 hover:text-gray-600 cursor-pointer p-1"
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer p-1"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
                   <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />

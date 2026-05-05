@@ -103,7 +103,7 @@ function buildClipPath(rect, vpWidth, vpHeight) {
  *            "left"  → caret points right
  */
 function Caret({ placement }) {
-  const commonCls = "absolute w-4 h-4 fill-white drop-shadow-sm";
+  const commonCls = "absolute w-4 h-4 fill-white dark:fill-zinc-800 drop-shadow-sm";
   if (placement === "below") {
     // caret at top-center of tooltip pointing up
     return (
@@ -381,20 +381,20 @@ export default function CoachMark({
                 width: TOOLTIP_WIDTH,
                 zIndex: 61,
               }}
-              className="bg-white rounded-2xl shadow-xl px-5 py-4"
+              className="bg-white dark:bg-zinc-800 rounded-2xl shadow-xl px-5 py-4"
             >
               {/* Caret arrow pointing toward spotlight */}
               <Caret placement={placement} />
 
               {/* Step label (tour mode) */}
               {stepLabel && (
-                <p className="text-xs font-medium text-gray-400 mb-1 select-none">
+                <p className="text-xs font-medium text-gray-400 dark:text-gray-500 mb-1 select-none">
                   {stepLabel}
                 </p>
               )}
 
               {/* Content */}
-              <div className="text-gray-800 text-sm leading-snug mb-4">
+              <div className="text-gray-800 dark:text-gray-200 text-sm leading-snug mb-4">
                 {content}
               </div>
 
@@ -403,7 +403,7 @@ export default function CoachMark({
                 <div className="flex items-center justify-between gap-3">
                   <button
                     onClick={onSkipAll}
-                    className="text-sm text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+                    className="text-sm text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors cursor-pointer"
                   >
                     Skip All
                   </button>

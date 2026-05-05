@@ -21,10 +21,10 @@ function CompassPromotionBanner({ payload, onSave, onDismiss, status, error }) {
   return (
     <div
       role="status"
-      className="w-full mb-4 flex items-center gap-3 px-4 py-3 rounded-lg border border-[#59b0c4] bg-[#E4F3F6]"
+      className="w-full mb-4 flex items-center gap-3 px-4 py-3 rounded-lg border border-[#59b0c4] bg-[#E4F3F6] dark:bg-[#1a3038]"
       style={{ fontFamily: "'Manrope', sans-serif" }}
     >
-      <div className="flex-1 min-w-0 text-sm text-[#003E4D]">
+      <div className="flex-1 min-w-0 text-sm text-[#003E4D] dark:text-[#59B0C4]">
         You answered <strong>{count}</strong> question{count === 1 ? '' : 's'} before signing up — save them to your account?
         {status === 'error' && error && (
           <div className="text-[#e64a34] text-xs mt-1">Couldn't save: {error.message}. Try again?</div>
@@ -68,7 +68,7 @@ function BelowThresholdChart({ answeredCompassCount, needsMore, onStartCalibrati
       </div>
       {/* Overlay message centered on top of chart */}
       <div className="absolute inset-0 flex flex-col items-center justify-center px-4 text-center">
-        <div className="bg-white/90 backdrop-blur-sm rounded-2xl px-6 py-5 shadow-lg max-w-xs">
+        <div className="bg-white/90 dark:bg-zinc-900/90 backdrop-blur-sm rounded-2xl px-6 py-5 shadow-lg max-w-xs">
           {/* Dot progress indicator: 3 dots */}
           <div className="flex items-center justify-center gap-3 mb-3">
             {[0, 1, 2].map((i) => (
@@ -77,15 +77,15 @@ function BelowThresholdChart({ answeredCompassCount, needsMore, onStartCalibrati
                 className={`w-3 h-3 rounded-full transition-colors duration-300 ${
                   i < answeredCompassCount
                     ? "bg-[#59b0c4]"
-                    : "bg-gray-300"
+                    : "bg-gray-300 dark:bg-zinc-600"
                 }`}
               />
             ))}
           </div>
-          <h2 className="text-base font-semibold text-gray-800 mb-1">
+          <h2 className="text-base font-semibold text-gray-800 dark:text-white mb-1">
             Answer {needsMore} more topic{needsMore !== 1 ? "s" : ""} to see your compass
           </h2>
-          <p className="text-gray-500 text-xs mb-4">
+          <p className="text-gray-500 dark:text-gray-400 text-xs mb-4">
             Build your political compass by answering a few more topics
           </p>
           <button
@@ -168,10 +168,10 @@ function Compass() {
     ];
 
     return (
-      <div className="relative flex justify-around w-full bg-gray-300/50 rounded-lg p-1 mx-2 mb-4 lg:hidden border-l-4 border-ev-yellow">
+      <div className="relative flex justify-around w-full bg-gray-300/50 dark:bg-zinc-700/50 rounded-lg p-1 mx-2 mb-4 lg:hidden border-l-4 border-ev-yellow">
         {/* moving highlight */}
         <div
-          className="absolute top-1 h-[calc(100%-0.5rem)] bg-white rounded-lg transition-all"
+          className="absolute top-1 h-[calc(100%-0.5rem)] bg-white dark:bg-zinc-600 rounded-lg transition-all"
           style={{
             left: bgStyle.left,
             width: bgStyle.width,
@@ -188,7 +188,7 @@ function Compass() {
             {icons[idx]}
             <span
               className={`${
-                selectedTab === idx ? "text-black" : "text-slate-500"
+                selectedTab === idx ? "text-black dark:text-white" : "text-slate-500 dark:text-gray-400"
               } text-base font-medium`}
             >
               {label}
@@ -489,7 +489,7 @@ function Compass() {
           href="/how-it-works#compass-positions"
           target="_blank"
           rel="noopener"
-          className="text-[#00657c] underline hover:text-[#ff5740]"
+          className="text-[#00657c] dark:text-ev-teal-light underline hover:text-[#ff5740]"
           onClick={(e) => e.stopPropagation()}
         >
           Want the full story?
@@ -784,7 +784,7 @@ function Compass() {
   if (topicsError && topics.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <p className="text-gray-600 text-base">Couldn't load topics</p>
+        <p className="text-gray-600 dark:text-gray-400 text-base">Couldn't load topics</p>
         <button onClick={retryLoadTopics} className="px-5 py-2 bg-black text-white rounded-full text-sm font-semibold hover:opacity-90 transition-opacity cursor-pointer">
           Retry
         </button>
@@ -827,7 +827,7 @@ function Compass() {
         <button
           ref={backToLibRef}
           onClick={() => navigate("/library")}
-          className="flex items-center gap-1 text-sm text-gray-500 hover:text-black transition-colors cursor-pointer mb-2"
+          className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white transition-colors cursor-pointer mb-2"
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
             <path fillRule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clipRule="evenodd" />
@@ -869,7 +869,7 @@ function Compass() {
                   rel="noopener"
                   title="How do I read this?"
                   aria-label="How to read the compass. Opens explanation in a new tab."
-                  className="absolute top-2 right-2 z-10 w-7 h-7 rounded-full bg-white/80 backdrop-blur-sm border border-gray-200 text-gray-400 hover:text-[#00657c] hover:border-[#00657c] transition-colors inline-flex items-center justify-center"
+                  className="absolute top-2 right-2 z-10 w-7 h-7 rounded-full bg-white/80 dark:bg-zinc-800/80 backdrop-blur-sm border border-gray-200 dark:border-zinc-600 text-gray-400 dark:text-gray-400 hover:text-[#00657c] dark:hover:text-ev-teal-light hover:border-[#00657c] dark:hover:border-ev-teal-light transition-colors inline-flex items-center justify-center"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
                     <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM8.94 6.94a.75.75 0 11-1.061-1.061 3 3 0 112.871 5.026v.345a.75.75 0 01-1.5 0v-.5c0-.72.57-1.172 1.081-1.287A1.5 1.5 0 108.94 6.94zM10 15a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
@@ -932,7 +932,7 @@ function Compass() {
             />
           ) : (
             <div className="flex flex-col gap-6 w-full items-center mt-8">
-              <h1 className="text-xl font-semibold">
+              <h1 className="text-xl font-semibold dark:text-white">
                 Select a politician to compare with
               </h1>
               {showChart && (

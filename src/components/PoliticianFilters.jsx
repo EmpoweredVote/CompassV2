@@ -17,7 +17,7 @@ const LEVELS = ["Federal", "State", "Local"];
 const pillBase =
   "rounded-full px-3 py-1 text-xs font-medium cursor-pointer transition-colors";
 const pillActive = "bg-[#00657c] text-white";
-const pillInactive = "bg-neutral-100 text-neutral-600 hover:bg-neutral-200";
+const pillInactive = "bg-neutral-100 dark:bg-zinc-700 text-neutral-600 dark:text-gray-300 hover:bg-neutral-200 dark:hover:bg-zinc-600";
 
 export default function PoliticianFilters({
   level,
@@ -37,7 +37,7 @@ export default function PoliticianFilters({
         <select
           value={stateFilter}
           onChange={(e) => onStateChange(e.target.value)}
-          className="rounded-lg border border-neutral-200 px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-[#59b0c4]/40 focus:border-[#59b0c4] transition-colors"
+          className="rounded-lg border border-neutral-200 dark:border-zinc-600 px-2 py-1 text-xs bg-white dark:bg-zinc-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#59b0c4]/40 focus:border-[#59b0c4] transition-colors"
         >
           <option value="">State</option>
           {availableStates.map(({ code, name }) => (
@@ -77,7 +77,7 @@ export default function PoliticianFilters({
           <button
             type="button"
             onClick={onClearAll}
-            className="ml-auto text-xs text-neutral-400 hover:text-neutral-600 cursor-pointer underline transition-colors"
+            className="ml-auto text-xs text-neutral-400 dark:text-gray-500 hover:text-neutral-600 dark:hover:text-gray-300 cursor-pointer underline transition-colors"
           >
             Clear all
           </button>

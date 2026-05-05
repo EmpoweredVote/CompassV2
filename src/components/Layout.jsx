@@ -259,7 +259,7 @@ function Layout({ children }) {
       {/* How It Works button — always visible */}
       <button
         onClick={() => navigate("/how-it-works")}
-        className="fixed bottom-4 right-4 z-40 w-9 h-9 rounded-full bg-white border border-gray-300 shadow-md flex items-center justify-center text-gray-500 hover:text-[#00657c] hover:border-[#00657c] transition-colors cursor-pointer"
+        className="fixed bottom-4 right-4 z-40 w-9 h-9 rounded-full bg-white dark:bg-zinc-800 border border-gray-300 dark:border-zinc-600 shadow-md flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-[#00657c] dark:hover:text-ev-teal-light hover:border-[#00657c] dark:hover:border-ev-teal-light transition-colors cursor-pointer"
         title="How the Compass works"
         aria-label="How the Compass works"
       >
