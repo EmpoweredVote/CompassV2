@@ -386,7 +386,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
 
     const isFlippedInEffect = invertedSpokes[topic.short_title];
     const effectStances = topic.stances
-      ? isFlippedInEffect ? [...topic.stances].reverse() : topic.stances
+      ? isFlippedInEffect ? topic.stances : [...topic.stances].reverse()
       : [];
 
     const savedWriteIn = writeIns?.[topic.short_title];
@@ -396,8 +396,8 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
       setHasRepositioned(true);
       const items = [...effectStances.map((s) => s.id)];
       const displayIndex = isFlippedInEffect
-        ? Math.floor(effectStances.length + 1 - val)
-        : Math.floor(val);
+        ? Math.floor(val)
+        : Math.floor(effectStances.length + 1 - val);
       items.splice(displayIndex, 0, "write-in");
       setOrderedItems(items);
     } else {
@@ -656,7 +656,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     const displayMidpoint = writeInIndex + 0.5;
     const flipped = currentTopic && invertedSpokes[currentTopic.short_title];
     const stanceCount = currentTopic?.stances?.length || 0;
-    const midpointValue = flipped ? (stanceCount + 1 - displayMidpoint) : displayMidpoint;
+    const midpointValue = flipped ? displayMidpoint : (stanceCount + 1 - displayMidpoint);
     selectWriteInPlacement(midpointValue);
   };
 
@@ -706,8 +706,8 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
   const orderedStances =
     currentTopic && currentTopic.stances
       ? isFlipped
-        ? [...currentTopic.stances].reverse()
-        : currentTopic.stances
+        ? currentTopic.stances
+        : [...currentTopic.stances].reverse()
       : [];
 
   const allRemainingAnswered = pickedTopics.every((id, idx) => {
@@ -1381,7 +1381,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
             targetRef={answerTourStep === 0 ? stancesPanelRef : writeOwnBtnRef}
             message={
               answerTourStep === 0
-                ? "Pick the stance that fits you best. We flip each topic's order at random, so neither side ever shows up 'first.' What matters is your pick, not where it sits in the list."
+                ? "Pick the stance that fits you best. Stances run bottom to top — bottom is closest to the center ring, top is the outermost ring. We randomize which political direction maps to each end, so neither side always starts first."
                 : "If none of the stances quite match, write your own and drag it to where it fits best on the spectrum"
             }
             stepLabel={`${answerTourStep + 1} of 2`}
@@ -1414,7 +1414,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
 
           {/* Left: compass */}
           <div className="flex flex-col items-center justify-center px-8 py-16 lg:py-24 lg:w-1/2 lg:pl-16">
-            <div className="w-72 md:w-[min(calc(45vw-4rem),calc(100vh-360px))] aspect-square">
+            <div className="w-full max-w-[min(calc(50vw-4rem),calc(100vh-280px))] aspect-square mx-auto">
               <RadarChart
                 data={chartData}
                 invertedSpokes={invertedSpokes}
