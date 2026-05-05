@@ -52,7 +52,7 @@ function CompassPromotionBanner({ payload, onSave, onDismiss, status, error }) {
   );
 }
 
-function BelowThresholdChart({ answeredCompassCount, needsMore, onStartCalibration, chartData, unansweredSpokesMap, invertedSpokes }) {
+function BelowThresholdChart({ answeredCompassCount, needsMore, onStartCalibration, chartData, unansweredSpokesMap, invertedSpokes, isDark }) {
   return (
     <div
       className="relative w-full cursor-pointer"
@@ -822,6 +822,7 @@ function Compass() {
           localStorage.removeItem("calibration_progress");
           setCalibrationActive(false);
           setStartAtPick(false);
+          if (answeredCompassCount === 0) navigate("/library");
         }}
       />
     ) : (
@@ -906,6 +907,7 @@ function Compass() {
               chartData={chartData}
               unansweredSpokesMap={unansweredSpokesMap}
               invertedSpokes={invertedSpokes}
+              isDark={isDark}
             />
           )}
         </div>
@@ -986,6 +988,7 @@ function Compass() {
               chartData={chartData}
               unansweredSpokesMap={unansweredSpokesMap}
               invertedSpokes={invertedSpokes}
+              isDark={isDark}
             />
           )}
           <ActionButtons />
