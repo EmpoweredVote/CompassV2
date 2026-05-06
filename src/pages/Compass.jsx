@@ -866,7 +866,7 @@ function Compass() {
               <Legend />
               <div
                 ref={(el) => { chartContainerRef.current = el; spokeRef.current = el; }}
-                className="w-full aspect-square max-w-[min(640px,calc(100dvh-260px))] mx-auto relative"
+                className="w-full aspect-square max-w-[min(768px,calc(100dvh-200px))] mx-auto relative"
               >
                 <a
                   href="/how-it-works#compass-positions"
@@ -961,7 +961,7 @@ function Compass() {
           {showChart ? (
             <>
               <Legend />
-              <div className="w-full max-h-[calc(100dvh-300px)] mx-auto relative">
+              <div className="w-full max-h-[calc(100dvh-240px)] mx-auto relative">
                 <RadarChart
                   key={selectedTopics.length}
                   data={chartData}
