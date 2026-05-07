@@ -1450,8 +1450,8 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
         <div className="flex flex-col lg:flex-row min-h-full">
 
           {/* Left: compass */}
-          <div className="flex flex-col items-center justify-center px-8 py-16 lg:py-24 lg:w-1/2 lg:pl-16">
-            <div className="w-full max-w-[min(calc(50vw-4rem),calc(100vh-280px))] aspect-square mx-auto">
+          <div className="flex flex-col items-center justify-center px-4 py-6 lg:py-6 lg:w-1/2 lg:pl-8">
+            <div className="w-full max-w-[min(calc(50vw-2rem),calc(100vh-110px))] aspect-square mx-auto">
               <RadarChart
                 data={chartData}
                 invertedSpokes={invertedSpokes}
@@ -1465,7 +1465,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
           </div>
 
           {/* Right: copy + CTA */}
-          <div className="flex flex-col justify-center px-8 pb-16 lg:py-24 lg:w-1/2 lg:pr-16 lg:pl-8">
+          <div className="flex flex-col justify-center px-8 pb-8 lg:py-8 lg:w-1/2 lg:pr-16 lg:pl-8">
 
             <p
               className="text-xs font-bold tracking-widest uppercase mb-4"
