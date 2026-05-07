@@ -14,7 +14,6 @@ const TOPIC_ABBREVS = {
   'Residential Zoning':           'RZ',
   'Civil Rights':                 'CR',
   'Public Safety Approach':       'PS',
-  'Growth and Development Pace':  'GP',
   'Voting Rights':                'VR',
   'Economic Development Incentives': 'ED',
   'Transportation Priorities':    'TP',
