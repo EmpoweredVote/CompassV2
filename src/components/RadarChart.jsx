@@ -9,8 +9,8 @@ export default function RadarChart(props) {
     <RadarChartCore
       topics={topics}
       padding={90}
-      lineColor={isDark ? "#6b7280" : "black"}
-      ringColor={isDark ? "#3f4451" : "#ccc"}
+      lineColor={isDark ? "#9ca3af" : "black"}
+      ringColor={isDark ? "#4b5563" : "#ccc"}
       {...props}
     />
   );

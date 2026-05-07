@@ -1,6 +1,7 @@
 import { useState, useEffect, Suspense, lazy } from "react";
 import { useCompass } from "../CompassContext";
 import { apiFetch } from "../../lib/auth";
+import GreenLensCoverage from "./GreenLensCoverage";
 
 const PoliticianAdminPanel = lazy(() => import("./PoliticianAdminPanel"));
 const AttachAnswers = lazy(() => import("./AttachAnswers"));
@@ -14,6 +15,7 @@ function AdminDashboard() {
   const [allCategories, setAllCategories] = useState([]);
   const [politicians, setPoliticians] = useState([]);
   const [filteredPol, setFilteredPol] = useState([]);
+  const [defaultPolitician, setDefaultPolitician] = useState(null);
 
   useEffect(() => {
     apiFetch('/compass/categories')
@@ -33,6 +35,11 @@ function AdminDashboard() {
     setFilteredPol(politicians.filter((p) => p.first_name != "VACANT"));
   }, [politicians]);
 
+  const handleAttachPolitician = (pol) => {
+    setDefaultPolitician(pol);
+    setCurrentTab("Answers");
+  };
+
   let page;
 
   switch (currentTab) {
@@ -45,7 +52,23 @@ function AdminDashboard() {
       break;
 
     case "Answers":
-      page = <AttachAnswers topics={topics} politicians={filteredPol} />;
+      page = (
+        <AttachAnswers
+          topics={topics}
+          politicians={filteredPol}
+          defaultPolitician={defaultPolitician}
+        />
+      );
+      break;
+
+    case "Green Lens":
+      page = (
+        <GreenLensCoverage
+          politicians={filteredPol}
+          topics={topics}
+          onAttachPolitician={handleAttachPolitician}
+        />
+      );
       break;
 
     case "Rewrite Workflow":
@@ -53,6 +76,7 @@ function AdminDashboard() {
   }
 
   const changeTab = (tabName) => {
+    if (tabName !== "Answers") setDefaultPolitician(null);
     setCurrentTab(tabName);
   };
 
@@ -62,7 +86,7 @@ function AdminDashboard() {
 
       <div className="w-3/4 m-auto">
         <div className="flex flex-row justify-center gap-8 my-4">
-          {["Topics", "Context", "Answers", "Rewrite Workflow"].map((tab) => (
+          {["Topics", "Context", "Answers", "Green Lens", "Rewrite Workflow"].map((tab) => (
             <button
               key={tab}
               className={`py-2 px-8 border rounded-md cursor-pointer font-semibold hover:bg-gray-200 ${

@@ -159,12 +159,21 @@ function PoliticianPicker({
   );
 }
 
-function AttachAnswers({ topics, politicians = [] }) {
+function AttachAnswers({ topics, politicians = [], defaultPolitician = null }) {
   const [status, setStatus] = useState(null);
-  const [selectedPol, setSelectedPol] = useState(null); // full object
+  const [selectedPol, setSelectedPol] = useState(defaultPolitician);
   const [checkedStances, setCheckedStances] = useState({}); // { [topicId]: number|null }
   const [search, setSearch] = useState("");
   const [openTopicIds, setOpenTopicIds] = useState([]);
+
+  // Sync if parent changes defaultPolitician (e.g. clicking Attach from Green Lens)
+  useEffect(() => {
+    if (defaultPolitician) {
+      setSelectedPol(defaultPolitician);
+      setCheckedStances({});
+      setStatus(null);
+    }
+  }, [defaultPolitician]);
 
   const visibleTopics = useMemo(() => {
     const q = normalize(search);

@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useTheme } from "../ThemeProvider";
 import { useCompass } from "./CompassContext";
 import { apiFetch } from "../lib/auth";
+import { LOCAL_LENS } from "../lib/lenses";
 import RadarChart from "./RadarChart";
 import { getQuestionText, parseTensionTitle } from "../util/topic";
 import { TopicTierBadge } from "@empoweredvote/ev-ui";
@@ -330,6 +331,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
   const initializedRef = useRef(false);
   const [step, setStep] = useState("welcome");
   const [pickedTopics, setPickedTopics] = useState([]);
+  const [lensApplied, setLensApplied] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [showWriteIn, setShowWriteIn] = useState(false);
@@ -482,6 +484,13 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
   // --- Handlers ---
 
   const handleGetStarted = () => {
+    setStep("pick");
+  };
+
+  const handleStartWithLens = () => {
+    const lensIds = LOCAL_LENS.topicIds.filter(id => topics.some(t => t.id === id));
+    setPickedTopics(lensIds);
+    setLensApplied(true);
     setStep("pick");
   };
 
@@ -856,17 +865,32 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
               We hate that.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-3 items-start">
+            <div className="flex flex-col gap-3 items-start">
+              {/* Primary: Local Lens */}
+              <button
+                onClick={handleStartWithLens}
+                className="flex items-center gap-2.5 px-8 py-3.5 rounded-full font-bold text-base transition-all hover:opacity-90 active:scale-95 cursor-pointer shadow-md"
+                style={{ background: '#5A9A6E', color: '#FFFFFF' }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5 shrink-0">
+                  <path fillRule="evenodd" d="M9.293 2.293a1 1 0 011.414 0l7 7A1 1 0 0117 11h-1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-3a1 1 0 00-1-1H9a1 1 0 00-1 1v3a1 1 0 01-1 1H5a1 1 0 01-1-1v-6H3a1 1 0 01-.707-1.707l7-7z" clipRule="evenodd" />
+                </svg>
+                Start with Local Lens →
+              </button>
+              <p className="text-xs pl-1" style={{ color: t.textMuted }}>
+                9 questions · most local candidates have already answered these
+              </p>
+              {/* Secondary: custom */}
               <button
                 onClick={handleGetStarted}
-                className="px-8 py-3.5 rounded-full font-bold text-base transition-all hover:opacity-90 active:scale-95 cursor-pointer shadow-md"
-                style={{ background: t.yellow, color: '#1C1C1C' }}
+                className="px-6 py-2.5 rounded-full text-sm font-semibold border transition-all hover:opacity-80 cursor-pointer mt-1"
+                style={{ borderColor: t.border, color: t.textBody, background: 'transparent' }}
               >
-                Start Step 1 →
+                Choose my own topics →
               </button>
               <button
                 onClick={handleSkip}
-                className="px-6 py-3.5 rounded-full text-sm font-medium transition-opacity hover:opacity-70 cursor-pointer"
+                className="px-6 py-2 rounded-full text-sm font-medium transition-opacity hover:opacity-70 cursor-pointer"
                 style={{ color: t.textMuted }}
               >
                 Not now
@@ -968,6 +992,31 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
 
         {/* ── Topic list ── */}
         <div className="px-4 py-4 max-w-5xl mx-auto pb-32">
+          {lensApplied && (
+            <div
+              className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl mb-5"
+              style={{ background: 'rgba(90,154,110,0.12)', border: '1.5px solid #5A9A6E' }}
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="#5A9A6E" className="w-4 h-4 shrink-0">
+                  <path fillRule="evenodd" d="M9.293 2.293a1 1 0 011.414 0l7 7A1 1 0 0117 11h-1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-3a1 1 0 00-1-1H9a1 1 0 00-1 1v3a1 1 0 01-1 1H5a1 1 0 01-1-1v-6H3a1 1 0 01-.707-1.707l7-7z" clipRule="evenodd" />
+                </svg>
+                <p className="text-sm font-semibold" style={{ color: '#5A9A6E' }}>
+                  Local Lens applied — {pickedTopics.length} topics pre-selected
+                </p>
+                <p className="text-xs hidden sm:block" style={{ color: '#5A9A6E', opacity: 0.8 }}>
+                  · Add or remove any topic below
+                </p>
+              </div>
+              <button
+                onClick={() => { setPickedTopics([]); setLensApplied(false); }}
+                className="text-xs font-medium shrink-0 cursor-pointer hover:opacity-70 transition-opacity"
+                style={{ color: '#5A9A6E' }}
+              >
+                Clear
+              </button>
+            </div>
+          )}
           {dedupedCategories.map((category, catIdx) => {
             if (!category.topics || category.topics.length === 0) return null;
             const catColor = CATEGORY_COLORS[catIdx % CATEGORY_COLORS.length];
