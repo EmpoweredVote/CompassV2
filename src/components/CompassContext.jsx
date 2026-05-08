@@ -138,6 +138,34 @@ export function CompassProvider({ children }) {
     evContext.set(next).catch(() => {});
   }, [authChecking, isLoggedIn, userId, answers, selectedTopics, invertedSpokes, writeIns]);
 
+  // Load all answers on login so ev-context carries the full set, not just
+  // the 8 selectedTopics. This ensures Essentials sees every answered topic.
+  const allAnswersLoadedRef = useRef(false);
+  useEffect(() => {
+    if (!isLoggedIn || !userId || !topics.length) return;
+    if (allAnswersLoadedRef.current) return;
+    allAnswersLoadedRef.current = true;
+    apiFetch('/compass/answers')
+      .then((res) => res.json())
+      .then((data) => {
+        const mapped = data
+          .map((a) => {
+            const topic = topics.find((t) => t.id === a.topic_id);
+            return topic ? [topic.short_title, a.value] : null;
+          })
+          .filter(Boolean);
+        if (mapped.length) setAnswers((prev) => ({ ...prev, ...Object.fromEntries(mapped) }));
+        const writeInEntries = data
+          .map((a) => {
+            const topic = topics.find((t) => t.id === a.topic_id);
+            return (topic && a.write_in_text) ? [topic.short_title, a.write_in_text] : null;
+          })
+          .filter(Boolean);
+        if (writeInEntries.length) setWriteIns((prev) => ({ ...prev, ...Object.fromEntries(writeInEntries) }));
+      })
+      .catch(() => {});
+  }, [isLoggedIn, userId, topics]);
+
   // Authed SWR hydrate (260426-mc5): when we learn the userId, read the
   // authed slice and seed local state. The /compass/answers fetch elsewhere
   // will still run and replace this silently. Idempotent React state updates

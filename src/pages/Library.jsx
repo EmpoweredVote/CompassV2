@@ -339,7 +339,7 @@ function Library() {
             {/* Compass chart — clickable; grayed when below threshold */}
             <div
               onClick={() => navigate("/results", { state: { clearCompare: true } })}
-              className={`w-full max-w-sm md:max-w-lg cursor-pointer transition-opacity relative ${belowThreshold ? "" : "hover:opacity-80"}`}
+              className={`w-full max-w-2xl md:max-w-3xl cursor-pointer transition-opacity relative ${belowThreshold ? "" : "hover:opacity-80"}`}
               title={belowThreshold ? "Add more topics to see your compass" : "View your compass"}
             >
               <div className={belowThreshold ? "opacity-25 pointer-events-none select-none" : ""}>
