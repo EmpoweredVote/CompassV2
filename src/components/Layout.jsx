@@ -227,7 +227,7 @@ function Layout({ children }) {
   const profileItems = [
     ...(isAdmin ? [
       { label: "Admin", href: "/admin" },
-      { label: "Save stances", onClick: handleSaveStances },
+      { label: `Save stances (${Object.keys(answers).length})`, onClick: handleSaveStances },
       { label: "Restore stances", onClick: handleRestoreStances },
     ] : []),
     { label: "Reset compass", onClick: handleClearCompass },

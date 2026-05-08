@@ -343,7 +343,7 @@ function Library() {
               title={belowThreshold ? "Add more topics to see your compass" : "View your compass"}
             >
               <div className={belowThreshold ? "opacity-25 pointer-events-none select-none" : ""}>
-                <RadarChart data={chartData} invertedSpokes={invertedSpokes} labelFontSize={38} padding={140} labelOffset={40} />
+                <RadarChart data={chartData} invertedSpokes={invertedSpokes} labelFontSize={18} padding={70} labelOffset={20} />
               </div>
               {belowThreshold && (
                 <div className="absolute inset-0 flex items-center justify-center">
