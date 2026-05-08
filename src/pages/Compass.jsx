@@ -208,10 +208,10 @@ function Compass() {
       [comparePol.first_name, comparePol.last_name].filter(Boolean).join(" ");
     return (
       <div className="flex gap-4 items-center">
-        <span className="inline-block w-4 h-4 bg-[rgba(255,87,64,0.4)] border border-[#ff5740] rounded-sm" />
+        <span className="inline-block w-4 h-4 bg-[rgba(124,107,158,0.4)] border border-[#7C6B9E] rounded-sm" />
         You
         <span
-          className="inline-block w-4 h-4 bg-[rgba(89,176,196,0.3)] border border-[#59b0c4] rounded-sm cursor-pointer"
+          className="inline-block w-4 h-4 bg-[rgba(90,154,110,0.45)] border border-[#5A9A6E] rounded-sm cursor-pointer"
           onClick={handleClearComparison}
           title="Clear comparison"
         />
@@ -460,6 +460,34 @@ function Compass() {
     return set;
   }, [selectedTopics, topics, answers]);
 
+  // When a comparison is active, the chart uses a spoke-adjusted topic list
+  const compareChartData = useMemo(() => {
+    if (!comparePol || !compareDisplayTopics) return chartData;
+    const data = {};
+    for (const id of compareDisplayTopics) {
+      const topic = topics.find(t => t.id === id);
+      if (!topic) continue;
+      const val = answers[topic.short_title];
+      data[topic.short_title] = (val != null && val > 0) ? val : 0;
+    }
+    return data;
+  }, [comparePol, compareDisplayTopics, topics, answers, chartData]);
+
+  const compareUnansweredSpokesMap = useMemo(() => {
+    if (!comparePol || !compareDisplayTopics) return unansweredSpokesMap;
+    const set = {};
+    for (const id of compareDisplayTopics) {
+      const topic = topics.find(t => t.id === id);
+      if (!topic) continue;
+      const val = answers[topic.short_title];
+      if (!(val != null && val > 0)) set[topic.short_title] = true;
+    }
+    return set;
+  }, [comparePol, compareDisplayTopics, topics, answers, unansweredSpokesMap]);
+
+  // If the compare compass ends up with fewer than 3 spokes, suppress it
+  const compareHasEnoughSpokes = !comparePol || compareDisplayTopics === null || compareDisplayTopics.length >= 3;
+
   // -------- Spoke click handler: calibration for unanswered, drawer for answered --------
   const handleSpokeClick = (shortTitle) => {
     const val = answers[shortTitle];
@@ -528,6 +556,10 @@ function Compass() {
 
   // NEW: selected comparison politician
   const [comparePol, setComparePol] = useState(null); // { id, full_name/first/last, ... }
+  // Adjusted spoke list for compare mode (replaces unanswered spokes when possible)
+  const [compareDisplayTopics, setCompareDisplayTopics] = useState(null);
+  // short_titles of replacement spokes (not the user's original defaults)
+  const [compareReplacedSpokes, setCompareReplacedSpokes] = useState({});
 
   // -------- Compare switching callbacks --------
   const handleSwitchPolitician = (newPol) => {
@@ -540,6 +572,8 @@ function Compass() {
   const handleClearComparison = () => {
     setComparePol(null);
     setCompareAnswers({});
+    setCompareDisplayTopics(null);
+    setCompareReplacedSpokes({});
     setCompareMode(false);
   };
 
@@ -644,6 +678,10 @@ function Compass() {
   const topicsRef = useRef(topics);
   topicsRef.current = topics;
 
+  // Keep a ref to answers so compare-spoke logic can read latest without re-firing
+  const answersRef = useRef(answers);
+  answersRef.current = answers;
+
   // -------- Keep YOUR answers up to date when selectedTopics change --------
   useEffect(() => {
     if (!topicsRef.current.length || !selectedTopics.length)
@@ -745,9 +783,13 @@ function Compass() {
   };
 
   // -------- Build compareAnswers when comparePol or topics change --------
+  // Smart spoke logic: replace unanswered spokes with topics both parties share,
+  // remove spokes where no replacement exists, and track which spokes are substitutions.
   useEffect(() => {
     if (!comparePol || !selectedTopics.length) {
       setCompareAnswers({});
+      setCompareDisplayTopics(null);
+      setCompareReplacedSpokes({});
       return;
     }
 
@@ -755,20 +797,59 @@ function Compass() {
       .then((r) => r.json())
       .then((allAnswers) => {
         // allAnswers: [{topic_id, value}, ...]
-        const mapped = selectedTopics
-          .map((id) => {
+        const currentTopics = topicsRef.current;
+        const currentAnswers = answersRef.current;
+        const polAnsweredSet = new Set(
+          allAnswers.filter((a) => a.value > 0).map((a) => a.topic_id)
+        );
+        const selectedTopicSet = new Set(selectedTopics);
+
+        // Topics the user has answered that are NOT in their current compass
+        const userAnsweredNotSelected = currentTopics.filter((t) => {
+          const val = currentAnswers[t.short_title];
+          return !selectedTopicSet.has(t.id) && val != null && val > 0;
+        });
+        // Replacement pool: topics both user and politician have answered, not already displayed
+        const replacementPool = userAnsweredNotSelected.filter((t) =>
+          polAnsweredSet.has(t.id)
+        );
+        let replacementIdx = 0;
+
+        const displayTopics = [];
+        const replacedSpokes = {};
+        const compareAnswersMap = {};
+
+        for (const id of selectedTopics) {
+          const t = currentTopics.find((tt) => tt.id === id);
+          if (!t) continue;
+
+          if (polAnsweredSet.has(id)) {
+            // Politician answered this topic — keep original spoke (bold candidate)
+            displayTopics.push(id);
             const a = allAnswers.find((x) => x.topic_id === id);
-            const t = topicsRef.current.find((tt) => tt.id === id);
-            if (!t) return null;
-            if (!a || a.value === 0) return null;
-            return [t.short_title, a.value];
-          })
-          .filter(Boolean);
-        setCompareAnswers(Object.fromEntries(mapped));
+            if (a && a.value > 0) compareAnswersMap[t.short_title] = a.value;
+          } else {
+            // Politician hasn't answered — try a shared-topic replacement
+            if (replacementIdx < replacementPool.length) {
+              const replT = replacementPool[replacementIdx++];
+              displayTopics.push(replT.id);
+              replacedSpokes[replT.short_title] = true;
+              const a = allAnswers.find((x) => x.topic_id === replT.id);
+              if (a && a.value > 0) compareAnswersMap[replT.short_title] = a.value;
+            }
+            // No replacement: spoke is simply dropped
+          }
+        }
+
+        setCompareDisplayTopics(displayTopics);
+        setCompareReplacedSpokes(replacedSpokes);
+        setCompareAnswers(compareAnswersMap);
       })
       .catch((e) => {
         console.error("[Compass] compare fetch failed", e);
         setCompareAnswers({});
+        setCompareDisplayTopics(null);
+        setCompareReplacedSpokes({});
       });
   }, [comparePol, selectedTopics, setCompareAnswers]);
 
@@ -858,15 +939,15 @@ function Compass() {
       <TabBar />
 
       {/* -------- desktop 2-column layout (centered, max-width container) -------- */}
-      <div className="hidden lg:flex lg:items-start lg:gap-6 xl:gap-8 w-full max-w-6xl mx-auto">
-        {/* left: chart or below-threshold overlay */}
-        <div className="flex-1 min-w-0 flex flex-col items-center">
+      <div className="hidden lg:flex lg:items-start lg:gap-6 xl:gap-8 w-full max-w-[1400px] mx-auto">
+        {/* left: chart or below-threshold overlay — takes ~75% of available width */}
+        <div className="flex-[3] min-w-0 flex flex-col items-center">
           {showChart ? (
             <>
               <Legend />
               <div
                 ref={(el) => { chartContainerRef.current = el; spokeRef.current = el; }}
-                className="w-full aspect-square max-w-[min(768px,calc(100dvh-200px))] mx-auto relative"
+                className="w-full aspect-square max-w-[min(900px,calc(100dvh-160px))] mx-auto relative"
               >
                 <a
                   href="/how-it-works#compass-positions"
@@ -880,24 +961,33 @@ function Compass() {
                     <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM8.94 6.94a.75.75 0 11-1.061-1.061 3 3 0 112.871 5.026v.345a.75.75 0 01-1.5 0v-.5c0-.72.57-1.172 1.081-1.287A1.5 1.5 0 108.94 6.94zM10 15a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
                   </svg>
                 </a>
-                <RadarChart
-                  key={selectedTopics.length}
-                  data={chartData}
-                  unansweredSpokes={unansweredSpokesMap}
-                  compareData={compareAnswers}
-                  invertedSpokes={invertedSpokes}
-                  writeIns={writeIns}
-                  darkMode={isDark}
-                  onToggleInversion={(topic) =>
-                    setInvertedSpokes((prev) => ({
-                      ...prev,
-                      [topic]: !prev[topic],
-                    }))
-                  }
-                  onReplaceTopic={handleSpokeClick}
-                />
+                {comparePol && !compareHasEnoughSpokes ? (
+                  <div className="flex items-center justify-center h-full">
+                    <p className="text-center text-gray-500 dark:text-gray-400 text-sm px-6">
+                      Not enough shared topics to display a comparison compass.
+                    </p>
+                  </div>
+                ) : (
+                  <RadarChart
+                    key={(comparePol ? compareDisplayTopics?.length : selectedTopics.length) ?? selectedTopics.length}
+                    data={comparePol ? compareChartData : chartData}
+                    unansweredSpokes={comparePol ? compareUnansweredSpokesMap : unansweredSpokesMap}
+                    compareData={compareAnswers}
+                    invertedSpokes={invertedSpokes}
+                    writeIns={writeIns}
+                    darkMode={isDark}
+                    replacedSpokes={compareReplacedSpokes}
+                    boldOriginalSpokes={!!comparePol}
+                    onToggleInversion={(topic) =>
+                      setInvertedSpokes((prev) => ({
+                        ...prev,
+                        [topic]: !prev[topic],
+                      }))
+                    }
+                    onReplaceTopic={handleSpokeClick}
+                  />
+                )}
               </div>
-              <ActionButtons />
             </>
           ) : (
             <BelowThresholdChart
@@ -912,16 +1002,33 @@ function Compass() {
           )}
         </div>
 
-        {/* right: compare panel */}
-        {showChart && (comparePol || compareMode) && (
-          <div className="flex-1 min-w-[320px]">
-            <ComparePanel
-              politician={comparePol}
-              dropdownValue={dropdownValue}
-              setDropdownValue={setDropdownValue}
-              onSwitchPolitician={handleSwitchPolitician}
-              onClearComparison={handleClearComparison}
-            />
+        {/* right: compare panel or Compare entry button — always visible when chart is shown */}
+        {showChart && (
+          <div className="flex-[1] min-w-[280px] max-w-[360px]">
+            {(comparePol || compareMode) ? (
+              <ComparePanel
+                politician={comparePol}
+                dropdownValue={dropdownValue}
+                setDropdownValue={setDropdownValue}
+                onSwitchPolitician={handleSwitchPolitician}
+                onClearComparison={handleClearComparison}
+              />
+            ) : (
+              <div className="flex flex-col items-center gap-4 pt-8">
+                <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
+                  See how a candidate aligns with your compass
+                </p>
+                <button
+                  ref={(el) => {
+                    if (el && el.offsetWidth > 0) compareRef.current = el;
+                  }}
+                  onClick={() => setCompareMode(true)}
+                  className="px-6 py-2 text-sm bg-black text-white rounded-full hover:bg-ev-yellow-dark hover:text-black transition-colors cursor-pointer"
+                >
+                  Compare
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -962,22 +1069,32 @@ function Compass() {
             <>
               <Legend />
               <div className="w-full max-h-[calc(100dvh-240px)] mx-auto relative">
-                <RadarChart
-                  key={selectedTopics.length}
-                  data={chartData}
-                  unansweredSpokes={unansweredSpokesMap}
-                  compareData={compareAnswers}
-                  invertedSpokes={invertedSpokes}
-                  writeIns={writeIns}
-                  darkMode={isDark}
-                  onToggleInversion={(topic) =>
-                    setInvertedSpokes((prev) => ({
-                      ...prev,
-                      [topic]: !prev[topic],
-                    }))
-                  }
-                  onReplaceTopic={handleSpokeClick}
-                />
+                {comparePol && !compareHasEnoughSpokes ? (
+                  <div className="flex items-center justify-center py-12">
+                    <p className="text-center text-gray-500 dark:text-gray-400 text-sm px-6">
+                      Not enough shared topics to display a comparison compass.
+                    </p>
+                  </div>
+                ) : (
+                  <RadarChart
+                    key={(comparePol ? compareDisplayTopics?.length : selectedTopics.length) ?? selectedTopics.length}
+                    data={comparePol ? compareChartData : chartData}
+                    unansweredSpokes={comparePol ? compareUnansweredSpokesMap : unansweredSpokesMap}
+                    compareData={compareAnswers}
+                    invertedSpokes={invertedSpokes}
+                    writeIns={writeIns}
+                    darkMode={isDark}
+                    replacedSpokes={compareReplacedSpokes}
+                    boldOriginalSpokes={!!comparePol}
+                    onToggleInversion={(topic) =>
+                      setInvertedSpokes((prev) => ({
+                        ...prev,
+                        [topic]: !prev[topic],
+                      }))
+                    }
+                    onReplaceTopic={handleSpokeClick}
+                  />
+                )}
               </div>
             </>
           ) : (
