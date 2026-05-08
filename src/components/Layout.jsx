@@ -173,11 +173,12 @@ function Layout({ children }) {
 
     const count = Object.keys(ans).length;
 
-    // Restore local state + localStorage
-    setAnswers(ans);
-    setWriteIns(wi);
-    setInvertedSpokes(inv);
-    setSelectedTopics(sel);
+    // Write directly to localStorage — do NOT call React state setters here.
+    // State setters would trigger the ev-context write effect, which posts to the
+    // ev-context broker iframe; the MessagePort response arrives during an active
+    // React reconciliation cycle and crashes ev-ui with a TDZ error. Since we
+    // redirect with window.location.href below, localStorage is the source of
+    // truth and React state is irrelevant for this render.
     localStorage.setItem("answers", JSON.stringify(ans));
     localStorage.setItem("writeIns", JSON.stringify(wi));
     localStorage.setItem("invertedSpokes", JSON.stringify(inv));
@@ -186,10 +187,8 @@ function Layout({ children }) {
     localStorage.removeItem("calibration_skipped");
     localStorage.removeItem("calibration_progress");
 
-    // Re-sync answers to server and WAIT before navigating — the batch fetch in
-    // Compass.jsx fires on mount and uses the server as its source of truth.
-    // If we navigate before the POSTs land, the batch fetch sees empty server
-    // state and the compass appears blank even though local state is correct.
+    // Sync to server before navigating — Compass.jsx batch-fetches answers on
+    // mount so the server must be up-to-date before the page reloads.
     const titleToId = new Map(topics.map((t) => [t.short_title, t.id]));
     const syncPromises = Object.entries(ans).map(([shortTitle, value]) => {
       const topic_id = titleToId.get(shortTitle);
@@ -208,11 +207,8 @@ function Layout({ children }) {
 
     alert(`Stances restored (${count} topic${count === 1 ? "" : "s"}).`);
 
-    // Full-page navigate: localStorage already has the correct restored data, which
-    // CompassContext loads on mount. Avoids ev-context MessagePort events firing
-    // during in-flight React renders (which caused a whitescreen with the old
-    // setCompassVersion+navigate approach). CompassContext's allAnswersLoadedRef
-    // effect will re-push all answers to ev-context after the fresh load.
+    // Full reload — CompassContext reads localStorage on mount (correct state),
+    // then writes to ev-context once auth is resolved (safe, no active renders).
     window.location.href = '/results';
   };
 
