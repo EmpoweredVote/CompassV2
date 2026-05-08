@@ -356,10 +356,18 @@ export function Quiz() {
       if (isLastQuestion) {
         localStorage.removeItem(QUIZ_STORAGE_KEY);
         if (mode === "full") {
-          // Mark calibration complete and select all answered topics so the
-          // compass renders immediately at /build without re-triggering the overlay.
-          setSelectedTopics(fullQuizTopicIds);
-          localStorage.setItem("selectedTopics", JSON.stringify(fullQuizTopicIds));
+          // Keep the user's existing preferred 8 if they have a valid selection;
+          // otherwise default to the first 8 from the quiz. Never set all quiz
+          // topics as selected — that empties the replacement pool on profile pages.
+          const MAX_SPOKES = 8;
+          const existingValid = selectedTopics
+            .filter(id => fullQuizTopicIds.includes(id))
+            .slice(0, MAX_SPOKES);
+          const newSelection = existingValid.length >= 3
+            ? existingValid
+            : fullQuizTopicIds.slice(0, MAX_SPOKES);
+          setSelectedTopics(newSelection);
+          localStorage.setItem("selectedTopics", JSON.stringify(newSelection));
           localStorage.setItem("calibration_completed", "true");
           localStorage.removeItem("calibration_skipped");
           localStorage.removeItem("calibration_progress");
