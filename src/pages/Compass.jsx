@@ -705,7 +705,15 @@ function Compass() {
           })
           .filter(Boolean);
 
-        setAnswers(prev => ({ ...prev, ...Object.fromEntries(mapped) }));
+        setAnswers(prev => {
+          const next = { ...prev };
+          for (const [key, val] of mapped) {
+            // Don't overwrite an answer the user just set locally — the batch
+            // fetch can race with a stance click during calibration and revert it.
+            if (next[key] == null) next[key] = val;
+          }
+          return next;
+        });
 
         // Populate writeIns from saved write_in_text
         const writeInEntries = selectedTopics
