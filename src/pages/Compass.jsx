@@ -434,6 +434,13 @@ function Compass() {
     setCalibrationActive(true);
   };
 
+  // Declared here so all useMemo hooks that reference comparePol/compareDisplayTopics
+  // below are declared AFTER these state variables — prevents TDZ in the production
+  // bundle where the minifier merges const chains and incorrectly orders declarations.
+  const [comparePol, setComparePol] = useState(null); // { id, full_name/first/last, ... }
+  const [compareDisplayTopics, setCompareDisplayTopics] = useState(null);
+  const [compareReplacedSpokes, setCompareReplacedSpokes] = useState({});
+
   // -------- Chart data including all selected topics (unanswered = 0) --------
   const chartData = useMemo(() => {
     const data = {};
@@ -554,12 +561,6 @@ function Compass() {
   // Ref for the radar chart container — used as target for compare tour steps 2 & 3
   const chartContainerRef = useRef(null);
 
-  // NEW: selected comparison politician
-  const [comparePol, setComparePol] = useState(null); // { id, full_name/first/last, ... }
-  // Adjusted spoke list for compare mode (replaces unanswered spokes when possible)
-  const [compareDisplayTopics, setCompareDisplayTopics] = useState(null);
-  // short_titles of replacement spokes (not the user's original defaults)
-  const [compareReplacedSpokes, setCompareReplacedSpokes] = useState({});
 
   // -------- Compare switching callbacks --------
   const handleSwitchPolitician = (newPol) => {
