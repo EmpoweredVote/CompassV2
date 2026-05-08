@@ -183,7 +183,7 @@ function Library() {
   const chartData = useMemo(() => {
     if (!hasCompass) return {};
     return Object.fromEntries(
-      selectedTopics
+      selectedTopics.slice(0, 8)
         .map((id) => {
           const topic = topics.find((t) => t.id === id);
           if (!topic) return null;
@@ -343,7 +343,7 @@ function Library() {
               title={belowThreshold ? "Add more topics to see your compass" : "View your compass"}
             >
               <div className={belowThreshold ? "opacity-25 pointer-events-none select-none" : ""}>
-                <RadarChart data={chartData} invertedSpokes={invertedSpokes} labelFontSize={18} padding={70} labelOffset={20} />
+                <RadarChart data={chartData} invertedSpokes={invertedSpokes} labelFontSize={18} padding={100} labelOffset={70} />
               </div>
               {belowThreshold && (
                 <div className="absolute inset-0 flex items-center justify-center">
