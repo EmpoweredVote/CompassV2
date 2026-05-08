@@ -124,19 +124,35 @@ export function CompassProvider({ children }) {
   //   `s` (selectedTopics) per D-01 — only answers/writeIns/invertedSpokes.
   useEffect(() => {
     if (authChecking) return;
+    // Cap answers to selectedTopics (max 8) — prevents ev-ui TDZ crash when
+    // answers has 36 entries after a full calibration or restore.
+    const activeIds = new Set(selectedTopics.slice(0, 8));
+    const topicById = new Map(topics.map((t) => [t.id, t]));
+    const evAnswers = activeIds.size > 0 && topics.length > 0
+      ? Object.fromEntries(
+          [...activeIds]
+            .map((id) => {
+              const t = topicById.get(id);
+              return (t && answers[t.short_title] != null)
+                ? [t.short_title, answers[t.short_title]]
+                : null;
+            })
+            .filter(Boolean)
+        )
+      : answers;
     if (isLoggedIn) {
       if (!userId) return;
       evContext.setAuthedSlice(userId, {
-        compass: { a: answers, i: invertedSpokes, w: writeIns },
+        compass: { a: evAnswers, i: invertedSpokes, w: writeIns },
       }).catch(() => {});
       return;
     }
     const next = { ...evContextCacheRef.current, compass: {
-      a: answers, s: selectedTopics, i: invertedSpokes, w: writeIns,
+      a: evAnswers, s: selectedTopics, i: invertedSpokes, w: writeIns,
     }};
     evContextCacheRef.current = next;
     evContext.set(next).catch(() => {});
-  }, [authChecking, isLoggedIn, userId, answers, selectedTopics, invertedSpokes, writeIns]);
+  }, [authChecking, isLoggedIn, userId, answers, selectedTopics, invertedSpokes, writeIns, topics]);
 
 
   // Authed SWR hydrate (260426-mc5): when we learn the userId, read the
