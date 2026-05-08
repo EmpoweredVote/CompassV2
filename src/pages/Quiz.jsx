@@ -44,7 +44,7 @@ function SortableStanceLabel({ id, text }) {
     <div
       ref={setNodeRef}
       style={style}
-      className="px-4 py-2.5 rounded-lg text-sm sm:text-base font-medium bg-gray-50 dark:bg-zinc-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-zinc-700"
+      className="px-4 py-2.5 rounded-lg text-sm sm:text-base font-medium bg-[#F7F7F8] dark:bg-[#2F3237] text-[#535964] dark:text-[#D3D7DE] border border-[#D3D7DE] dark:border-[#41454E]"
     >
       {text}
     </div>
@@ -306,7 +306,7 @@ export function Quiz() {
   }, [currentIndex, quizTopicIds, topics, answers, writeIns]);
 
   if (!quizTopicIds.length || !topics.length) {
-    return <div className="flex items-center justify-center min-h-screen text-gray-500 dark:text-gray-400">Loading calibration...</div>;
+    return <div className="flex items-center justify-center min-h-screen bg-white dark:bg-[#131416] text-[#9CA3AF]">Loading calibration...</div>;
   }
 
   const currentTopicId = quizTopicIds[currentIndex];
@@ -483,8 +483,8 @@ export function Quiz() {
               className={`text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm sm:text-base font-medium cursor-pointer
               ${
                 selectedAnswer === stance.value
-                  ? "border-ev-yellow border-2 bg-ev-yellow-light"
-                  : "bg-white dark:bg-zinc-800 text-black dark:text-white border-2 border-gray-300 dark:border-zinc-600 hover:bg-gray-50 dark:hover:bg-zinc-700"
+                  ? "border-ev-yellow border-2 bg-ev-yellow-light dark:bg-[rgba(254,209,46,0.12)] text-[#2F3237] dark:text-[#EBEDEF]"
+                  : "bg-white dark:bg-[#2F3237] text-[#2F3237] dark:text-[#D3D7DE] border-2 border-[#D3D7DE] dark:border-[#41454E] hover:bg-gray-50 dark:hover:bg-[#41454E]"
               }`}
             >
               {stance.text}
@@ -500,7 +500,7 @@ export function Quiz() {
                 "write-in",
               ]);
             }}
-            className="text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm sm:text-base font-medium cursor-pointer border-2 border-dashed border-gray-400 dark:border-zinc-500 text-gray-500 dark:text-gray-400 hover:border-ev-yellow hover:text-black dark:hover:text-white"
+            className="text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm sm:text-base font-medium cursor-pointer border-2 border-dashed border-[#9CA3AF] dark:border-[#6B7280] text-[#8F9EBC] dark:text-[#6B7280] hover:border-ev-yellow hover:text-[#2F3237] dark:hover:text-[#D3D7DE]"
           >
             Write your own...
           </button>
@@ -547,13 +547,13 @@ export function Quiz() {
   // --- FULL MODE LAYOUT ---
   if (mode === "full") {
     return (
-      <div className="flex flex-col min-h-screen">
+      <div className="flex flex-col min-h-screen bg-white dark:bg-[#131416]">
         {/* Header */}
         <div className="flex justify-between items-center px-4 pt-3 md:px-6 md:pt-4">
           <div />
           <button
             onClick={() => navigate("/library")}
-            className="p-2 rounded-full text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors duration-200 cursor-pointer"
+            className="p-2 rounded-full text-[#9CA3AF] hover:text-[#2F3237] dark:hover:text-[#EBEDEF] hover:bg-[#EBEDEF] dark:hover:bg-[#2F3237] transition-colors duration-200 cursor-pointer"
             aria-label="Exit calibration"
           >
             <svg
@@ -574,7 +574,7 @@ export function Quiz() {
         {/* Category label */}
         {currentCategory && (
           <div className="text-center mt-2">
-            <span className="inline-block px-3 py-1 rounded-full bg-gray-100 dark:bg-zinc-800 text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
+            <span className="inline-block px-3 py-1 rounded-full bg-[#EBEDEF] dark:bg-[#2F3237] text-xs font-medium text-[#535964] dark:text-[#9CA3AF] uppercase tracking-wide">
               {currentCategory.title}
             </span>
           </div>
@@ -587,7 +587,7 @@ export function Quiz() {
           return (
             <div className="text-center px-4 mt-4 mb-2">
               <div className="flex items-center justify-center gap-2">
-                <h1 className="text-xl md:text-2xl font-semibold dark:text-white">{question || topicName}</h1>
+                <h1 className="text-xl md:text-2xl font-semibold text-[#2F3237] dark:text-[#EBEDEF]">{question || topicName}</h1>
                 <a
                   href="/how-it-works#spectrum-direction"
                   target="_blank"
@@ -602,7 +602,7 @@ export function Quiz() {
                 </a>
               </div>
               {question && (
-                <p className="text-base text-gray-500 dark:text-gray-400 font-normal mt-1">{topicName}</p>
+                <p className="text-base text-[#535964] dark:text-[#9CA3AF] font-normal mt-1">{topicName}</p>
               )}
             </div>
           );
@@ -616,7 +616,7 @@ export function Quiz() {
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm border-t border-gray-100 dark:border-zinc-700">
+        <div className="sticky bottom-0 bg-white/90 dark:bg-[#131416]/95 backdrop-blur-sm border-t border-[#D3D7DE] dark:border-[#41454E]">
           <footer className="flex justify-between items-center mx-4 my-3 md:mx-10">
             <button
               onClick={handleBack}
@@ -624,15 +624,15 @@ export function Quiz() {
               className={`px-6 py-2 rounded-full border text-sm font-medium transition-colors duration-200
               ${
                 currentIndex === 0
-                  ? "bg-gray-200 dark:bg-zinc-700 text-gray-400 border-gray-200 dark:border-zinc-700 cursor-not-allowed"
-                  : "bg-white dark:bg-zinc-800 text-black dark:text-white border-black dark:border-zinc-500 hover:bg-gray-100 dark:hover:bg-zinc-700 cursor-pointer"
+                  ? "bg-[#D3D7DE] dark:bg-[#41454E] text-[#9CA3AF] border-[#D3D7DE] dark:border-[#41454E] cursor-not-allowed"
+                  : "bg-white dark:bg-[#2F3237] text-[#535964] dark:text-[#D3D7DE] border-[#D3D7DE] dark:border-[#41454E] hover:bg-gray-50 dark:hover:bg-[#41454E] cursor-pointer"
               }`}
             >
               Back
             </button>
 
             <div className="flex flex-col text-center items-center">
-              <div className="w-32 md:w-48 h-1.5 bg-gray-200 dark:bg-zinc-700 rounded-full overflow-hidden mb-1">
+              <div className="w-32 md:w-48 h-1.5 bg-[#D3D7DE] dark:bg-[#41454E] rounded-full overflow-hidden mb-1">
                 <div
                   className="h-full bg-ev-yellow rounded-full transition-all duration-300"
                   style={{
@@ -640,7 +640,7 @@ export function Quiz() {
                   }}
                 />
               </div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="text-sm text-[#535964] dark:text-[#9CA3AF]">
                 {currentIndex + 1} of {quizTopicIds.length}
               </p>
             </div>
@@ -651,8 +651,8 @@ export function Quiz() {
               className={`px-6 py-2 rounded-full border text-sm font-medium transition-colors duration-200
               ${
                 selectedAnswer
-                  ? "bg-black text-white border-black hover:opacity-90 cursor-pointer"
-                  : "bg-gray-200 dark:bg-zinc-700 text-gray-400 border-gray-200 dark:border-zinc-700 cursor-not-allowed"
+                  ? "bg-ev-muted-blue text-white border-ev-muted-blue hover:opacity-90 cursor-pointer"
+                  : "bg-[#D3D7DE] dark:bg-[#41454E] text-[#9CA3AF] border-[#D3D7DE] dark:border-[#41454E] cursor-not-allowed"
               }`}
             >
               {isLastQuestion ? "Finish" : "Next"}
@@ -695,7 +695,7 @@ export function Quiz() {
           return (
             <div className="text-center mt-1 md:mt-4 px-4">
               <div className="flex items-center justify-center gap-2">
-                <h1 className="text-xl md:text-2xl font-semibold dark:text-white">{question || topicName}</h1>
+                <h1 className="text-xl md:text-2xl font-semibold text-[#2F3237] dark:text-[#EBEDEF]">{question || topicName}</h1>
                 <a
                   href="/how-it-works#spectrum-direction"
                   target="_blank"
@@ -710,7 +710,7 @@ export function Quiz() {
                 </a>
               </div>
               {question && (
-                <p className="text-base text-gray-500 dark:text-gray-400 font-normal mt-1">{topicName}</p>
+                <p className="text-base text-[#535964] dark:text-[#9CA3AF] font-normal mt-1">{topicName}</p>
               )}
             </div>
           );
@@ -756,7 +756,7 @@ export function Quiz() {
           </button>
 
           <div className="flex flex-col text-center items-center">
-            <div className="w-32 md:w-48 h-1.5 bg-gray-200 dark:bg-zinc-700 rounded-full overflow-hidden mb-2">
+            <div className="w-32 md:w-48 h-1.5 bg-[#D3D7DE] dark:bg-[#41454E] rounded-full overflow-hidden mb-2">
               <div
                 className="h-full bg-ev-yellow rounded-full transition-all duration-300"
                 style={{
@@ -764,7 +764,7 @@ export function Quiz() {
                 }}
               />
             </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <p className="text-sm text-[#535964] dark:text-[#9CA3AF]">
               {currentIndex + 1} of {selectedTopics.length}
             </p>
           </div>
