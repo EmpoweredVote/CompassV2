@@ -4,12 +4,12 @@ import { useNavigate } from "react-router";
 import { apiFetch } from "../lib/auth";
 
 const CATEGORY_COLORS = [
-  { bg: "bg-blue-50", border: "border-blue-400", text: "text-blue-700", accent: "bg-blue-400" },
-  { bg: "bg-emerald-50", border: "border-emerald-400", text: "text-emerald-700", accent: "bg-emerald-400" },
-  { bg: "bg-purple-50", border: "border-purple-400", text: "text-purple-700", accent: "bg-purple-400" },
-  { bg: "bg-amber-50", border: "border-amber-400", text: "text-amber-700", accent: "bg-amber-400" },
-  { bg: "bg-rose-50", border: "border-rose-400", text: "text-rose-700", accent: "bg-rose-400" },
-  { bg: "bg-cyan-50", border: "border-cyan-400", text: "text-cyan-700", accent: "bg-cyan-400" },
+  { bg: "bg-blue-50 dark:bg-[#1a2830]", border: "border-blue-400 dark:border-[#59B0C4]", text: "text-blue-700 dark:text-[#59B0C4]", accent: "bg-blue-400 dark:bg-[#59B0C4]" },
+  { bg: "bg-emerald-50 dark:bg-[#182618]", border: "border-emerald-400 dark:border-[#5A9A6E]", text: "text-emerald-700 dark:text-[#5A9A6E]", accent: "bg-emerald-400 dark:bg-[#5A9A6E]" },
+  { bg: "bg-purple-50 dark:bg-[#22182a]", border: "border-purple-400 dark:border-[#7C6B9E]", text: "text-purple-700 dark:text-[#7C6B9E]", accent: "bg-purple-400 dark:bg-[#7C6B9E]" },
+  { bg: "bg-amber-50 dark:bg-[#2a2010]", border: "border-amber-400 dark:border-[#D4940B]", text: "text-amber-700 dark:text-[#D4940B]", accent: "bg-amber-400 dark:bg-[#D4940B]" },
+  { bg: "bg-rose-50 dark:bg-[#2a1818]", border: "border-rose-400 dark:border-[#FF5740]", text: "text-rose-700 dark:text-[#FF5740]", accent: "bg-rose-400 dark:bg-[#FF5740]" },
+  { bg: "bg-cyan-50 dark:bg-[#182428]", border: "border-cyan-400 dark:border-[#59B0C4]", text: "text-cyan-700 dark:text-[#59B0C4]", accent: "bg-cyan-400 dark:bg-[#59B0C4]" },
 ];
 
 const MAX_TOPICS = 8;
@@ -94,18 +94,18 @@ function BuildCompass() {
   return (
     <>
       <div className="mt-6 px-4 md:px-0">
-        <h1 className="text-3xl md:text-4xl font-semibold mb-2 text-center">
+        <h1 className="text-3xl md:text-4xl font-semibold mb-2 text-center text-[#2F3237] dark:text-[#EBEDEF]">
           Build Your Compass
         </h1>
-        <p className="text-gray-500 text-center text-sm md:text-base mb-2">
+        <p className="text-[#535964] dark:text-[#9CA3AF] text-center text-sm md:text-base mb-2">
           Choose up to {MAX_TOPICS} topics to display on your compass
         </p>
         <p className="text-center text-sm font-medium mb-6">
-          <span className={picked.length >= MIN_TOPICS ? "text-green-600" : "text-gray-500"}>
+          <span className={picked.length >= MIN_TOPICS ? "text-green-600 dark:text-[#5A9A6E]" : "text-[#535964] dark:text-[#9CA3AF]"}>
             {picked.length} of {MAX_TOPICS} selected
           </span>
           {picked.length < MIN_TOPICS && (
-            <span className="text-gray-400 ml-2">(minimum {MIN_TOPICS})</span>
+            <span className="text-[#9CA3AF] ml-2">(minimum {MIN_TOPICS})</span>
           )}
         </p>
       </div>
@@ -128,7 +128,7 @@ function BuildCompass() {
 
           return (
             <div key={category.id} className="mb-8">
-              <h2 className="text-lg md:text-xl font-semibold mb-3 flex items-center gap-2">
+              <h2 className="text-lg md:text-xl font-semibold mb-3 flex items-center gap-2 text-[#2F3237] dark:text-[#EBEDEF]">
                 <span className={`inline-block w-3 h-3 rounded-full ${color.accent}`} />
                 {category.title}
               </h2>
@@ -144,19 +144,19 @@ function BuildCompass() {
                       disabled={isAtMax}
                       className={`relative text-left px-4 py-3 rounded-xl border-2 transition-all duration-200 ${
                         isAtMax
-                          ? "bg-gray-50 border-gray-100 text-gray-400 cursor-not-allowed"
+                          ? "bg-gray-50 dark:bg-[#1E2124] border-gray-100 dark:border-[#2F3237] text-gray-400 dark:text-[#535964] cursor-not-allowed"
                           : "cursor-pointer"
                       } ${
                         isPicked
                           ? `${color.bg} ${color.border} shadow-sm`
                           : !isAtMax
-                          ? "bg-white border-gray-200 hover:border-gray-300 hover:shadow-sm"
+                          ? "bg-white dark:bg-[#2F3237] border-gray-200 dark:border-[#41454E] hover:border-gray-300 dark:hover:border-[#59B0C4] hover:shadow-sm"
                           : ""
                       }`}
                     >
                       <div className={`absolute top-0 left-0 w-1 h-full rounded-l-xl ${color.accent}`} />
                       <div className="flex items-start justify-between gap-1">
-                        <span className="text-sm md:text-base font-medium leading-snug">
+                        <span className="text-sm md:text-base font-medium leading-snug text-[#2F3237] dark:text-[#EBEDEF]">
                           {topic.short_title}
                         </span>
                         {isPicked && (
@@ -164,7 +164,7 @@ function BuildCompass() {
                             xmlns="http://www.w3.org/2000/svg"
                             viewBox="0 0 20 20"
                             fill="currentColor"
-                            className="w-4 h-4 shrink-0 mt-0.5 text-green-500"
+                            className="w-4 h-4 shrink-0 mt-0.5 text-green-500 dark:text-[#5A9A6E]"
                           >
                             <path
                               fillRule="evenodd"
@@ -197,8 +197,8 @@ function BuildCompass() {
           disabled={picked.length < MIN_TOPICS}
           className={`pointer-events-auto px-6 py-3 rounded-full text-sm font-semibold shadow-lg transition-all duration-200 ${
             picked.length >= MIN_TOPICS
-              ? "bg-black text-white hover:opacity-90 cursor-pointer"
-              : "bg-gray-200 text-gray-400 cursor-not-allowed"
+              ? "bg-ev-muted-blue text-white hover:opacity-90 cursor-pointer"
+              : "bg-[#D3D7DE] dark:bg-[#41454E] text-[#9CA3AF] cursor-not-allowed"
           }`}
         >
           View My Compass{picked.length >= MIN_TOPICS && ` (${picked.length})`}
