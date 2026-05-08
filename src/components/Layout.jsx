@@ -208,20 +208,12 @@ function Layout({ children }) {
 
     alert(`Stances restored (${count} topic${count === 1 ? "" : "s"}).`);
 
-    // Bump compassVersion to remount Compass.jsx — this resets its local calibration
-    // state (calibrationActive etc.) without a full page reload, so all the correctly
-    // restored CompassContext state (answers, selectedTopics) is preserved intact.
-    setCompassVersion((v) => v + 1);
-    // Navigate to /results so the user sees the compass. If already there the key
-    // change above is sufficient; navigate is still called to ensure they land there.
-    navigate('/results');
-
-    // Update ev-context cache in background so other subdomains see the restored data.
-    if (userId) {
-      evContext.setAuthedSlice(userId, {
-        compass: { a: ans, i: inv, w: wi },
-      }).catch(() => {});
-    }
+    // Full-page navigate: localStorage already has the correct restored data, which
+    // CompassContext loads on mount. Avoids ev-context MessagePort events firing
+    // during in-flight React renders (which caused a whitescreen with the old
+    // setCompassVersion+navigate approach). CompassContext's allAnswersLoadedRef
+    // effect will re-push all answers to ev-context after the fresh load.
+    window.location.href = '/results';
   };
 
   const handleNavigate = (href) => {
