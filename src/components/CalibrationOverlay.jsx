@@ -71,7 +71,7 @@ const LIGHT_THEME = {
   borderAccent:   '#00657C',
   textHead:       '#2F3237',
   textBody:       '#535964',
-  textMuted:      '#8F9EBC',
+  textMuted:      '#6d7a9a',
   textAccent:     '#00657C',
   btnBg:          '#005366',
   btnText:        '#FFFFFF',
@@ -858,7 +858,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
             </p>
             <p
               className="text-base max-w-sm leading-relaxed mb-10"
-              style={{ color: t.textMuted }}
+              style={{ color: t.textBody }}
             >
               Have you ever got down to the bottom of your ballot, and found you didn&apos;t know a thing about any of the candidates, let alone their stances and priorities&hellip;?
               <br /><br />
