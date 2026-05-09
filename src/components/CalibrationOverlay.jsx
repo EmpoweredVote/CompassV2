@@ -358,7 +358,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
   }, [topics, resumeMode, startAtPick]);
 
   useEffect(() => {
-    if (step === "welcome" || step === "complete") return;
+    if (step === "welcome" || step === "lens_intro" || step === "complete") return;
     const progress = { step, pickedTopics, currentIndex, resumeMode: resumeMode || false };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
   }, [step, pickedTopics, currentIndex, resumeMode]);
@@ -491,7 +491,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     const lensIds = LOCAL_LENS.topicIds.filter(id => topics.some(t => t.id === id));
     setPickedTopics(lensIds);
     setLensApplied(true);
-    setStep("pick");
+    setStep("lens_intro");
   };
 
   const handleSkip = () => {
@@ -927,6 +927,109 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
                       {s.desc}
                     </p>
                   </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+        </div>
+      </div>
+    );
+  }
+
+  // ============================
+  // STEP: LENS INTRO
+  // Shown after "Start with Local Lens" — explains why local issues matter
+  // and bridges directly to the answer step, skipping the topic picker.
+  // ============================
+  if (step === "lens_intro") {
+    const lensTopics = pickedTopics
+      .map(id => topics.find(t => t.id === id))
+      .filter(Boolean);
+
+    return (
+      <div
+        className={`fixed ${overlayTop} left-0 right-0 bottom-0 z-50 overflow-y-auto flex flex-col`}
+        style={{ background: t.bg }}
+      >
+        <div className="absolute top-4 right-4 z-10"><DarkToggle /></div>
+
+        <div className="flex flex-col lg:flex-row min-h-full">
+
+          {/* ── Left: narrative ── */}
+          <div className="flex flex-col justify-center px-8 py-16 lg:py-24 lg:w-1/2 lg:pl-16 lg:pr-10">
+
+            {/* Local Lens badge */}
+            <div className="flex items-center gap-2 mb-6">
+              <div
+                className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+                style={{ background: '#5A9A6E' }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="white" className="w-4 h-4">
+                  <path fillRule="evenodd" d="M9.293 2.293a1 1 0 011.414 0l7 7A1 1 0 0117 11h-1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-3a1 1 0 00-1-1H9a1 1 0 00-1 1v3a1 1 0 01-1 1H5a1 1 0 01-1-1v-6H3a1 1 0 01-.707-1.707l7-7z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <span
+                className="text-sm font-bold tracking-widest uppercase"
+                style={{ color: '#5A9A6E' }}
+              >
+                Local Lens
+              </span>
+            </div>
+
+            <h1
+              className="text-4xl md:text-5xl font-extrabold leading-tight mb-6"
+              style={{ color: t.textHead, letterSpacing: '-0.03em' }}
+            >
+              Local issues.<br />
+              <span style={{ color: '#5A9A6E' }}>Your real power.</span>
+            </h1>
+
+            <p className="text-base leading-relaxed mb-4" style={{ color: t.textBody }}>
+              Most civic education focuses on federal politics — presidents, Congress, senators. But
+              your vote has the most impact at the local level.
+            </p>
+            <p className="text-base leading-relaxed mb-10" style={{ color: t.textBody }}>
+              City councils, mayors, and local officials make the decisions that shape your daily
+              life: housing costs, public safety, schools, and development. In local elections,
+              turnout often falls below 20% — which means your vote here matters more than almost
+              anywhere else.
+            </p>
+
+            <button
+              onClick={handleContinueToAnswer}
+              className="flex items-center gap-2 px-8 py-3.5 rounded-full font-bold text-base transition-all hover:opacity-90 active:scale-95 cursor-pointer shadow-md self-start mb-3"
+              style={{ background: '#5A9A6E', color: '#FFFFFF' }}
+            >
+              Start finding my stances →
+            </button>
+
+            <button
+              onClick={() => setStep("pick")}
+              className="text-sm self-start px-1 transition-opacity hover:opacity-70 cursor-pointer"
+              style={{ color: t.textMuted }}
+            >
+              ← Change my topics
+            </button>
+
+          </div>
+
+          {/* ── Right: selected topics preview ── */}
+          <div className="flex flex-col justify-center px-8 pb-16 lg:py-24 lg:w-1/2 lg:pr-16 lg:pl-8">
+            <p
+              className="text-xs font-bold tracking-widest uppercase mb-4"
+              style={{ color: '#5A9A6E' }}
+            >
+              {lensTopics.length} topics we&apos;ll ask about
+            </p>
+            <div className="flex flex-col gap-2 max-w-md w-full mx-auto lg:mx-0">
+              {lensTopics.map(topic => (
+                <div
+                  key={topic.id}
+                  className="px-4 py-3 rounded-xl text-sm font-medium"
+                  style={{ background: t.card, border: `1px solid ${t.border}`, color: t.textBody }}
+                >
+                  {parseTensionTitle(topic).name || topic.short_title}
                 </div>
               ))}
             </div>
