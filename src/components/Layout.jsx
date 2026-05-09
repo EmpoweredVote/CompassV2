@@ -218,6 +218,14 @@ function Layout({ children }) {
 
     alert(`Stances restored (${count} topic${count === 1 ? "" : "s"}).`);
 
+    // Guards consumed on the next page load:
+    // - restore_calibration_bypass → Compass.jsx forces calibrationCompleted=true
+    // - restore_skip_server_sel   → CompassContext skips the server GET for
+    //   selectedTopics so the restored localStorage value isn't overwritten by
+    //   potentially stale server data.
+    sessionStorage.setItem("restore_calibration_bypass", "1");
+    sessionStorage.setItem("restore_skip_server_sel", "1");
+
     // Full reload — CompassContext reads localStorage on mount (correct state),
     // then writes to ev-context once auth is resolved (safe, no active renders).
     window.location.href = '/results';

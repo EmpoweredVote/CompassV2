@@ -302,6 +302,13 @@ export function CompassProvider({ children }) {
       serverLoaded.current = true;
       return;
     }
+    // After Restore Stances the localStorage value is authoritative — skip the
+    // server GET so stale server data doesn't overwrite the restored topics.
+    if (sessionStorage.getItem("restore_skip_server_sel") === "1") {
+      sessionStorage.removeItem("restore_skip_server_sel");
+      serverLoaded.current = true;
+      return;
+    }
     try {
       const res = await apiFetch('/compass/selected-topics');
       if (res && res.ok) {
