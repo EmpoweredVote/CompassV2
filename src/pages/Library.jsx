@@ -7,6 +7,7 @@ import LibraryDrawer from "../components/LibraryDrawer";
 import CoachMark from "../components/CoachMark";
 import { getQuestionText, parseTensionTitle } from "../util/topic";
 import { TopicTierBadge } from "@empoweredvote/ev-ui";
+import { LOCAL_LENS } from "../lib/lenses";
 
 const CATEGORY_COLORS = [
   { bg: "bg-blue-50", border: "border-blue-400", text: "text-blue-700", accent: "bg-blue-400" },
@@ -313,6 +314,21 @@ function Library() {
   const answeredCount = answeredTopicIDs.filter((id) => activeTopicIDs.has(id)).length;
   const unansweredCount = totalTopics - answeredCount;
 
+  const answeredSet = useMemo(() => new Set(answeredTopicIDs), [answeredTopicIDs]);
+  const localLensTopicIds = useMemo(
+    () => LOCAL_LENS.topicIds.filter(id => topics.some(t => t.id === id)),
+    [topics]
+  );
+  const localLensRemaining = useMemo(
+    () => localLensTopicIds.filter(id => !answeredSet.has(id)).length,
+    [localLensTopicIds, answeredSet]
+  );
+
+  const handleStartLocalLens = () => {
+    sessionStorage.setItem("start_local_lens", "1");
+    navigate("/results");
+  };
+
   // Reset filter to "All" when everything is answered
   useEffect(() => {
     if (unansweredCount === 0 && !showAll) setShowAll(true);
@@ -419,32 +435,56 @@ function Library() {
       {/* ── Divider ── */}
       <div className="border-t border-gray-200 dark:border-zinc-700 mx-6 my-4" />
 
-      {/* ── Full Quiz CTA ── */}
-      <div className="mx-4 md:mx-auto max-w-3xl mb-6">
+      {/* ── Calibration CTAs ── */}
+      <div className="mx-4 md:mx-auto max-w-3xl mb-6 flex flex-col sm:flex-row gap-2">
+        {/* Local Lens — primary, left/wider */}
+        <div className="group relative flex-1">
+          <button
+            onClick={handleStartLocalLens}
+            style={{ background: '#5A9A6E', color: '#ffffff' }}
+            className="w-full h-full flex items-center justify-between gap-4 px-5 py-4 rounded-xl cursor-pointer hover:opacity-90 transition-all"
+          >
+            <div className="flex items-center gap-3">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 shrink-0 opacity-90">
+                <path d="M11.47 3.841a.75.75 0 0 1 1.06 0l8.69 8.69a.75.75 0 1 0 1.06-1.061l-8.689-8.69a2.25 2.25 0 0 0-3.182 0l-8.69 8.69a.75.75 0 1 0 1.061 1.06l8.69-8.689Z" />
+                <path d="m12 5.432 8.159 8.159c.03.03.06.058.091.086v6.198c0 1.035-.84 1.875-1.875 1.875H15a.75.75 0 0 1-.75-.75v-4.5a.75.75 0 0 0-.75-.75h-3a.75.75 0 0 0-.75.75V21a.75.75 0 0 1-.75.75H5.625a1.875 1.875 0 0 1-1.875-1.875v-6.198a2.29 2.29 0 0 0 .091-.086L12 5.432Z" />
+              </svg>
+              <div className="text-left">
+                <p className="font-semibold text-base leading-tight">Local Lens</p>
+                {localLensRemaining > 0 ? (
+                  <p className="text-sm opacity-80">{localLensRemaining} question{localLensRemaining !== 1 ? "s" : ""} remaining</p>
+                ) : (
+                  <p className="text-sm opacity-80">All local questions answered</p>
+                )}
+              </div>
+            </div>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5 shrink-0 opacity-70">
+              <path fillRule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clipRule="evenodd" />
+            </svg>
+          </button>
+          {/* Hover tooltip */}
+          <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 bg-gray-900 dark:bg-zinc-700 text-white text-xs rounded-lg px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity z-10 text-center">
+            The most commonly answered local election topics — quickly see how you compare with your city and county leaders
+            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-zinc-700" />
+          </div>
+        </div>
+
+        {/* Full Calibration — secondary, right/narrower */}
         <button
           ref={fullCalRef}
           onClick={() => navigate("/quiz?mode=full")}
-          className="w-full flex items-center justify-between gap-4 px-5 py-4 rounded-xl bg-ev-yellow hover:bg-ev-yellow-dark transition-colors cursor-pointer group"
+          className="flex flex-col items-start justify-between gap-2 px-4 py-4 rounded-xl bg-ev-yellow hover:bg-ev-yellow-dark transition-colors cursor-pointer group w-full sm:w-auto sm:min-w-[160px]"
         >
           <div className="text-left">
-            <p className="font-semibold text-base md:text-lg text-black">
-              Take the Full Calibration
-            </p>
-            <p className="text-sm text-black/60">
-              Answer every question, then choose which topics appear on your compass
-            </p>
+            <p className="font-semibold text-sm text-black leading-tight">Full Calibration</p>
+            {unansweredCount > 0 ? (
+              <p className="text-xs text-black/60 mt-0.5">{unansweredCount} question{unansweredCount !== 1 ? "s" : ""} left</p>
+            ) : (
+              <p className="text-xs text-black/60 mt-0.5">All answered</p>
+            )}
           </div>
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-            className="w-5 h-5 shrink-0 text-black/40 group-hover:text-black transition-colors"
-          >
-            <path
-              fillRule="evenodd"
-              d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z"
-              clipRule="evenodd"
-            />
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-black/40 group-hover:text-black transition-colors self-end">
+            <path fillRule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clipRule="evenodd" />
           </svg>
         </button>
       </div>

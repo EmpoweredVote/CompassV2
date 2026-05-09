@@ -305,7 +305,7 @@ function BackArrow() {
 // Main component
 // ────────────────────────────────────────────────
 
-export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = false, startAtPick = false }) {
+export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = false, startAtPick = false, startWithLocalLens = false }) {
   const {
     topics,
     categories,
@@ -330,6 +330,11 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
 
   // Load persisted progress on mount, honouring resumeMode and startAtPick
   const getInitialState = () => {
+    if (startWithLocalLens) {
+      const lensIds = LOCAL_LENS.topicIds.filter(id => topics.some(t => t.id === id));
+      return { step: "lens_intro", pickedTopics: lensIds, currentIndex: 0, lensApplied: true };
+    }
+
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
@@ -394,9 +399,10 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     setStep(initial.step);
     setPickedTopics(initial.pickedTopics);
     setCurrentIndex(initial.currentIndex);
+    if (initial.lensApplied) setLensApplied(true);
     initializedRef.current = true;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [topics, resumeMode, startAtPick]);
+  }, [topics, resumeMode, startAtPick, startWithLocalLens]);
 
   useEffect(() => {
     if (step === "welcome" || step === "lens_intro" || step === "complete") return;

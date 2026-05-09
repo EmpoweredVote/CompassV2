@@ -356,9 +356,16 @@ function Compass() {
     }
     return localStorage.getItem("calibration_completed") === "true";
   });
+  // startWithLocalLens: consumed once from sessionStorage when Library's Local Lens button is clicked
+  const [startWithLocalLens, setStartWithLocalLens] = useState(() => {
+    const flag = sessionStorage.getItem("start_local_lens") === "1";
+    if (flag) sessionStorage.removeItem("start_local_lens");
+    return flag;
+  });
+
   // calibrationActive: overlay is currently in progress — stays true even if answeredCompassCount changes mid-flow
   const [calibrationActive, setCalibrationActive] = useState(
-    () => !!localStorage.getItem("calibration_progress")
+    () => !!localStorage.getItem("calibration_progress") || startWithLocalLens
   );
 
   // Celebration screen edge case: if calibration_progress exists but all pickedTopics are already
@@ -900,6 +907,7 @@ function Compass() {
       <CalibrationOverlay
         resumeMode={resumeMode}
         startAtPick={startAtPick}
+        startWithLocalLens={startWithLocalLens}
         onComplete={() => {
           localStorage.removeItem("calibration_skipped");
           localStorage.removeItem("calibration_progress");
@@ -908,6 +916,7 @@ function Compass() {
           setCalibrationCompleted(true);
           setCalibrationActive(false);
           setStartAtPick(false);
+          setStartWithLocalLens(false);
           // Start post-cal tour if not already dismissed
           if (!localStorage.getItem("onboarding_postCalTour")) {
             // Small delay to let compass render before positioning coach marks
@@ -920,6 +929,7 @@ function Compass() {
           localStorage.removeItem("calibration_progress");
           setCalibrationActive(false);
           setStartAtPick(false);
+          setStartWithLocalLens(false);
           if (answeredCompassCount === 0) navigate("/library");
         }}
       />
