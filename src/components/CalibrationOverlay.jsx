@@ -19,6 +19,7 @@ import {
   SortableContext,
   useSortable,
   verticalListSortingStrategy,
+  horizontalListSortingStrategy,
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -155,6 +156,46 @@ function SortableStanceLabel({ id, text, isDark }) {
       className="px-4 py-2.5 rounded-lg text-sm font-medium"
     >
       {text}
+    </div>
+  );
+}
+
+function SortableTopicPill({ id, label, onRemove, t }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id, transition: SMOOTH_TRANSITION });
+
+  return (
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      style={{
+        transform: CSS.Translate.toString(transform),
+        transition: isDragging ? undefined : transition,
+        opacity: isDragging ? 0.5 : 1,
+        background: t.selBg,
+        border: `1.5px solid ${t.borderAccent}`,
+        color: t.textAccent,
+        touchAction: 'none',
+      }}
+      className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium cursor-grab active:cursor-grabbing select-none"
+    >
+      {label}
+      <button
+        onClick={(e) => { e.stopPropagation(); onRemove(); }}
+        onPointerDown={(e) => e.stopPropagation()}
+        className="ml-0.5 leading-none cursor-pointer hover:opacity-70 transition-opacity"
+        style={{ color: t.textAccent }}
+        aria-label={`Remove ${label}`}
+      >
+        ×
+      </button>
     </div>
   );
 }
@@ -657,6 +698,45 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     selectWriteInPlacement(midpointValue);
   };
 
+  const handleStanceMax = () => {
+    setInvertedSpokes((prev) => {
+      const next = { ...prev };
+      for (const id of pickedTopics) {
+        const topic = topics.find((t) => t.id === id);
+        if (!topic) continue;
+        const val = answers[topic.short_title];
+        if (val == null || val <= 0) continue;
+        const isInverted = !!next[topic.short_title];
+        const displayVal = isInverted ? 6 - val : val;
+        if (displayVal <= 2) next[topic.short_title] = !isInverted;
+      }
+      return next;
+    });
+  };
+
+  const handleStanceMin = () => {
+    setInvertedSpokes((prev) => {
+      const next = { ...prev };
+      for (const id of pickedTopics) {
+        const topic = topics.find((t) => t.id === id);
+        if (!topic) continue;
+        const val = answers[topic.short_title];
+        if (val == null || val <= 0) continue;
+        const isInverted = !!next[topic.short_title];
+        const displayVal = isInverted ? 6 - val : val;
+        if (displayVal >= 4) next[topic.short_title] = !isInverted;
+      }
+      return next;
+    });
+  };
+
+  const handlePickDragEnd = ({ active, over }) => {
+    if (!over || active.id === over.id) return;
+    const oldIndex = pickedTopics.indexOf(active.id);
+    const newIndex = pickedTopics.indexOf(over.id);
+    setPickedTopics(arrayMove(pickedTopics, oldIndex, newIndex));
+  };
+
   const handleWriteInTextChange = (newText) => {
     setWriteInText(newText);
     if (selectedAnswer && !Number.isInteger(selectedAnswer)) {
@@ -1091,6 +1171,38 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
 
             <DarkToggle />
           </div>
+
+          {/* Draggable topic pill strip */}
+          <div className="max-w-5xl mx-auto mt-2">
+            {pickedTopics.length > 0 ? (
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handlePickDragEnd}>
+                <SortableContext items={pickedTopics} strategy={horizontalListSortingStrategy}>
+                  <div
+                    className="flex gap-1.5 overflow-x-auto pb-1"
+                    style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                  >
+                    {pickedTopics.map((id) => {
+                      const topic = topics.find((tp) => tp.id === id);
+                      const label = topic ? (parseTensionTitle(topic).name || topic.short_title) : String(id);
+                      return (
+                        <SortableTopicPill
+                          key={id}
+                          id={id}
+                          label={label}
+                          onRemove={() => togglePick(id)}
+                          t={t}
+                        />
+                      );
+                    })}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            ) : (
+              <p className="text-xs" style={{ color: t.textMuted }}>
+                ↓ Tap topics below to add them to your compass
+              </p>
+            )}
+          </div>
         </div>
 
         {/* ── Topic list ── */}
@@ -1356,8 +1468,8 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
         {/* Main content: compass + stances */}
         <div className="flex-1 flex flex-col md:flex-row md:overflow-hidden">
           {/* Compass — left side, sized to viewport height so it grows big on larger screens */}
-          <div className="md:basis-1/2 flex items-center justify-center px-2 md:pt-4">
-            <div className="w-full max-w-[440px] md:max-w-[min(calc(50vw-2rem),calc(100vh-200px))] aspect-square mx-auto">
+          <div className="md:basis-1/2 flex flex-col items-center justify-center px-2 md:pt-4 gap-3">
+            <div className="w-full max-w-[440px] md:max-w-[min(calc(50vw-2rem),calc(100vh-220px))] aspect-square mx-auto">
               <RadarChart
                 data={chartData}
                 invertedSpokes={invertedSpokes}
@@ -1371,6 +1483,32 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
                   }))
                 }
               />
+            </div>
+
+            {/* Stance Max / Min — flip low spokes out or high spokes in */}
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={handleStanceMax}
+                title="Flip any spoke showing 1–2 to its strong side — see who agrees with your most committed stances"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-opacity cursor-pointer hover:opacity-80"
+                style={{ background: t.cardElev, border: `1px solid ${t.border}`, color: t.textBody }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5 shrink-0">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
+                </svg>
+                Stance Max
+              </button>
+              <button
+                onClick={handleStanceMin}
+                title="Flip any spoke showing 4–5 to its moderate side — see who disagrees with you most"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-opacity cursor-pointer hover:opacity-80"
+                style={{ background: t.cardElev, border: `1px solid ${t.border}`, color: t.textBody }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5 shrink-0">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 9V4.5M9 9H4.5M9 9 3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5M15 15l5.25 5.25" />
+                </svg>
+                Stance Min
+              </button>
             </div>
           </div>
 
