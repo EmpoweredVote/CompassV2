@@ -726,7 +726,7 @@ export function Quiz() {
 
         <div className="flex-1 flex flex-col md:flex-row md:pb-0">
           <div className="md:basis-3/5 flex justify-center">
-            <div className="w-full max-w-[700px] aspect-square">
+            <div className="w-full max-w-[700px]">
               <RadarChart
                 data={chartData}
                 invertedSpokes={invertedSpokes}

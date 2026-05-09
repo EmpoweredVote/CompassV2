@@ -1469,7 +1469,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
         <div className="flex-1 flex flex-col md:flex-row md:overflow-hidden">
           {/* Compass — left side, sized to viewport height so it grows big on larger screens */}
           <div className="md:basis-1/2 flex flex-col items-center justify-center px-2 md:pt-4 gap-3">
-            <div className="w-full max-w-[440px] md:max-w-[min(calc(50vw-2rem),calc(100vh-220px))] aspect-square mx-auto">
+            <div className="w-full max-w-[440px] md:max-w-[min(calc(50vw-2rem),calc(100vh-220px))] mx-auto">
               <RadarChart
                 data={chartData}
                 invertedSpokes={invertedSpokes}
@@ -1692,7 +1692,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
 
           {/* Left: compass */}
           <div className="flex flex-col items-center justify-center px-4 py-6 lg:py-6 lg:w-1/2 lg:pl-8">
-            <div className="w-full max-w-[min(calc(50vw-2rem),calc(100vh-110px))] aspect-square mx-auto">
+            <div className="w-full max-w-[min(calc(50vw-2rem),calc(100vh-110px))] mx-auto">
               <RadarChart
                 data={chartData}
                 invertedSpokes={invertedSpokes}

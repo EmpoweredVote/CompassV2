@@ -59,7 +59,7 @@ function BelowThresholdChart({ answeredCompassCount, needsMore, onStartCalibrati
       onClick={onStartCalibration}
     >
       {/* Grayed, non-interactive chart */}
-      <div className="w-full max-h-[calc(100dvh-300px)] aspect-square mx-auto opacity-25 pointer-events-none select-none">
+      <div className="w-full max-h-[calc(100dvh-300px)] mx-auto opacity-25 pointer-events-none select-none">
         <RadarChart
           key={Object.keys(chartData).length}
           data={chartData}
@@ -964,7 +964,7 @@ function Compass() {
               <Legend />
               <div
                 ref={(el) => { chartContainerRef.current = el; spokeRef.current = el; }}
-                className="w-full aspect-square max-w-[min(900px,calc(100dvh-160px))] mx-auto relative"
+                className="w-full max-w-[min(900px,calc(100dvh-160px))] mx-auto relative"
               >
                 <a
                   href="/how-it-works#compass-positions"
