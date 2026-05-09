@@ -167,9 +167,21 @@ function Layout({ children }) {
       }
     }
 
-    // Active compass topics are capped at 8 — the compass is designed for 3–8 spokes.
-    // Answers (stances) can exist for any number of topics regardless of this cap.
+    // Build a title→id map (used for both sel expansion and server sync below).
+    const titleToId = new Map(topics.map((t) => [t.short_title, t.id]));
+
+    // Cap at 8, then fill up from other answered topics so the restored compass
+    // shows a full picture instead of the same few spokes that were active when
+    // the snapshot was saved.
     sel = (sel || []).slice(0, 8);
+    if (sel.length < 8) {
+      const selSet = new Set(sel);
+      const moreAnswered = Object.entries(ans)
+        .filter(([, v]) => typeof v === 'number' && v > 0)
+        .map(([title]) => titleToId.get(title))
+        .filter(id => id != null && !selSet.has(id));
+      sel = [...sel, ...moreAnswered].slice(0, 8);
+    }
 
     const count = Object.keys(ans).length;
 
@@ -189,7 +201,6 @@ function Layout({ children }) {
 
     // Sync to server before navigating — Compass.jsx batch-fetches answers on
     // mount so the server must be up-to-date before the page reloads.
-    const titleToId = new Map(topics.map((t) => [t.short_title, t.id]));
     const syncPromises = Object.entries(ans).map(([shortTitle, value]) => {
       const topic_id = titleToId.get(shortTitle);
       if (!topic_id) return Promise.resolve();

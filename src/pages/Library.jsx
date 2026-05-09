@@ -158,7 +158,15 @@ function Library() {
             return [topic.short_title, answer.value];
           })
           .filter(Boolean);
-        setAnswers(Object.fromEntries(mapped));
+        setAnswers(prev => {
+          const next = { ...prev };
+          for (const [key, val] of mapped) {
+            // Only fill slots that have no local value — same guard as Compass.jsx
+            // batch fetch. A full replace would wipe restored/locally-set answers.
+            if (next[key] == null) next[key] = val;
+          }
+          return next;
+        });
 
         const writeInEntries = selectedTopics
           .map((id) => {
