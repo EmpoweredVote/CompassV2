@@ -624,64 +624,85 @@ function Library() {
           </div>
 
         ) : (
-          /* ── 3-Step Onboarding (no compass yet) ── */
-          <div className="px-4 md:px-6 pt-6 pb-6 max-w-5xl mx-auto">
-            <p className="text-xs font-bold tracking-widest uppercase text-[#00657c] dark:text-[#59b0c4] mb-2">Your Political Compass</p>
-            <h1 className="text-2xl font-extrabold text-gray-900 dark:text-white mb-1" style={{ letterSpacing: '-0.02em' }}>
-              Build your compass in 3 steps
-            </h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">Takes about 6 minutes · start with what's most relevant to you</p>
+          /* ── Full-page Onboarding (no compass yet) ── */
+          <div className="flex flex-col items-center justify-center min-h-[calc(100vh-64px)] px-4 md:px-6 py-12">
+            <div className="w-full max-w-2xl text-center">
+              {/* Eyebrow */}
+              <p className="text-xs font-bold tracking-widest uppercase text-[#00657c] dark:text-[#59b0c4] mb-4">
+                EV Compass
+              </p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
-              {[
-                { num: '01', title: 'Choose your topics', desc: 'Pick the issues that shape how you vote — start with a lens or choose your own.', color: LOCAL_LENS.color },
-                { num: '02', title: 'Set your stances', desc: 'Tell us where you stand on each topic. No right answers — only yours.', color: '#FED12E' },
-                { num: '03', title: 'Compare candidates', desc: 'See which leaders share your political compass and priorities.', color: '#00657C' },
-              ].map(s => (
-                <div
-                  key={s.num}
-                  className="flex gap-3 p-4 rounded-xl border"
-                  style={{ borderColor: s.color + '50', background: s.color + (isDark ? '12' : '10') }}
-                >
+              {/* Headline */}
+              <h1
+                className="text-4xl md:text-5xl font-extrabold text-gray-900 dark:text-white mb-4 leading-tight"
+                style={{ letterSpacing: '-0.03em' }}
+              >
+                Know exactly who<br />shares your values.
+              </h1>
+
+              {/* Sub-headline */}
+              <p className="text-base md:text-lg text-gray-500 dark:text-gray-400 mb-10 max-w-lg mx-auto leading-relaxed">
+                Build a political compass in 6 minutes. Compare any candidate to your stances on the issues that matter to you.
+              </p>
+
+              {/* 3-step cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-10 text-left">
+                {[
+                  { num: '01', title: 'Choose your topics', desc: 'Pick the issues that shape how you vote — start with a lens or build your own.', color: LOCAL_LENS.color },
+                  { num: '02', title: 'Set your stances', desc: 'Tell us where you stand on each topic. No right answers — only yours.', color: '#FED12E' },
+                  { num: '03', title: 'Compare candidates', desc: 'See which leaders match your political compass and priorities.', color: '#00657C' },
+                ].map(s => (
                   <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                    style={{ background: s.color, color: s.num === '02' ? '#1C1C1C' : '#fff' }}
+                    key={s.num}
+                    className="flex gap-3 p-4 rounded-2xl border"
+                    style={{ borderColor: s.color + '50', background: s.color + (isDark ? '14' : '0D') }}
                   >
-                    {s.num}
+                    <div
+                      className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-black shrink-0 mt-0.5"
+                      style={{ background: s.color, color: s.num === '02' ? '#1C1C1C' : '#fff' }}
+                    >
+                      {s.num}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-bold text-sm text-gray-900 dark:text-white">{s.title}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">{s.desc}</p>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="font-semibold text-sm text-gray-900 dark:text-white">{s.title}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">{s.desc}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
 
-            <div className="flex flex-wrap gap-2">
-              <button
-                ref={localLensRef}
-                onClick={() => setSelectedLens('local')}
-                style={{ background: LOCAL_LENS.color }}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold text-white hover:opacity-90 active:scale-95 transition-all cursor-pointer shadow-sm"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 shrink-0">
-                  <path fillRule="evenodd" d="M9.293 2.293a1 1 0 011.414 0l7 7A1 1 0 0117 11h-1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-3a1 1 0 00-1-1H9a1 1 0 00-1 1v3a1 1 0 01-1 1H5a1 1 0 01-1-1v-6H3a1 1 0 01-.707-1.707l7-7z" clipRule="evenodd" />
-                </svg>
-                Start with Local Lens →
-              </button>
-              <button
-                onClick={() => setSelectedLens('judicial')}
-                style={{ background: JUDICIAL_LENS.color }}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold text-white hover:opacity-90 active:scale-95 transition-all cursor-pointer"
-              >
-                Judicial Lens
-              </button>
-              <button
-                onClick={() => setSelectedLens('all')}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold bg-[#D4940B] text-white hover:opacity-90 active:scale-95 transition-all cursor-pointer"
-              >
-                All Topics
-              </button>
+              {/* CTA buttons */}
+              <div className="flex flex-wrap justify-center gap-3">
+                <button
+                  ref={localLensRef}
+                  onClick={() => setSelectedLens('local')}
+                  style={{ background: LOCAL_LENS.color }}
+                  className="flex items-center gap-2 px-7 py-3 rounded-full text-base font-bold text-white hover:opacity-90 active:scale-95 transition-all cursor-pointer shadow-md"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 shrink-0">
+                    <path fillRule="evenodd" d="M9.293 2.293a1 1 0 011.414 0l7 7A1 1 0 0117 11h-1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-3a1 1 0 00-1-1H9a1 1 0 00-1 1v3a1 1 0 01-1 1H5a1 1 0 01-1-1v-6H3a1 1 0 01-.707-1.707l7-7z" clipRule="evenodd" />
+                  </svg>
+                  Local Lens
+                </button>
+                <button
+                  onClick={() => setSelectedLens('judicial')}
+                  style={{ background: JUDICIAL_LENS.color }}
+                  className="flex items-center gap-2 px-6 py-3 rounded-full text-sm font-semibold text-white hover:opacity-90 active:scale-95 transition-all cursor-pointer"
+                >
+                  Judicial Lens
+                </button>
+                <button
+                  onClick={() => setSelectedLens('all')}
+                  className="flex items-center gap-2 px-6 py-3 rounded-full text-sm font-semibold bg-[#D4940B] text-white hover:opacity-90 active:scale-95 transition-all cursor-pointer"
+                >
+                  All Topics
+                </button>
+              </div>
+
+              {/* Soft hint */}
+              <p className="text-xs text-gray-400 dark:text-zinc-600 mt-6">
+                Or scroll down to browse all topics and add them individually
+              </p>
             </div>
           </div>
         )}
