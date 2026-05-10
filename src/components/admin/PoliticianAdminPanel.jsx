@@ -193,6 +193,19 @@ function PoliticianAdminPanel({ politicians, topics }) {
     }
   };
 
+  const savePhotoUrl = async (politician_id, photoUrl) => {
+    const res = await apiFetch(`/compass/politicians/${politician_id}/photo`, {
+      method: "PATCH",
+      body: JSON.stringify({ photo_custom_url: photoUrl }),
+    });
+    if (!res.ok) {
+      const t = await res.text();
+      alert(`Photo save failed: ${res.status} ${t}`);
+      return;
+    }
+    alert("Photo URL saved.");
+  };
+
   const toggleTopicOpenFor = (politician_id, topic_id) => {
     console.log("[Panel] toggleTopicOpenFor", { politician_id, topic_id });
     setOpenTopicsByPol((prev) => {
@@ -222,6 +235,7 @@ function PoliticianAdminPanel({ politicians, topics }) {
           setEditingContext={setEditingContext}
           editedContextFields={editedContextFields}
           setEditedContextFields={setEditedContextFields}
+          savePhotoUrl={savePhotoUrl}
           // Expose 2-arg saver (topic_id, draft); bind politician_id here
           saveContextEdit={(topic_id, draft) => {
             console.log("[Panel->Accordion prop] saveContextEdit called", {
