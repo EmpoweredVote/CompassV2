@@ -389,15 +389,17 @@ function Library() {
   const handleStartLocalLens = () => setSelectedLens('local');
   const handleStartJudicialLens = () => setSelectedLens('judicial');
 
-  // "Start" buttons inside the explainers do the actual navigation
+  // "Start" buttons inside the explainers do the actual navigation.
+  // Clear current topics first — lenses are mutually exclusive; merging would
+  // push past 8 topics and leave the previous lens topics active.
   const doStartLocalLens = () => {
+    setSelectedTopics([]);
     sessionStorage.setItem("start_local_lens", "1");
-    sessionStorage.setItem("pre_lens_topics", JSON.stringify(selectedTopics));
     navigate("/results");
   };
   const doStartJudicialLens = () => {
+    setSelectedTopics([]);
     sessionStorage.setItem("start_judicial_lens", "1");
-    sessionStorage.setItem("pre_lens_topics", JSON.stringify(selectedTopics));
     navigate("/results");
   };
   const doStartAllTopics = () => {

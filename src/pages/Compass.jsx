@@ -353,10 +353,15 @@ function Compass() {
     if (flag) sessionStorage.removeItem("start_resume_calibration");
     return flag;
   });
+  const [startAllTopics, setStartAllTopics] = useState(() => {
+    const flag = sessionStorage.getItem("start_all_topics") === "1";
+    if (flag) sessionStorage.removeItem("start_all_topics");
+    return flag;
+  });
 
   // calibrationActive: overlay is currently in progress — stays true even if answeredCompassCount changes mid-flow
   const [calibrationActive, setCalibrationActive] = useState(
-    () => !!localStorage.getItem("calibration_progress") || startWithLocalLens || startWithJudicialLens || startResumeCalibration
+    () => !!localStorage.getItem("calibration_progress") || startWithLocalLens || startWithJudicialLens || startResumeCalibration || startAllTopics
   );
 
   // Celebration screen edge case: if calibration_progress exists but all pickedTopics are already
@@ -421,7 +426,7 @@ function Compass() {
     || (startResumeCalibration && answeredCompassCount > 0);
 
   // startAtPick: when true, CalibrationOverlay opens directly at the pick step
-  const [startAtPick, setStartAtPick] = useState(startResumeCalibration && answeredCompassCount === 0);
+  const [startAtPick, setStartAtPick] = useState((startResumeCalibration && answeredCompassCount === 0) || startAllTopics);
 
   // handleStartCalibration: full reset — used for first-time entry points
   const handleStartCalibration = () => {
@@ -514,18 +519,52 @@ function Compass() {
     }
   };
 
+  // -------- Stance Max / Min (same logic as CalibrationOverlay) --------
+  const handleStanceMax = () => {
+    setInvertedSpokes((prev) => {
+      const next = { ...prev };
+      for (const id of selectedTopics) {
+        const topic = topics.find((t) => t.id === id);
+        if (!topic) continue;
+        const val = answers[topic.short_title];
+        if (val == null || val <= 0) continue;
+        const isInverted = !!next[topic.short_title];
+        const displayVal = isInverted ? 6 - val : val;
+        if (displayVal <= 2) next[topic.short_title] = !isInverted;
+      }
+      return next;
+    });
+  };
+  const handleStanceMin = () => {
+    setInvertedSpokes((prev) => {
+      const next = { ...prev };
+      for (const id of selectedTopics) {
+        const topic = topics.find((t) => t.id === id);
+        if (!topic) continue;
+        const val = answers[topic.short_title];
+        if (val == null || val <= 0) continue;
+        const isInverted = !!next[topic.short_title];
+        const displayVal = isInverted ? 6 - val : val;
+        if (displayVal >= 4) next[topic.short_title] = !isInverted;
+      }
+      return next;
+    });
+  };
+
   // -------- Local UI State --------
   // Post-calibration tour state
-  const [tourStep, setTourStep] = useState(-1); // -1 = not active, 0-3 = active step
+  const [tourStep, setTourStep] = useState(-1); // -1 = not active, 0-4 = active step
 
   // Tour target refs
-  const spokeRef = useRef(null);    // Chart container div (for step 0 — "tap any spoke label")
-  const compareRef = useRef(null);  // Compare button (for step 1)
-  const backToLibRef = useRef(null); // "Back to Library" button (for step 2)
+  const spokeRef = useRef(null);      // Chart container div (step 0 — "tap any spoke label")
+  const minMaxRef = useRef(null);     // Min/Max buttons (step 1 — explain Max/Min)
+  const compareRef = useRef(null);    // Compare button (step 2)
+  const backToLibRef = useRef(null);  // "Back to Library" button (step 3)
 
   // Tour messages indexed by step
   const tourMessages = [
     "Tap any spoke label to flip its direction. It only changes how the chart looks, not your stance. We do the same flip on the quiz, at random, so neither side ever starts on top.",
+    "Max pushes all your moderate stances outward — useful for seeing your strongest positions at a glance. Min does the opposite, collapsing strong stances inward. Neither changes your actual answer.",
     "See how your views line up with a politician",
     "Add or change topics anytime from the Library",
     (
@@ -546,7 +585,7 @@ function Compass() {
 
   // Tour advancement logic
   const advanceTour = () => {
-    if (tourStep < 3) {
+    if (tourStep < 4) {
       setTourStep(tourStep + 1);
     } else {
       // Final step — dismiss
@@ -912,6 +951,7 @@ function Compass() {
           setStartWithLocalLens(false);
           setStartWithJudicialLens(false);
           setStartResumeCalibration(false);
+          setStartAllTopics(false);
           // Start post-cal tour if not already dismissed
           if (!localStorage.getItem("onboarding_postCalTour")) {
             // Small delay to let compass render before positioning coach marks
@@ -927,6 +967,7 @@ function Compass() {
           setStartWithLocalLens(false);
           setStartWithJudicialLens(false);
           setStartResumeCalibration(false);
+          setStartAllTopics(false);
           if (answeredCompassCount === 0) navigate("/library");
         }}
       />
@@ -985,6 +1026,32 @@ function Compass() {
                     <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM8.94 6.94a.75.75 0 11-1.061-1.061 3 3 0 112.871 5.026v.345a.75.75 0 01-1.5 0v-.5c0-.72.57-1.172 1.081-1.287A1.5 1.5 0 108.94 6.94zM10 15a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
                   </svg>
                 </a>
+                {/* Stance Max / Min — top-right, below the ? button */}
+                <div
+                  ref={minMaxRef}
+                  className="absolute top-[12%] right-0 flex flex-col gap-1.5 z-10"
+                >
+                  <button
+                    onClick={handleStanceMax}
+                    title="Stance Max — flip any spoke showing 1–2 to its strong side (4–5)"
+                    aria-label="Stance Max"
+                    className="w-7 h-7 rounded-full flex items-center justify-center transition-opacity cursor-pointer hover:opacity-90 active:scale-95 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-600 text-gray-500 dark:text-gray-400"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={handleStanceMin}
+                    title="Stance Min — flip any spoke showing 4–5 to its moderate side (1–2)"
+                    aria-label="Stance Min"
+                    className="w-7 h-7 rounded-full flex items-center justify-center transition-opacity cursor-pointer hover:opacity-90 active:scale-95 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-600 text-gray-500 dark:text-gray-400"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 9V4.5M9 9H4.5M9 9 3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5M15 15l5.25 5.25" />
+                    </svg>
+                  </button>
+                </div>
                 {comparePol && !compareHasEnoughSpokes ? (
                   <div className="flex items-center justify-center h-full">
                     <p className="text-center text-gray-500 dark:text-gray-400 text-sm px-6">
@@ -1167,17 +1234,18 @@ function Compass() {
         <CoachMark
           targetRef={
             tourStep === 0 ? spokeRef
-            : tourStep === 1 ? compareRef
-            : tourStep === 2 ? backToLibRef
+            : tourStep === 1 ? minMaxRef
+            : tourStep === 2 ? compareRef
+            : tourStep === 3 ? backToLibRef
             : chartContainerRef
           }
           message={tourMessages[tourStep]}
-          stepLabel={`${tourStep + 1} of 4`}
+          stepLabel={`${tourStep + 1} of 5`}
           onNext={advanceTour}
           onSkipAll={skipTour}
           onDismiss={advanceTour}
           show={true}
-          allowSpotlightInteraction={tourStep === 0 || tourStep === 3}
+          allowSpotlightInteraction={tourStep === 0 || tourStep === 4}
         />
       )}
     </div>

@@ -568,11 +568,17 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
 
   const handleContinueToAnswer = () => {
     if (pickedTopics.length < MIN_TOPICS) return;
-    setSelectedTopics((prev) => {
-      const existing = new Set(prev);
-      const newIds = pickedTopics.filter((id) => !existing.has(id));
-      return [...prev, ...newIds];
-    });
+    if (lensApplied) {
+      // Lens flow: replace all selected topics with the lens set, not merge.
+      // Merging would push the total past 8 when switching lenses.
+      setSelectedTopics(pickedTopics);
+    } else {
+      setSelectedTopics((prev) => {
+        const existing = new Set(prev);
+        const newIds = pickedTopics.filter((id) => !existing.has(id));
+        return [...prev, ...newIds];
+      });
+    }
     const pickedTopicObjects = pickedTopics
       .map((id) => topics.find((t) => t.id === id))
       .filter(Boolean);
