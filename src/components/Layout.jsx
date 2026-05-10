@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router";
-import { SiteHeader, evContext } from "@empoweredvote/ev-ui";
+import { Header, evContext } from "@empoweredvote/ev-ui";
 import { useCompass } from "../components/CompassContext";
 import { useTheme } from "../ThemeProvider";
 import ReturnBanner from "./ReturnBanner";
@@ -8,7 +8,7 @@ import { apiFetch, getToken, clearToken, API_BASE } from "../lib/auth";
 function Layout({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isDark } = useTheme();
+  const { isDark, toggle: toggleDark } = useTheme();
   const { topics, selectedTopics, setSelectedTopics, answers, setAnswers, writeIns, setWriteIns, invertedSpokes, setInvertedSpokes, isLoggedIn, isAdmin, username, userId, setIsLoggedIn, authChecking, setCompassVersion } = useCompass();
 
   const logout = async () => {
@@ -246,17 +246,38 @@ function Layout({ children }) {
       { label: "Restore stances", onClick: handleRestoreStances },
     ] : []),
     { label: "Reset compass", onClick: handleClearCompass },
+    { label: "Feedback", href: "https://feedback.empowered.vote" },
     { label: "Logout", onClick: logout },
   ];
+
+  const DarkToggle = () => (
+    <button
+      onClick={toggleDark}
+      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      className="w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors cursor-pointer"
+    >
+      {isDark ? (
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+          <path d="M10 2a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 0110 2zM10 15a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 0110 15zM10 7a3 3 0 100 6 3 3 0 000-6zM15.657 5.404a.75.75 0 10-1.06-1.06l-1.061 1.06a.75.75 0 001.06 1.06l1.061-1.06zM6.464 14.596a.75.75 0 10-1.06-1.06l-1.061 1.06a.75.75 0 001.06 1.06l1.061-1.06zM18 10a.75.75 0 01-.75.75h-1.5a.75.75 0 010-1.5h1.5A.75.75 0 0118 10zM5 10a.75.75 0 01-.75.75h-1.5a.75.75 0 010-1.5h1.5A.75.75 0 015 10zM14.596 15.657a.75.75 0 001.06-1.06l-1.06-1.061a.75.75 0 10-1.06 1.06l1.06 1.061zM5.404 6.464a.75.75 0 001.06-1.06l-1.06-1.061a.75.75 0 10-1.06 1.06l1.06 1.061z" />
+        </svg>
+      ) : (
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+          <path fillRule="evenodd" d="M7.455 2.004a.75.75 0 01.26.77 7 7 0 009.958 7.967.75.75 0 011.067.853A8.5 8.5 0 116.647 1.921a.75.75 0 01.808.083z" clipRule="evenodd" />
+        </svg>
+      )}
+    </button>
+  );
 
   return (
     <div className="min-h-screen flex flex-col bg-white dark:bg-[#131416] text-gray-900 dark:text-[#D3D7DE]">
       <ReturnBanner />
-      <SiteHeader
+      <Header
         logoSrc="/EVLogo.svg"
+        navItems={[]}
         currentPath={location.pathname}
         onNavigate={handleNavigate}
         darkMode={isDark}
+        secondaryAction={<DarkToggle />}
         profileMenu={
           authChecking
             ? { label: null, items: [] }

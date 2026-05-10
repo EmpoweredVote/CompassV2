@@ -356,16 +356,21 @@ function Compass() {
     }
     return localStorage.getItem("calibration_completed") === "true";
   });
-  // startWithLocalLens: consumed once from sessionStorage when Library's Local Lens button is clicked
+  // startWithLocalLens / startWithJudicialLens: consumed once from sessionStorage when Library lens buttons are clicked
   const [startWithLocalLens, setStartWithLocalLens] = useState(() => {
     const flag = sessionStorage.getItem("start_local_lens") === "1";
     if (flag) sessionStorage.removeItem("start_local_lens");
     return flag;
   });
+  const [startWithJudicialLens, setStartWithJudicialLens] = useState(() => {
+    const flag = sessionStorage.getItem("start_judicial_lens") === "1";
+    if (flag) sessionStorage.removeItem("start_judicial_lens");
+    return flag;
+  });
 
   // calibrationActive: overlay is currently in progress — stays true even if answeredCompassCount changes mid-flow
   const [calibrationActive, setCalibrationActive] = useState(
-    () => !!localStorage.getItem("calibration_progress") || startWithLocalLens
+    () => !!localStorage.getItem("calibration_progress") || startWithLocalLens || startWithJudicialLens
   );
 
   // Celebration screen edge case: if calibration_progress exists but all pickedTopics are already
@@ -908,6 +913,7 @@ function Compass() {
         resumeMode={resumeMode}
         startAtPick={startAtPick}
         startWithLocalLens={startWithLocalLens}
+        startWithJudicialLens={startWithJudicialLens}
         onComplete={() => {
           localStorage.removeItem("calibration_skipped");
           localStorage.removeItem("calibration_progress");
@@ -917,6 +923,7 @@ function Compass() {
           setCalibrationActive(false);
           setStartAtPick(false);
           setStartWithLocalLens(false);
+          setStartWithJudicialLens(false);
           // Start post-cal tour if not already dismissed
           if (!localStorage.getItem("onboarding_postCalTour")) {
             // Small delay to let compass render before positioning coach marks
@@ -930,6 +937,7 @@ function Compass() {
           setCalibrationActive(false);
           setStartAtPick(false);
           setStartWithLocalLens(false);
+          setStartWithJudicialLens(false);
           if (answeredCompassCount === 0) navigate("/library");
         }}
       />

@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useTheme } from "../ThemeProvider";
 import { useCompass } from "./CompassContext";
 import { apiFetch } from "../lib/auth";
-import { LOCAL_LENS } from "../lib/lenses";
+import { LOCAL_LENS, JUDICIAL_LENS } from "../lib/lenses";
 import RadarChart from "./RadarChart";
 import { getQuestionText, parseTensionTitle } from "../util/topic";
 import { TopicTierBadge } from "@empoweredvote/ev-ui";
@@ -305,7 +305,7 @@ function BackArrow() {
 // Main component
 // ────────────────────────────────────────────────
 
-export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = false, startAtPick = false, startWithLocalLens = false }) {
+export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = false, startAtPick = false, startWithLocalLens = false, startWithJudicialLens = false }) {
   const {
     topics,
     categories,
@@ -332,7 +332,11 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
   const getInitialState = () => {
     if (startWithLocalLens) {
       const lensIds = LOCAL_LENS.topicIds.filter(id => topics.some(t => t.id === id));
-      return { step: "lens_intro", pickedTopics: lensIds, currentIndex: 0, lensApplied: true };
+      return { step: "lens_intro", pickedTopics: lensIds, currentIndex: 0, lensApplied: true, lens: LOCAL_LENS };
+    }
+    if (startWithJudicialLens) {
+      const lensIds = JUDICIAL_LENS.topicIds.filter(id => topics.some(t => t.id === id));
+      return { step: "lens_intro", pickedTopics: lensIds, currentIndex: 0, lensApplied: true, lens: JUDICIAL_LENS };
     }
 
     try {
@@ -378,6 +382,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
   const [step, setStep] = useState("welcome");
   const [pickedTopics, setPickedTopics] = useState([]);
   const [lensApplied, setLensApplied] = useState(false);
+  const [activeLens, setActiveLens] = useState(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [showWriteIn, setShowWriteIn] = useState(false);
@@ -400,9 +405,10 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     setPickedTopics(initial.pickedTopics);
     setCurrentIndex(initial.currentIndex);
     if (initial.lensApplied) setLensApplied(true);
+    if (initial.lens) setActiveLens(initial.lens);
     initializedRef.current = true;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [topics, resumeMode, startAtPick, startWithLocalLens]);
+  }, [topics, resumeMode, startAtPick, startWithLocalLens, startWithJudicialLens]);
 
   useEffect(() => {
     if (step === "welcome" || step === "lens_intro" || step === "complete") return;
@@ -538,6 +544,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     const lensIds = LOCAL_LENS.topicIds.filter(id => topics.some(t => t.id === id));
     setPickedTopics(lensIds);
     setLensApplied(true);
+    setActiveLens(LOCAL_LENS);
     setStep("lens_intro");
   };
 
@@ -1032,6 +1039,9 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     const lensTopics = pickedTopics
       .map(id => topics.find(t => t.id === id))
       .filter(Boolean);
+    const lens = activeLens || LOCAL_LENS;
+    const lensColor = lens.color;
+    const isJudicial = lens.key === 'judicial';
 
     return (
       <div
@@ -1045,47 +1055,75 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
           {/* ── Left: narrative ── */}
           <div className="flex flex-col justify-center px-8 py-16 lg:py-24 lg:w-1/2 lg:pl-16 lg:pr-10">
 
-            {/* Local Lens badge */}
+            {/* Lens badge */}
             <div className="flex items-center gap-2 mb-6">
               <div
                 className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
-                style={{ background: '#5A9A6E' }}
+                style={{ background: lensColor }}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="white" className="w-4 h-4">
-                  <path fillRule="evenodd" d="M9.293 2.293a1 1 0 011.414 0l7 7A1 1 0 0117 11h-1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-3a1 1 0 00-1-1H9a1 1 0 00-1 1v3a1 1 0 01-1 1H5a1 1 0 01-1-1v-6H3a1 1 0 01-.707-1.707l7-7z" clipRule="evenodd" />
-                </svg>
+                {isJudicial ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="white" className="w-4 h-4">
+                    <path fillRule="evenodd" d="M10 1a.75.75 0 01.75.75v1.5h2.75A2.75 2.75 0 0116.25 6v.75H18a.75.75 0 010 1.5h-1.75v5H18a.75.75 0 010 1.5h-1.75V15a2.75 2.75 0 01-2.75 2.75H6.5A2.75 2.75 0 013.75 15v-.25H2a.75.75 0 010-1.5h1.75v-5H2a.75.75 0 010-1.5h1.75V6A2.75 2.75 0 016.5 3.25h2.75v-1.5A.75.75 0 0110 1zm0 4.25H6.5A1.25 1.25 0 005.25 6.5v7A1.25 1.25 0 006.5 14.75h7A1.25 1.25 0 0014.75 13.5v-7A1.25 1.25 0 0013.5 5.25H10z" clipRule="evenodd" />
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="white" className="w-4 h-4">
+                    <path fillRule="evenodd" d="M9.293 2.293a1 1 0 011.414 0l7 7A1 1 0 0117 11h-1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-3a1 1 0 00-1-1H9a1 1 0 00-1 1v3a1 1 0 01-1 1H5a1 1 0 01-1-1v-6H3a1 1 0 01-.707-1.707l7-7z" clipRule="evenodd" />
+                  </svg>
+                )}
               </div>
               <span
                 className="text-sm font-bold tracking-widest uppercase"
-                style={{ color: '#5A9A6E' }}
+                style={{ color: lensColor }}
               >
-                Local Lens
+                {lens.name}
               </span>
             </div>
 
-            <h1
-              className="text-4xl md:text-5xl font-extrabold leading-tight mb-6"
-              style={{ color: t.textHead, letterSpacing: '-0.03em' }}
-            >
-              Local issues.<br />
-              <span style={{ color: '#5A9A6E' }}>Your real power.</span>
-            </h1>
-
-            <p className="text-base leading-relaxed mb-4" style={{ color: t.textBody }}>
-              Most civic education focuses on federal politics — presidents, Congress, senators. But
-              your vote has the most impact at the local level.
-            </p>
-            <p className="text-base leading-relaxed mb-10" style={{ color: t.textBody }}>
-              City councils, mayors, and local officials make the decisions that shape your daily
-              life: housing costs, public safety, schools, and development. In local elections,
-              turnout often falls below 20% — which means your vote here matters more than almost
-              anywhere else.
-            </p>
+            {isJudicial ? (
+              <>
+                <h1
+                  className="text-4xl md:text-5xl font-extrabold leading-tight mb-6"
+                  style={{ color: t.textHead, letterSpacing: '-0.03em' }}
+                >
+                  Courts. Prosecutors.<br />
+                  <span style={{ color: lensColor }}>Your vote decides them.</span>
+                </h1>
+                <p className="text-base leading-relaxed mb-4" style={{ color: t.textBody }}>
+                  Judges and district attorneys shape who gets bail, how laws are interpreted, and
+                  whether communities get accountability or incarceration.
+                </p>
+                <p className="text-base leading-relaxed mb-10" style={{ color: t.textBody }}>
+                  These races rarely get the attention they deserve — yet a single DA or judge can
+                  affect more lives than most legislators. Calibrate your judicial compass and
+                  know exactly who shares your values on the bench.
+                </p>
+              </>
+            ) : (
+              <>
+                <h1
+                  className="text-4xl md:text-5xl font-extrabold leading-tight mb-6"
+                  style={{ color: t.textHead, letterSpacing: '-0.03em' }}
+                >
+                  Local issues.<br />
+                  <span style={{ color: lensColor }}>Your real power.</span>
+                </h1>
+                <p className="text-base leading-relaxed mb-4" style={{ color: t.textBody }}>
+                  Most civic education focuses on federal politics — presidents, Congress, senators. But
+                  your vote has the most impact at the local level.
+                </p>
+                <p className="text-base leading-relaxed mb-10" style={{ color: t.textBody }}>
+                  City councils, mayors, and local officials make the decisions that shape your daily
+                  life: housing costs, public safety, schools, and development. In local elections,
+                  turnout often falls below 20% — which means your vote here matters more than almost
+                  anywhere else.
+                </p>
+              </>
+            )}
 
             <button
               onClick={handleContinueToAnswer}
               className="flex items-center gap-2 px-8 py-3.5 rounded-full font-bold text-base transition-all hover:opacity-90 active:scale-95 cursor-pointer shadow-md self-start mb-3"
-              style={{ background: '#5A9A6E', color: '#FFFFFF' }}
+              style={{ background: lensColor, color: '#FFFFFF' }}
             >
               Start finding my stances →
             </button>
@@ -1104,7 +1142,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
           <div className="flex flex-col justify-center px-8 pb-16 lg:py-24 lg:w-1/2 lg:pr-16 lg:pl-8">
             <p
               className="text-xs font-bold tracking-widest uppercase mb-4"
-              style={{ color: '#5A9A6E' }}
+              style={{ color: lensColor }}
             >
               {lensTopics.length} topics we&apos;ll ask about
             </p>
@@ -1213,31 +1251,39 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
 
         {/* ── Topic list ── */}
         <div className="px-4 py-4 max-w-5xl mx-auto pb-32">
-          {lensApplied && (
-            <div
-              className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl mb-5"
-              style={{ background: 'rgba(90,154,110,0.12)', border: '1.5px solid #5A9A6E' }}
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="#5A9A6E" className="w-4 h-4 shrink-0">
-                  <path fillRule="evenodd" d="M9.293 2.293a1 1 0 011.414 0l7 7A1 1 0 0117 11h-1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-3a1 1 0 00-1-1H9a1 1 0 00-1 1v3a1 1 0 01-1 1H5a1 1 0 01-1-1v-6H3a1 1 0 01-.707-1.707l7-7z" clipRule="evenodd" />
-                </svg>
-                <p className="text-sm font-semibold" style={{ color: '#5A9A6E' }}>
-                  Local Lens applied — {pickedTopics.length} topics pre-selected
-                </p>
-                <p className="text-xs hidden sm:block" style={{ color: '#5A9A6E', opacity: 0.8 }}>
-                  · Add or remove any topic below
-                </p>
-              </div>
-              <button
-                onClick={() => { setPickedTopics([]); setLensApplied(false); }}
-                className="text-xs font-medium shrink-0 cursor-pointer hover:opacity-70 transition-opacity"
-                style={{ color: '#5A9A6E' }}
+          {lensApplied && (() => {
+            const bannerLens = activeLens || LOCAL_LENS;
+            const bannerColor = bannerLens.color;
+            const hexToRgb = (hex) => {
+              const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+              return `rgba(${r},${g},${b},0.12)`;
+            };
+            return (
+              <div
+                className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl mb-5"
+                style={{ background: hexToRgb(bannerColor), border: `1.5px solid ${bannerColor}` }}
               >
-                Clear
-              </button>
-            </div>
-          )}
+                <div className="flex items-center gap-2 min-w-0">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill={bannerColor} className="w-4 h-4 shrink-0">
+                    <path fillRule="evenodd" d="M9.293 2.293a1 1 0 011.414 0l7 7A1 1 0 0117 11h-1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-3a1 1 0 00-1-1H9a1 1 0 00-1 1v3a1 1 0 01-1 1H5a1 1 0 01-1-1v-6H3a1 1 0 01-.707-1.707l7-7z" clipRule="evenodd" />
+                  </svg>
+                  <p className="text-sm font-semibold" style={{ color: bannerColor }}>
+                    {bannerLens.name} applied — {pickedTopics.length} topics pre-selected
+                  </p>
+                  <p className="text-xs hidden sm:block" style={{ color: bannerColor, opacity: 0.8 }}>
+                    · Add or remove any topic below
+                  </p>
+                </div>
+                <button
+                  onClick={() => { setPickedTopics([]); setLensApplied(false); setActiveLens(null); }}
+                  className="text-xs font-medium shrink-0 cursor-pointer hover:opacity-70 transition-opacity"
+                  style={{ color: bannerColor }}
+                >
+                  Clear
+                </button>
+              </div>
+            );
+          })()}
           {dedupedCategories.map((category, catIdx) => {
             if (!category.topics || category.topics.length === 0) return null;
             const catColor = CATEGORY_COLORS[catIdx % CATEGORY_COLORS.length];
