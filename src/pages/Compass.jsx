@@ -192,7 +192,7 @@ function Compass() {
         <span className="inline-block w-4 h-4 bg-[rgba(124,107,158,0.4)] border border-[#7C6B9E] rounded-sm" />
         You
         <span
-          className="inline-block w-4 h-4 bg-[rgba(90,154,110,0.45)] border border-[#5A9A6E] rounded-sm cursor-pointer"
+          className={`inline-block w-4 h-4 rounded-sm cursor-pointer ${isDark ? "bg-[rgba(110,210,140,0.55)] border border-[#6DD28C]" : "bg-[rgba(90,154,110,0.45)] border border-[#5A9A6E]"}`}
           onClick={handleClearComparison}
           title="Clear comparison"
         />
