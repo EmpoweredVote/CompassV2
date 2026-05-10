@@ -367,10 +367,15 @@ function Compass() {
     if (flag) sessionStorage.removeItem("start_judicial_lens");
     return flag;
   });
+  const [startResumeCalibration, setStartResumeCalibration] = useState(() => {
+    const flag = sessionStorage.getItem("start_resume_calibration") === "1";
+    if (flag) sessionStorage.removeItem("start_resume_calibration");
+    return flag;
+  });
 
   // calibrationActive: overlay is currently in progress — stays true even if answeredCompassCount changes mid-flow
   const [calibrationActive, setCalibrationActive] = useState(
-    () => !!localStorage.getItem("calibration_progress") || startWithLocalLens || startWithJudicialLens
+    () => !!localStorage.getItem("calibration_progress") || startWithLocalLens || startWithJudicialLens || startResumeCalibration
   );
 
   // Celebration screen edge case: if calibration_progress exists but all pickedTopics are already
@@ -431,10 +436,12 @@ function Compass() {
   const showCalibration = calibrationActive;
 
   // resumeMode: user has some answered topics already — skip welcome/pick steps
-  const resumeMode = answeredCompassCount > 0 && unansweredCompassTopics.length > 0;
+  // Also treat startResumeCalibration as resume if they have answers; pick otherwise.
+  const resumeMode = (answeredCompassCount > 0 && unansweredCompassTopics.length > 0)
+    || (startResumeCalibration && answeredCompassCount > 0);
 
   // startAtPick: when true, CalibrationOverlay opens directly at the pick step
-  const [startAtPick, setStartAtPick] = useState(false);
+  const [startAtPick, setStartAtPick] = useState(startResumeCalibration && answeredCompassCount === 0);
 
   // handleStartCalibration: full reset — used for first-time entry points
   const handleStartCalibration = () => {
@@ -924,6 +931,7 @@ function Compass() {
           setStartAtPick(false);
           setStartWithLocalLens(false);
           setStartWithJudicialLens(false);
+          setStartResumeCalibration(false);
           // Start post-cal tour if not already dismissed
           if (!localStorage.getItem("onboarding_postCalTour")) {
             // Small delay to let compass render before positioning coach marks
@@ -938,6 +946,7 @@ function Compass() {
           setStartAtPick(false);
           setStartWithLocalLens(false);
           setStartWithJudicialLens(false);
+          setStartResumeCalibration(false);
           if (answeredCompassCount === 0) navigate("/library");
         }}
       />

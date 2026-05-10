@@ -226,13 +226,14 @@ function Library() {
   }, [selectedTopics, isLoggedIn]);
 
   // -------- Derived state --------
-  const hasCompass =
-    selectedTopics.length > 0 &&
+  const hasAnyAnswers =
     Object.keys(answers).length > 0 &&
     Object.values(answers).some((v) => v > 0);
+  const hasCompass = selectedTopics.length > 0 && hasAnyAnswers;
 
+  // Always include all selectedTopics so spoke labels appear immediately on tile click
   const chartData = useMemo(() => {
-    if (!hasCompass) return {};
+    if (selectedTopics.length === 0) return {};
     return Object.fromEntries(
       selectedTopics.slice(0, 8)
         .map((id) => {
@@ -243,7 +244,19 @@ function Library() {
         })
         .filter(Boolean)
     );
-  }, [hasCompass, selectedTopics, topics, answers]);
+  }, [selectedTopics, topics, answers]);
+
+  // Mark unanswered spokes so RadarChart renders them as dashed grey
+  const unansweredSpokesMap = useMemo(() => {
+    const map = {};
+    for (const id of selectedTopics) {
+      const topic = topics.find(t => t.id === id);
+      if (!topic) continue;
+      const val = answers[topic.short_title];
+      if (!(val != null && val > 0)) map[topic.short_title] = true;
+    }
+    return map;
+  }, [selectedTopics, topics, answers]);
 
   const getCategoryColor = (index) => CATEGORY_COLORS[index % CATEGORY_COLORS.length];
 
@@ -280,13 +293,14 @@ function Library() {
     }
   };
 
-  // Handle calibrate button → add to compass if needed, then open drawer
+  // Handle calibrate button → add to compass if needed, then navigate to calibration
   const handleCalibrateClick = (e, topic) => {
     e.stopPropagation();
     if (!selectedTopics.includes(topic.id) && selectedTopics.length < MAX_TOPICS) {
       setSelectedTopics(prev => [...prev, topic.id]);
     }
-    setDrawerTopic(topic);
+    sessionStorage.setItem("start_resume_calibration", "1");
+    navigate("/results");
   };
 
   // Pill drag end → reorder selectedTopics
@@ -370,11 +384,13 @@ function Library() {
 
   const handleStartLocalLens = () => {
     sessionStorage.setItem("start_local_lens", "1");
+    sessionStorage.setItem("pre_lens_topics", JSON.stringify(selectedTopics));
     navigate("/results");
   };
 
   const handleStartJudicialLens = () => {
     sessionStorage.setItem("start_judicial_lens", "1");
+    sessionStorage.setItem("pre_lens_topics", JSON.stringify(selectedTopics));
     navigate("/results");
   };
 
@@ -394,41 +410,39 @@ function Library() {
     <>
       {/* ── Compass Preview ── */}
       <div className="mt-4 px-4 md:px-6 max-w-5xl mx-auto">
-        {hasCompass ? (
+        {selectedTopics.length > 0 ? (
           <div className="flex flex-col items-center">
             <div
               onClick={() => navigate("/results", { state: { clearCompare: true } })}
               className={`w-full max-w-2xl md:max-w-3xl cursor-pointer transition-opacity relative ${belowThreshold ? "" : "hover:opacity-80"}`}
-              title={belowThreshold ? "Add more topics to see your compass" : "View your compass"}
+              title={belowThreshold ? `Answer ${needsMore} more topic${needsMore !== 1 ? "s" : ""} to see your compass` : "View your compass"}
             >
-              <div className={belowThreshold ? "opacity-25 pointer-events-none select-none" : ""}>
-                <RadarChart data={chartData} invertedSpokes={invertedSpokes} labelFontSize={18} padding={100} labelOffset={70} />
-              </div>
+              <RadarChart
+                data={chartData}
+                unansweredSpokes={unansweredSpokesMap}
+                invertedSpokes={invertedSpokes}
+                labelFontSize={18}
+                padding={100}
+                labelOffset={70}
+              />
               {belowThreshold && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400 text-center px-4">
-                    Add {needsMore} more topic{needsMore !== 1 ? "s" : ""} to see your compass
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <p className="text-sm font-semibold text-gray-500 dark:text-gray-400 text-center px-4 bg-white/80 dark:bg-zinc-900/80 rounded-lg py-2">
+                    Answer {needsMore} more topic{needsMore !== 1 ? "s" : ""} to see your compass
                   </p>
                 </div>
               )}
             </div>
-            <div className="flex items-center gap-3 mt-2">
-              <h1 className="text-xl md:text-2xl font-semibold dark:text-white">Your Compass</h1>
-              <button
-                onClick={() => navigate("/help")}
-                className="p-1.5 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors cursor-pointer"
-                title="How it works"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z" />
-                </svg>
-              </button>
+            <div className="flex items-center gap-2 mt-1">
+              <h1 className="text-lg font-semibold text-gray-800 dark:text-white">
+                {hasCompass ? "Your Compass" : "Build Your Compass"}
+              </h1>
             </div>
           </div>
         ) : (
           <div className="flex flex-col items-center">
-            <div className="w-56 md:w-80">
-              <svg viewBox="0 0 200 200" className="w-full h-full opacity-15">
+            <div className="w-56 md:w-72 opacity-20 dark:opacity-15">
+              <svg viewBox="0 0 200 200" className="w-full h-full">
                 {[1, 2, 3, 4, 5].map((level) => {
                   const r = (level / 5) * 80;
                   return <circle key={level} cx="100" cy="100" r={r} fill="none" stroke="#9ca3af" strokeWidth="1" />;
@@ -439,20 +453,9 @@ function Library() {
                 })}
               </svg>
             </div>
-            <div className="flex items-center gap-3 mt-2">
-              <h1 className="text-xl md:text-2xl font-semibold dark:text-white">Calibrate Your Compass</h1>
-              <button
-                onClick={() => navigate("/help")}
-                className="p-1.5 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors cursor-pointer"
-                title="How it works"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z" />
-                </svg>
-              </button>
-            </div>
-            <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
-              Answer questions on the topics that matter to you and see where you stand
+            <h1 className="text-lg font-semibold text-gray-800 dark:text-white mt-2">Build Your Compass</h1>
+            <p className="text-gray-500 dark:text-gray-400 text-sm mt-1 text-center">
+              Click a topic below to add it to your compass — or start with a lens
             </p>
           </div>
         )}
@@ -461,92 +464,51 @@ function Library() {
       {/* ── Divider ── */}
       <div className="border-t border-gray-200 dark:border-zinc-700 mx-6 my-4" />
 
-      {/* ── Calibration CTAs — 3 equal buttons ── */}
-      <div className="mx-4 md:mx-auto max-w-3xl mb-6 flex flex-col sm:flex-row gap-2">
+      {/* ── Calibration CTAs — 3 equal square-ish tiles ── */}
+      <div className="mx-4 md:mx-auto max-w-3xl mb-6 flex gap-2">
 
         {/* Local Lens */}
-        <div className="group relative flex-1">
-          <button
-            onClick={handleStartLocalLens}
-            style={{ background: LOCAL_LENS.color, color: "#ffffff" }}
-            className="w-full h-full flex items-center justify-between gap-3 px-4 py-3.5 rounded-xl cursor-pointer hover:opacity-90 transition-all"
-          >
-            <div className="flex items-center gap-2.5">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 shrink-0 opacity-90">
-                <path d="M11.47 3.841a.75.75 0 0 1 1.06 0l8.69 8.69a.75.75 0 1 0 1.06-1.061l-8.689-8.69a2.25 2.25 0 0 0-3.182 0l-8.69 8.69a.75.75 0 1 0 1.061 1.06l8.69-8.689Z" />
-                <path d="m12 5.432 8.159 8.159c.03.03.06.058.091.086v6.198c0 1.035-.84 1.875-1.875 1.875H15a.75.75 0 0 1-.75-.75v-4.5a.75.75 0 0 0-.75-.75h-3a.75.75 0 0 0-.75.75V21a.75.75 0 0 1-.75.75H5.625a1.875 1.875 0 0 1-1.875-1.875v-6.198a2.29 2.29 0 0 0 .091-.086L12 5.432Z" />
-              </svg>
-              <div className="text-left">
-                <p className="font-semibold text-sm leading-tight">Local Lens</p>
-                {localLensRemaining > 0 ? (
-                  <p className="text-xs opacity-80">{localLensRemaining} left</p>
-                ) : (
-                  <p className="text-xs opacity-80">Complete</p>
-                )}
-              </div>
-            </div>
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 shrink-0 opacity-70">
-              <path fillRule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clipRule="evenodd" />
-            </svg>
-          </button>
-          <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 bg-gray-900 dark:bg-zinc-700 text-white text-xs rounded-lg px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity z-10 text-center">
-            The most commonly answered local election topics — compare with your city and county leaders
-            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-zinc-700" />
-          </div>
-        </div>
+        <button
+          onClick={handleStartLocalLens}
+          style={{ background: LOCAL_LENS.color }}
+          className="flex-1 flex flex-col items-center justify-center gap-1.5 px-3 py-5 rounded-2xl text-white cursor-pointer hover:opacity-90 active:scale-95 transition-all"
+          title="The most commonly answered local election topics — compare with your city and county leaders"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 opacity-90">
+            <path d="M11.47 3.841a.75.75 0 0 1 1.06 0l8.69 8.69a.75.75 0 1 0 1.06-1.061l-8.689-8.69a2.25 2.25 0 0 0-3.182 0l-8.69 8.69a.75.75 0 1 0 1.061 1.06l8.69-8.689Z" />
+            <path d="m12 5.432 8.159 8.159c.03.03.06.058.091.086v6.198c0 1.035-.84 1.875-1.875 1.875H15a.75.75 0 0 1-.75-.75v-4.5a.75.75 0 0 0-.75-.75h-3a.75.75 0 0 0-.75.75V21a.75.75 0 0 1-.75.75H5.625a1.875 1.875 0 0 1-1.875-1.875v-6.198a2.29 2.29 0 0 0 .091-.086L12 5.432Z" />
+          </svg>
+          <p className="font-bold text-sm leading-tight">Local Lens</p>
+          <p className="text-xs opacity-80">{localLensRemaining > 0 ? `${localLensRemaining} left` : "Complete ✓"}</p>
+        </button>
 
         {/* Judicial Lens */}
-        <div className="group relative flex-1">
-          <button
-            onClick={handleStartJudicialLens}
-            style={{ background: JUDICIAL_LENS.color, color: "#ffffff" }}
-            className="w-full h-full flex items-center justify-between gap-3 px-4 py-3.5 rounded-xl cursor-pointer hover:opacity-90 transition-all"
-          >
-            <div className="flex items-center gap-2.5">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 shrink-0 opacity-90">
-                <path fillRule="evenodd" d="M10.5 3.75a6 6 0 0 0-5.98 6.496A5.25 5.25 0 0 0 6.75 20.25H18a4.5 4.5 0 0 0 .964-8.912 6 6 0 0 0-8.464-7.588ZM12 7.5a.75.75 0 0 1 .75.75v1.5h1.5a.75.75 0 0 1 0 1.5h-1.5v1.5a.75.75 0 0 1-1.5 0v-1.5h-1.5a.75.75 0 0 1 0-1.5h1.5v-1.5A.75.75 0 0 1 12 7.5Z" clipRule="evenodd" />
-              </svg>
-              <div className="text-left">
-                <p className="font-semibold text-sm leading-tight">Judicial Lens</p>
-                {judicialLensRemaining > 0 ? (
-                  <p className="text-xs opacity-80">{judicialLensRemaining} left</p>
-                ) : (
-                  <p className="text-xs opacity-80">Complete</p>
-                )}
-              </div>
-            </div>
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 shrink-0 opacity-70">
-              <path fillRule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clipRule="evenodd" />
-            </svg>
-          </button>
-          <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 bg-gray-900 dark:bg-zinc-700 text-white text-xs rounded-lg px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity z-10 text-center">
-            Questions for judicial races, DAs, and public defenders — courts, bail, and criminal justice
-            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-zinc-700" />
-          </div>
-        </div>
+        <button
+          onClick={handleStartJudicialLens}
+          style={{ background: JUDICIAL_LENS.color }}
+          className="flex-1 flex flex-col items-center justify-center gap-1.5 px-3 py-5 rounded-2xl text-white cursor-pointer hover:opacity-90 active:scale-95 transition-all"
+          title="Questions for judicial races, DAs, and public defenders — courts, bail, and criminal justice"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 opacity-90">
+            <path fillRule="evenodd" d="M7.502 6h7.128A3.375 3.375 0 0 1 18 9.375v9.375a3 3 0 0 0 3-3V6.108c0-1.505-1.125-2.811-2.664-2.94a48.972 48.972 0 0 0-.673-.05A3 3 0 0 0 15 1.5h-1.5a3 3 0 0 0-2.663 1.618c-.225.015-.45.032-.673.05C8.662 3.295 7.554 4.542 7.502 6ZM13.5 3A1.5 1.5 0 0 0 12 4.5h4.5A1.5 1.5 0 0 0 15 3h-1.5Z" clipRule="evenodd" />
+            <path fillRule="evenodd" d="M3 9.375C3 8.339 3.84 7.5 4.875 7.5h9.75c1.036 0 1.875.84 1.875 1.875v11.25c0 1.035-.84 1.875-1.875 1.875h-9.75A1.875 1.875 0 0 1 3 20.625V9.375ZM6 12a.75.75 0 0 1 .75-.75h.008a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75H6.75a.75.75 0 0 1-.75-.75V12Zm2.25 0a.75.75 0 0 1 .75-.75h3.75a.75.75 0 0 1 0 1.5H9a.75.75 0 0 1-.75-.75ZM6 15a.75.75 0 0 1 .75-.75h.008a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75H6.75a.75.75 0 0 1-.75-.75V15Zm2.25 0a.75.75 0 0 1 .75-.75h3.75a.75.75 0 0 1 0 1.5H9a.75.75 0 0 1-.75-.75ZM6 18a.75.75 0 0 1 .75-.75h.008a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75H6.75a.75.75 0 0 1-.75-.75V18Zm2.25 0a.75.75 0 0 1 .75-.75h3.75a.75.75 0 0 1 0 1.5H9a.75.75 0 0 1-.75-.75Z" clipRule="evenodd" />
+          </svg>
+          <p className="font-bold text-sm leading-tight">Judicial Lens</p>
+          <p className="text-xs opacity-80">{judicialLensRemaining > 0 ? `${judicialLensRemaining} left` : "Complete ✓"}</p>
+        </button>
 
-        {/* Full Calibration */}
+        {/* All Topics */}
         <button
           ref={fullCalRef}
           onClick={() => navigate("/quiz?mode=full")}
-          className="flex-1 flex items-center justify-between gap-3 px-4 py-3.5 rounded-xl bg-ev-yellow hover:bg-ev-yellow-dark transition-colors cursor-pointer group"
+          className="flex-1 flex flex-col items-center justify-center gap-1.5 px-3 py-5 rounded-2xl bg-ev-yellow hover:bg-ev-yellow-dark active:scale-95 transition-all cursor-pointer"
+          title="Answer all topics across every category"
         >
-          <div className="flex items-center gap-2.5">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 shrink-0 opacity-80 text-black">
-              <path d="M11.25 4.533A9.707 9.707 0 0 0 6 3a9.735 9.735 0 0 0-3.25.555.75.75 0 0 0-.5.707v14.25a.75.75 0 0 0 1 .707A8.237 8.237 0 0 1 6 18.75c1.995 0 3.823.707 5.25 1.886V4.533ZM12.75 20.636A8.214 8.214 0 0 1 18 18.75c.966 0 1.89.166 2.75.47a.75.75 0 0 0 1-.708V4.262a.75.75 0 0 0-.5-.707A9.735 9.735 0 0 0 18 3a9.707 9.707 0 0 0-5.25 1.533v16.103Z" />
-            </svg>
-            <div className="text-left">
-              <p className="font-semibold text-sm text-black leading-tight">Full Calibration</p>
-              {unansweredCount > 0 ? (
-                <p className="text-xs text-black/60">{unansweredCount} left</p>
-              ) : (
-                <p className="text-xs text-black/60">All answered</p>
-              )}
-            </div>
-          </div>
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 shrink-0 text-black/40 group-hover:text-black transition-colors">
-            <path fillRule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clipRule="evenodd" />
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 opacity-80 text-black">
+            <path d="M11.25 4.533A9.707 9.707 0 0 0 6 3a9.735 9.735 0 0 0-3.25.555.75.75 0 0 0-.5.707v14.25a.75.75 0 0 0 1 .707A8.237 8.237 0 0 1 6 18.75c1.995 0 3.823.707 5.25 1.886V4.533ZM12.75 20.636A8.214 8.214 0 0 1 18 18.75c.966 0 1.89.166 2.75.47a.75.75 0 0 0 1-.708V4.262a.75.75 0 0 0-.5-.707A9.735 9.735 0 0 0 18 3a9.707 9.707 0 0 0-5.25 1.533v16.103Z" />
           </svg>
+          <p className="font-bold text-sm text-black leading-tight">All Topics</p>
+          <p className="text-xs text-black/60">{unansweredCount > 0 ? `${unansweredCount} left` : "All answered ✓"}</p>
         </button>
       </div>
 
@@ -563,11 +525,8 @@ function Library() {
             {uncalibratedCount > 0 && (
               <button
                 onClick={() => {
-                  const firstUncal = selectedTopics.find(id => !isTopicCalibrated(id));
-                  if (firstUncal) {
-                    const t = topics.find(t => t.id === firstUncal);
-                    if (t) setDrawerTopic(t);
-                  }
+                  sessionStorage.setItem("start_resume_calibration", "1");
+                  navigate("/results");
                 }}
                 style={{ background: UNCALIBRATED_PURPLE }}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white hover:opacity-90 transition-opacity cursor-pointer"

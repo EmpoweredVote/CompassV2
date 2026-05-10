@@ -383,6 +383,8 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
   const [pickedTopics, setPickedTopics] = useState([]);
   const [lensApplied, setLensApplied] = useState(false);
   const [activeLens, setActiveLens] = useState(null);
+  // Snapshot of compass topics before a lens was applied — restored when pressing "← Change my topics"
+  const [prevPickedTopics, setPrevPickedTopics] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [showWriteIn, setShowWriteIn] = useState(false);
@@ -406,6 +408,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     setCurrentIndex(initial.currentIndex);
     if (initial.lensApplied) setLensApplied(true);
     if (initial.lens) setActiveLens(initial.lens);
+    if (initial.lensApplied) setPrevPickedTopics(selectedTopics.slice(0, 8));
     initializedRef.current = true;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [topics, resumeMode, startAtPick, startWithLocalLens, startWithJudicialLens]);
@@ -1129,7 +1132,12 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
             </button>
 
             <button
-              onClick={() => setStep("pick")}
+              onClick={() => {
+                setPickedTopics(prevPickedTopics);
+                setLensApplied(false);
+                setActiveLens(null);
+                setStep("pick");
+              }}
               className="text-sm self-start px-1 transition-opacity hover:opacity-70 cursor-pointer"
               style={{ color: t.textMuted }}
             >
@@ -1520,8 +1528,8 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
         {/* Main content: compass + stances */}
         <div className="flex-1 flex flex-col md:flex-row md:overflow-hidden">
           {/* Compass — left side, sized to viewport height so it grows big on larger screens */}
-          <div className="md:basis-1/2 flex flex-col items-center justify-center px-2 md:pt-4 gap-3">
-            <div className="w-full max-w-[440px] md:max-w-[min(calc(50vw-2rem),calc(100vh-220px))] mx-auto">
+          <div className="md:basis-1/2 flex items-center justify-center px-2 md:pt-4">
+            <div className="relative w-full max-w-[440px] md:max-w-[min(calc(50vw-2rem),calc(100vh-220px))] mx-auto">
               <RadarChart
                 data={chartData}
                 invertedSpokes={invertedSpokes}
@@ -1535,32 +1543,31 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
                   }))
                 }
               />
-            </div>
-
-            {/* Stance Max / Min — flip low spokes out or high spokes in */}
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                onClick={handleStanceMax}
-                title="Flip any spoke showing 1–2 to its strong side — see who agrees with your most committed stances"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-opacity cursor-pointer hover:opacity-80"
-                style={{ background: t.cardElev, border: `1px solid ${t.border}`, color: t.textBody }}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5 shrink-0">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
-                </svg>
-                Stance Max
-              </button>
-              <button
-                onClick={handleStanceMin}
-                title="Flip any spoke showing 4–5 to its moderate side — see who disagrees with you most"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-opacity cursor-pointer hover:opacity-80"
-                style={{ background: t.cardElev, border: `1px solid ${t.border}`, color: t.textBody }}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5 shrink-0">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 9V4.5M9 9H4.5M9 9 3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5M15 15l5.25 5.25" />
-                </svg>
-                Stance Min
-              </button>
+              {/* Stance Max / Min — icon-only, top-right corner (past 2:00) */}
+              <div className="absolute top-[12%] right-0 flex flex-col gap-1.5">
+                <button
+                  onClick={handleStanceMax}
+                  title="Stance Max — flip any spoke showing 1–2 to its strong side (4–5)"
+                  aria-label="Stance Max"
+                  className="w-7 h-7 rounded-full flex items-center justify-center transition-opacity cursor-pointer hover:opacity-90 active:scale-95"
+                  style={{ background: t.cardElev, border: `1px solid ${t.border}`, color: t.textBody }}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
+                  </svg>
+                </button>
+                <button
+                  onClick={handleStanceMin}
+                  title="Stance Min — flip any spoke showing 4–5 to its moderate side (1–2)"
+                  aria-label="Stance Min"
+                  className="w-7 h-7 rounded-full flex items-center justify-center transition-opacity cursor-pointer hover:opacity-90 active:scale-95"
+                  style={{ background: t.cardElev, border: `1px solid ${t.border}`, color: t.textBody }}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 9V4.5M9 9H4.5M9 9 3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5M15 15l5.25 5.25" />
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
 
