@@ -390,19 +390,23 @@ function Library() {
   const handleStartJudicialLens = () => setSelectedLens('judicial');
 
   // "Start" buttons inside the explainers do the actual navigation.
-  // Clear current topics first — lenses are mutually exclusive; merging would
-  // push past 8 topics and leave the previous lens topics active.
+  // Clear current topics and any active comparison first — lenses are mutually
+  // exclusive; merging would push past 8 topics, and a stale comparison would
+  // show replacement spokes from the previous session instead of lens topics.
   const doStartLocalLens = () => {
     setSelectedTopics([]);
+    localStorage.removeItem("comparePolitician");
     sessionStorage.setItem("start_local_lens", "1");
     navigate("/results");
   };
   const doStartJudicialLens = () => {
     setSelectedTopics([]);
+    localStorage.removeItem("comparePolitician");
     sessionStorage.setItem("start_judicial_lens", "1");
     navigate("/results");
   };
   const doStartAllTopics = () => {
+    localStorage.removeItem("comparePolitician");
     sessionStorage.setItem("start_all_topics", "1");
     navigate("/results");
   };

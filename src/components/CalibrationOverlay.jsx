@@ -730,7 +730,10 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
         if (val == null || val <= 0) continue;
         const isInverted = !!next[topic.short_title];
         const displayVal = isInverted ? 6 - val : val;
-        if (displayVal <= 2) next[topic.short_title] = !isInverted;
+        if (displayVal < 3) {
+          if (val < 3) next[topic.short_title] = true;
+          else delete next[topic.short_title];
+        }
       }
       return next;
     });
@@ -746,7 +749,10 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
         if (val == null || val <= 0) continue;
         const isInverted = !!next[topic.short_title];
         const displayVal = isInverted ? 6 - val : val;
-        if (displayVal >= 4) next[topic.short_title] = !isInverted;
+        if (displayVal > 3) {
+          if (val > 3) next[topic.short_title] = true;
+          else delete next[topic.short_title];
+        }
       }
       return next;
     });

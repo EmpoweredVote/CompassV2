@@ -519,18 +519,28 @@ function Compass() {
     }
   };
 
-  // -------- Stance Max / Min (same logic as CalibrationOverlay) --------
+  // -------- Stance Max / Min --------
+  // Operates on the full set of currently DISPLAYED topics: in compare mode this
+  // includes replacement spokes (topics the politician answered but are not in
+  // selectedTopics), so we prefer compareDisplayTopics when active.
+  const displayedTopicIds = comparePol && compareDisplayTopics ? compareDisplayTopics : selectedTopics;
+
   const handleStanceMax = () => {
     setInvertedSpokes((prev) => {
       const next = { ...prev };
-      for (const id of selectedTopics) {
+      for (const id of displayedTopicIds) {
         const topic = topics.find((t) => t.id === id);
         if (!topic) continue;
         const val = answers[topic.short_title];
         if (val == null || val <= 0) continue;
         const isInverted = !!next[topic.short_title];
         const displayVal = isInverted ? 6 - val : val;
-        if (displayVal <= 2) next[topic.short_title] = !isInverted;
+        // Push close-to-center spokes outward. Use val<3 (not ≤2) so write-in
+        // midpoints (e.g. 2.5) are also caught.
+        if (displayVal < 3) {
+          if (val < 3) next[topic.short_title] = true;
+          else delete next[topic.short_title];
+        }
       }
       return next;
     });
@@ -538,14 +548,18 @@ function Compass() {
   const handleStanceMin = () => {
     setInvertedSpokes((prev) => {
       const next = { ...prev };
-      for (const id of selectedTopics) {
+      for (const id of displayedTopicIds) {
         const topic = topics.find((t) => t.id === id);
         if (!topic) continue;
         const val = answers[topic.short_title];
         if (val == null || val <= 0) continue;
         const isInverted = !!next[topic.short_title];
         const displayVal = isInverted ? 6 - val : val;
-        if (displayVal >= 4) next[topic.short_title] = !isInverted;
+        // Pull far-from-center spokes inward. Use val>3 so write-in midpoints are caught.
+        if (displayVal > 3) {
+          if (val > 3) next[topic.short_title] = true;
+          else delete next[topic.short_title];
+        }
       }
       return next;
     });

@@ -170,13 +170,37 @@ export function useFilteredPoliticians(politicians) {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [politicians, level]);
 
-  // filtered: apply level + state filters (NOT text query).
+  // District-type sort priority — NATIONAL_EXEC (president/VP) floats to top.
+  const DT_PRIORITY = {
+    NATIONAL_EXEC: 0,
+    NATIONAL_UPPER: 1,
+    NATIONAL_LOWER: 2,
+    STATE_EXEC: 3,
+    STATE_UPPER: 4,
+    STATE_LOWER: 5,
+    LOCAL_EXEC: 6,
+    LOCAL: 7,
+    COUNTY: 8,
+    SCHOOL: 9,
+    JUDICIAL: 10,
+  };
+
+  // filtered: apply level + state filters (NOT text query), then sort so
+  // higher-tier / more prominent offices appear first (Trump before senators, etc.)
   const filtered = useMemo(() => {
-    return politicians.filter((p) => {
+    const results = politicians.filter((p) => {
       const tier = tierFromDistrictType(p.district_type);
       const levelMatch = level === "All" || tier === level;
       const stateMatch = !stateFilter || p.representing_state === stateFilter;
       return levelMatch && stateMatch;
+    });
+
+    return [...results].sort((a, b) => {
+      const pa = DT_PRIORITY[a.district_type] ?? 99;
+      const pb = DT_PRIORITY[b.district_type] ?? 99;
+      if (pa !== pb) return pa - pb;
+      // Within same type: alphabetical by last name
+      return (a.last_name || '').localeCompare(b.last_name || '');
     });
   }, [politicians, level, stateFilter]);
 
