@@ -964,7 +964,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
                 Start with Local Lens →
               </button>
               <p className="text-xs pl-1" style={{ color: t.textMuted }}>
-                9 questions · most local candidates have already answered these
+                8 questions · most local candidates have already answered these
               </p>
               {/* Secondary: custom */}
               <button
