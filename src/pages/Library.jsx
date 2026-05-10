@@ -92,7 +92,7 @@ function Library() {
   const [libTourStep, setLibTourStep] = useState(-1);
   const libTourDismissed = useRef(!!localStorage.getItem("onboarding_libraryTour"));
   const firstTileRef = useRef(null);
-  const fullCalRef = useRef(null);
+  const localLensRef = useRef(null);
 
   // -------- DnD sensors for pill strip --------
   const sensors = useSensors(
@@ -469,6 +469,7 @@ function Library() {
 
         {/* Local Lens */}
         <button
+          ref={localLensRef}
           onClick={handleStartLocalLens}
           style={{ background: LOCAL_LENS.color }}
           className="flex-1 flex flex-col items-center justify-center gap-1.5 px-3 py-5 rounded-2xl text-white cursor-pointer hover:opacity-90 active:scale-95 transition-all"
@@ -499,7 +500,6 @@ function Library() {
 
         {/* All Topics */}
         <button
-          ref={fullCalRef}
           onClick={() => navigate("/quiz?mode=full")}
           className="flex-1 flex flex-col items-center justify-center gap-1.5 px-3 py-5 rounded-2xl bg-ev-yellow hover:bg-ev-yellow-dark active:scale-95 transition-all cursor-pointer"
           title="Answer all topics across every category"
@@ -726,10 +726,10 @@ function Library() {
       {/* Library coach mark tour */}
       {libTourStep >= 0 && (
         <CoachMark
-          targetRef={libTourStep === 0 ? firstTileRef : fullCalRef}
+          targetRef={libTourStep === 0 ? firstTileRef : localLensRef}
           message={libTourStep === 0
             ? "Click any topic to add it to your compass — up to 8. Drag the pills above to reorder your spokes."
-            : "Or use a lens to answer the most relevant questions for a specific type of election"}
+            : "Start here — the Local Lens picks the 8 topics most local candidates have already answered, so you can compare right away."}
           stepLabel={`${libTourStep + 1} of 2`}
           onNext={advanceLibTour}
           onSkipAll={skipLibTour}
