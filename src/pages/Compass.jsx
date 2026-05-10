@@ -52,52 +52,33 @@ function CompassPromotionBanner({ payload, onSave, onDismiss, status, error }) {
   );
 }
 
-function BelowThresholdChart({ answeredCompassCount, needsMore, onStartCalibration, chartData, unansweredSpokesMap, invertedSpokes, isDark }) {
+function BuildCompassPrompt({ answeredCompassCount, needsMore, onStartCalibration }) {
   return (
-    <div
-      className="relative w-full cursor-pointer"
-      onClick={onStartCalibration}
-    >
-      {/* Grayed, non-interactive chart */}
-      <div className="w-full max-h-[calc(100dvh-300px)] mx-auto opacity-25 pointer-events-none select-none">
-        <RadarChart
-          key={Object.keys(chartData).length}
-          data={chartData}
-          unansweredSpokes={unansweredSpokesMap}
-          invertedSpokes={invertedSpokes}
-          darkMode={isDark}
-        />
+    <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
+      <div className="flex items-center justify-center gap-3 mb-6">
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            className={`w-4 h-4 rounded-full transition-colors duration-300 ${
+              i < answeredCompassCount ? "bg-[#59b0c4]" : "bg-gray-300 dark:bg-zinc-600"
+            }`}
+          />
+        ))}
       </div>
-      {/* Overlay message centered on top of chart */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center px-4 text-center">
-        <div className="bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-600 rounded-2xl px-6 py-5 shadow-lg max-w-xs">
-          {/* Dot progress indicator: 3 dots */}
-          <div className="flex items-center justify-center gap-3 mb-3">
-            {[0, 1, 2].map((i) => (
-              <div
-                key={i}
-                className={`w-3 h-3 rounded-full transition-colors duration-300 ${
-                  i < answeredCompassCount
-                    ? "bg-[#59b0c4]"
-                    : "bg-gray-300 dark:bg-zinc-600"
-                }`}
-              />
-            ))}
-          </div>
-          <h2 className="text-base font-semibold text-gray-800 dark:text-white mb-1">
-            Answer {needsMore} more topic{needsMore !== 1 ? "s" : ""} to see your compass
-          </h2>
-          <p className="text-gray-500 dark:text-gray-400 text-xs mb-4">
-            Build your political compass by answering a few more topics
-          </p>
-          <button
-            onClick={(e) => { e.stopPropagation(); onStartCalibration(); }}
-            className="px-5 py-2 bg-[#00657c] text-white rounded-full text-sm font-semibold hover:opacity-90 transition-opacity cursor-pointer"
-          >
-            Start Calibration
-          </button>
-        </div>
-      </div>
+      <h2 className="text-xl font-semibold text-gray-800 dark:text-white mb-2">
+        {answeredCompassCount === 0
+          ? "Build your compass"
+          : `Answer ${needsMore} more topic${needsMore !== 1 ? "s" : ""} to see your compass`}
+      </h2>
+      <p className="text-gray-500 dark:text-gray-400 text-sm mb-8 max-w-xs">
+        Your compass takes shape after you answer at least 3 topics
+      </p>
+      <button
+        onClick={onStartCalibration}
+        className="px-6 py-2.5 bg-[#00657c] text-white rounded-full text-sm font-semibold hover:opacity-90 transition-opacity cursor-pointer"
+      >
+        {answeredCompassCount === 0 ? "Start building" : "Continue building"}
+      </button>
     </div>
   );
 }
@@ -420,17 +401,16 @@ function Compass() {
     }
   }, [needsCalibration, calibrationActive]);
 
-  // Auto-route to calibration pick screen when below threshold (< 3 answered topics).
-  // This replaces the BelowThresholdChart overlay — instead of showing a message,
-  // send the user straight to the pick screen so they can add more topics.
-  // Guard with calibrationCompleted so a Restore (which sets calibration_completed=true)
-  // doesn't accidentally trigger this if answers are momentarily empty during remount.
+  // Auto-route to CalibrationOverlay whenever there aren't enough answered topics.
+  // Don't show a partial/broken compass — always send them into Compass Construction.
+  // Only skip if the user explicitly clicked "Skip for now" (calibrationSkipped).
+  // Restore flow is protected by the sessionStorage restore_calibration_bypass guard above.
   useEffect(() => {
-    if (topicsLoaded && !showChart && !calibrationActive && !calibrationCompleted && selectedTopics.length > 0) {
-      setStartAtPick(true);
+    if (topicsLoaded && !showChart && !calibrationActive && !calibrationSkipped) {
+      setStartAtPick(selectedTopics.length > 0);
       setCalibrationActive(true);
     }
-  }, [topicsLoaded, showChart, calibrationActive, calibrationCompleted, selectedTopics.length]);
+  }, [topicsLoaded, showChart, calibrationActive, calibrationSkipped, selectedTopics.length]);
 
   // Show overlay when active (stays shown even as answers change mid-flow)
   const showCalibration = calibrationActive;
@@ -1034,14 +1014,10 @@ function Compass() {
               </div>
             </>
           ) : (
-            <BelowThresholdChart
+            <BuildCompassPrompt
               answeredCompassCount={answeredCompassCount}
               needsMore={needsMore}
               onStartCalibration={handleStartCalibrationFromBelow3}
-              chartData={chartData}
-              unansweredSpokesMap={unansweredSpokesMap}
-              invertedSpokes={invertedSpokes}
-              isDark={isDark}
             />
           )}
         </div>
@@ -1142,14 +1118,10 @@ function Compass() {
               </div>
             </>
           ) : (
-            <BelowThresholdChart
+            <BuildCompassPrompt
               answeredCompassCount={answeredCompassCount}
               needsMore={needsMore}
               onStartCalibration={handleStartCalibrationFromBelow3}
-              chartData={chartData}
-              unansweredSpokesMap={unansweredSpokesMap}
-              invertedSpokes={invertedSpokes}
-              isDark={isDark}
             />
           )}
           <ActionButtons />
