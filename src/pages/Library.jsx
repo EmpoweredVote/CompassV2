@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useCompass } from "../components/CompassContext";
 import { useNavigate } from "react-router";
 import { apiFetch } from "../lib/auth";
+import { useTheme } from "../ThemeProvider";
 import RadarChart from "../components/RadarChart";
 import LibraryDrawer from "../components/LibraryDrawer";
 import CoachMark from "../components/CoachMark";
@@ -83,6 +84,8 @@ function Library() {
     isLoggedIn,
   } = useCompass();
   const navigate = useNavigate();
+  const { isDark } = useTheme();
+  const [selectedLens, setSelectedLens] = useState(null); // null | 'local' | 'judicial' | 'all'
   const [search, setSearch] = useState("");
   const [answeredTopicIDs, setAnsweredTopicIDs] = useState([]);
   const [answeredLoaded, setAnsweredLoaded] = useState(false);
@@ -382,15 +385,23 @@ function Library() {
     [judicialLensTopicIds, answeredSet]
   );
 
-  const handleStartLocalLens = () => {
+  // Clicking a lens button shows the inline explainer first
+  const handleStartLocalLens = () => setSelectedLens('local');
+  const handleStartJudicialLens = () => setSelectedLens('judicial');
+
+  // "Start" buttons inside the explainers do the actual navigation
+  const doStartLocalLens = () => {
     sessionStorage.setItem("start_local_lens", "1");
     sessionStorage.setItem("pre_lens_topics", JSON.stringify(selectedTopics));
     navigate("/results");
   };
-
-  const handleStartJudicialLens = () => {
+  const doStartJudicialLens = () => {
     sessionStorage.setItem("start_judicial_lens", "1");
     sessionStorage.setItem("pre_lens_topics", JSON.stringify(selectedTopics));
+    navigate("/results");
+  };
+  const doStartAllTopics = () => {
+    sessionStorage.setItem("start_all_topics", "1");
     navigate("/results");
   };
 
@@ -406,111 +417,279 @@ function Library() {
 
   const uncalibratedCount = selectedTopics.filter(id => !isTopicCalibrated(id)).length;
 
+  const showCompass = answeredCompassCount >= MIN_TOPICS;
+
+  // Derived lens topic lists for explainer chips
+  const localLensTopics = useMemo(
+    () => LOCAL_LENS.topicIds.map(id => topics.find(t => t.id === id)).filter(Boolean),
+    [topics]
+  );
+  const judicialLensTopics = useMemo(
+    () => JUDICIAL_LENS.topicIds.map(id => topics.find(t => t.id === id)).filter(Boolean),
+    [topics]
+  );
+
   return (
     <>
-      {/* ── Compass Preview ── */}
-      <div className="mt-4 px-4 md:px-6 max-w-5xl mx-auto">
-        {selectedTopics.length > 0 ? (
-          <div className="flex flex-col items-center">
-            <div
-              onClick={() => navigate("/results", { state: { clearCompare: true } })}
-              className={`w-full max-w-2xl md:max-w-3xl cursor-pointer transition-opacity relative ${belowThreshold ? "" : "hover:opacity-80"}`}
-              title={belowThreshold ? `Answer ${needsMore} more topic${needsMore !== 1 ? "s" : ""} to see your compass` : "View your compass"}
-            >
-              <RadarChart
-                data={chartData}
-                unansweredSpokes={unansweredSpokesMap}
-                invertedSpokes={invertedSpokes}
-                labelFontSize={18}
-                padding={100}
-                labelOffset={70}
-              />
-              {belowThreshold && (
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-200 text-center px-4 bg-white/90 dark:bg-zinc-700/95 border border-gray-200 dark:border-zinc-500 rounded-lg py-2">
-                    Answer {needsMore} more topic{needsMore !== 1 ? "s" : ""} to see your compass
-                  </p>
+      {/* ── Hero Section: onboarding / lens explainer / compass ── */}
+      <div className="border-b border-gray-200 dark:border-zinc-800">
+
+        {selectedLens ? (
+          /* ── Lens Explainer ── */
+          (() => {
+            const isLocal    = selectedLens === 'local';
+            const isJudicial = selectedLens === 'judicial';
+            const lens       = isLocal ? LOCAL_LENS : isJudicial ? JUDICIAL_LENS : null;
+            const lensColor  = lens ? lens.color : '#D4940B';
+            const lensTopics = isLocal ? localLensTopics : isJudicial ? judicialLensTopics : [];
+
+            return (
+              <div className="px-4 md:px-6 pt-4 pb-6 max-w-5xl mx-auto">
+                <button
+                  onClick={() => setSelectedLens(null)}
+                  className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer mb-5"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                    <path fillRule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clipRule="evenodd" />
+                  </svg>
+                  Back
+                </button>
+
+                <div className="flex flex-col md:flex-row gap-8">
+                  {/* Left: narrative */}
+                  <div className="md:w-1/2">
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ background: lensColor }}>
+                        {isJudicial ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="white" className="w-4 h-4">
+                            <path fillRule="evenodd" d="M10 1a.75.75 0 01.75.75v1.5h2.75A2.75 2.75 0 0116.25 6v.75H18a.75.75 0 010 1.5h-1.75v5H18a.75.75 0 010 1.5h-1.75V15a2.75 2.75 0 01-2.75 2.75H6.5A2.75 2.75 0 013.75 15v-.25H2a.75.75 0 010-1.5h1.75v-5H2a.75.75 0 010-1.5h1.75V6A2.75 2.75 0 016.5 3.25h2.75v-1.5A.75.75 0 0110 1zm0 4.25H6.5A1.25 1.25 0 005.25 6.5v7A1.25 1.25 0 006.5 14.75h7A1.25 1.25 0 0014.75 13.5v-7A1.25 1.25 0 0013.5 5.25H10z" clipRule="evenodd" />
+                          </svg>
+                        ) : selectedLens === 'all' ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="white" className="w-4 h-4">
+                            <path d="M10.75 16.82A7.462 7.462 0 0115 15.5c.71 0 1.396.098 2.046.282A.75.75 0 0018 15.06v-11a.75.75 0 00-.546-.721A9.006 9.006 0 0015 3a8.963 8.963 0 00-4.25 1.065V16.82zM9.25 4.065A8.963 8.963 0 005 3c-.85 0-1.673.118-2.454.339A.75.75 0 002 4.06v11a.75.75 0 00.954.721A7.506 7.506 0 015 15.5c1.579 0 3.042.487 4.25 1.32V4.065z" />
+                          </svg>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="white" className="w-4 h-4">
+                            <path fillRule="evenodd" d="M9.293 2.293a1 1 0 011.414 0l7 7A1 1 0 0117 11h-1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-3a1 1 0 00-1-1H9a1 1 0 00-1 1v3a1 1 0 01-1 1H5a1 1 0 01-1-1v-6H3a1 1 0 01-.707-1.707l7-7z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </div>
+                      <span className="text-xs font-bold tracking-widest uppercase" style={{ color: lensColor }}>
+                        {selectedLens === 'all' ? 'All Topics' : lens.name}
+                      </span>
+                    </div>
+
+                    {isJudicial ? (
+                      <>
+                        <h2 className="text-2xl md:text-3xl font-extrabold text-gray-900 dark:text-white leading-tight mb-3" style={{ letterSpacing: '-0.02em' }}>
+                          Courts. Prosecutors.<br /><span style={{ color: lensColor }}>Your vote decides them.</span>
+                        </h2>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-2">
+                          Judges and district attorneys shape who gets bail, how laws are interpreted, and whether communities get accountability or incarceration. These races rarely get the attention they deserve.
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-zinc-500 mb-6">8 questions · for judicial races, DAs, and public defenders</p>
+                      </>
+                    ) : selectedLens === 'all' ? (
+                      <>
+                        <h2 className="text-2xl md:text-3xl font-extrabold text-gray-900 dark:text-white leading-tight mb-3" style={{ letterSpacing: '-0.02em' }}>
+                          Every topic.<br /><span style={{ color: lensColor }}>Your full compass.</span>
+                        </h2>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-2">
+                          We cover {totalTopics} topics across {categories.length} categories. Pick up to 8 for your compass — mix and match based on the elections and issues you care about most.
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-zinc-500 mb-6">You choose · any combination of topics from any category</p>
+                      </>
+                    ) : (
+                      <>
+                        <h2 className="text-2xl md:text-3xl font-extrabold text-gray-900 dark:text-white leading-tight mb-3" style={{ letterSpacing: '-0.02em' }}>
+                          Local issues.<br /><span style={{ color: lensColor }}>Your real power.</span>
+                        </h2>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-2">
+                          City councils, mayors, and local officials make the decisions that shape your daily life — housing costs, public safety, schools, and development. Your vote matters most here.
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-zinc-500 mb-6">8 questions · most local candidates have already answered these</p>
+                      </>
+                    )}
+
+                    <button
+                      onClick={isLocal ? doStartLocalLens : isJudicial ? doStartJudicialLens : doStartAllTopics}
+                      className="flex items-center gap-2 px-6 py-3 rounded-full font-bold text-sm text-white hover:opacity-90 active:scale-95 transition-all cursor-pointer shadow-sm"
+                      style={{ background: lensColor }}
+                    >
+                      {selectedLens === 'all' ? 'Pick my topics' : `Start ${lens.name}`}
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                        <path fillRule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  {/* Right: topic chips or category chips */}
+                  <div className="md:w-1/2">
+                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
+                      {selectedLens === 'all'
+                        ? `${categories.length} categories · ${totalTopics} topics`
+                        : `${lensTopics.length} topics covered`}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedLens === 'all' ? (
+                        categories.map((cat, i) => {
+                          const cc = CATEGORY_COLORS[i % CATEGORY_COLORS.length];
+                          return (
+                            <span key={cat.id} className={`px-3 py-1.5 rounded-full text-xs font-semibold ${cc.bg} ${cc.text} border ${cc.border}`}>
+                              {cat.title} · {(cat.topics || []).length}
+                            </span>
+                          );
+                        })
+                      ) : (
+                        lensTopics.map(t => (
+                          <span
+                            key={t.id}
+                            className="px-3 py-1.5 rounded-full text-xs font-semibold"
+                            style={{ background: lensColor + '18', border: `1px solid ${lensColor}50`, color: lensColor }}
+                          >
+                            {t.short_title}
+                          </span>
+                        ))
+                      )}
+                    </div>
+                  </div>
                 </div>
-              )}
-            </div>
-            <div className="flex items-center gap-2 mt-1">
-              <h1 className="text-lg font-semibold text-gray-800 dark:text-white">
-                {hasCompass ? "Your Compass" : "Build Your Compass"}
-              </h1>
+              </div>
+            );
+          })()
+
+        ) : showCompass ? (
+          /* ── Compass Preview (has 3+ answered topics) ── */
+          <div className="px-4 md:px-6 pt-4 pb-6 max-w-5xl mx-auto">
+            <div className="flex flex-col md:flex-row items-center gap-6">
+              <div
+                className="w-full max-w-xs cursor-pointer hover:opacity-90 transition-opacity"
+                onClick={() => navigate('/results', { state: { clearCompare: true } })}
+                title="View your compass"
+              >
+                <RadarChart
+                  data={chartData}
+                  unansweredSpokes={unansweredSpokesMap}
+                  invertedSpokes={invertedSpokes}
+                  darkMode={isDark}
+                  labelFontSize={14}
+                  padding={80}
+                  labelOffset={60}
+                />
+              </div>
+              <div className="flex-1">
+                <h1 className="text-lg font-semibold text-gray-800 dark:text-white mb-0.5">Your Compass</h1>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{answeredCompassCount} topic{answeredCompassCount !== 1 ? 's' : ''} calibrated</p>
+                <button
+                  onClick={() => navigate('/results', { state: { clearCompare: true } })}
+                  className="px-4 py-2 text-sm font-semibold bg-[#00657c] text-white rounded-full hover:opacity-90 transition-opacity cursor-pointer mb-5 block"
+                >
+                  View full compass →
+                </button>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Explore more topics:</p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    ref={localLensRef}
+                    onClick={() => setSelectedLens('local')}
+                    style={{ background: LOCAL_LENS.color }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white hover:opacity-90 cursor-pointer"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3">
+                      <path d="M8.543 2.232a.75.75 0 00-1.085 0l-5.25 5.5A.75.75 0 002.75 9H4v4.75A.25.25 0 004.25 14h2.5a.25.25 0 00.25-.25v-3.5a.25.25 0 01.25-.25h1.5a.25.25 0 01.25.25v3.5c0 .138.112.25.25.25h2.5a.25.25 0 00.25-.25V9h1.25a.75.75 0 00.543-1.268l-5.25-5.5z" />
+                    </svg>
+                    Local Lens{localLensRemaining > 0 ? ` · ${localLensRemaining} left` : ' · Complete ✓'}
+                  </button>
+                  <button
+                    onClick={() => setSelectedLens('judicial')}
+                    style={{ background: JUDICIAL_LENS.color }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white hover:opacity-90 cursor-pointer"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3">
+                      <path fillRule="evenodd" d="M8 1.75a.75.75 0 01.692.462l1.41 3.393 3.664.293a.75.75 0 01.428 1.317l-2.791 2.39.853 3.575a.75.75 0 01-1.12.814L8 11.154l-3.136 2.84a.75.75 0 01-1.12-.814l.853-3.576-2.79-2.39a.75.75 0 01.427-1.316l3.663-.294 1.41-3.393A.75.75 0 018 1.75z" clipRule="evenodd" />
+                    </svg>
+                    Judicial Lens{judicialLensRemaining > 0 ? ` · ${judicialLensRemaining} left` : ' · Complete ✓'}
+                  </button>
+                  <button
+                    onClick={() => setSelectedLens('all')}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-[#D4940B] text-white hover:opacity-90 cursor-pointer"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3">
+                      <path d="M7.25 3.688L6.5 2H2.75A1.75 1.75 0 001 3.75v.513c.041-.013.084-.013.125 0a2.25 2.25 0 012.25 2.25V9.25a2.25 2.25 0 11-4.5 0V3.75A3.25 3.25 0 012.75.5h4.5a.75.75 0 01.694.464l.5 1.188a.75.75 0 01-.194.536z" />
+                    </svg>
+                    All Topics
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
+
         ) : (
-          <div className="flex flex-col items-center">
-            <div className="w-56 md:w-72 opacity-20 dark:opacity-15">
-              <svg viewBox="0 0 200 200" className="w-full h-full">
-                {[1, 2, 3, 4, 5].map((level) => {
-                  const r = (level / 5) * 80;
-                  return <circle key={level} cx="100" cy="100" r={r} fill="none" stroke="#9ca3af" strokeWidth="1" />;
-                })}
-                {[0, 1, 2, 3, 4, 5].map((i) => {
-                  const angle = (2 * Math.PI * i) / 6;
-                  return <line key={i} x1="100" y1="100" x2={100 + 80 * Math.sin(angle)} y2={100 - 80 * Math.cos(angle)} stroke="#9ca3af" strokeWidth="1" />;
-                })}
-              </svg>
+          /* ── 3-Step Onboarding (no compass yet) ── */
+          <div className="px-4 md:px-6 pt-6 pb-6 max-w-5xl mx-auto">
+            <p className="text-xs font-bold tracking-widest uppercase text-[#00657c] dark:text-[#59b0c4] mb-2">Your Political Compass</p>
+            <h1 className="text-2xl font-extrabold text-gray-900 dark:text-white mb-1" style={{ letterSpacing: '-0.02em' }}>
+              Build your compass in 3 steps
+            </h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">Takes about 6 minutes · start with what's most relevant to you</p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+              {[
+                { num: '01', title: 'Choose your topics', desc: 'Pick the issues that shape how you vote — start with a lens or choose your own.', color: LOCAL_LENS.color },
+                { num: '02', title: 'Set your stances', desc: 'Tell us where you stand on each topic. No right answers — only yours.', color: '#FED12E' },
+                { num: '03', title: 'Compare candidates', desc: 'See which leaders share your political compass and priorities.', color: '#00657C' },
+              ].map(s => (
+                <div
+                  key={s.num}
+                  className="flex gap-3 p-4 rounded-xl border"
+                  style={{ borderColor: s.color + '50', background: s.color + (isDark ? '12' : '10') }}
+                >
+                  <div
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                    style={{ background: s.color, color: s.num === '02' ? '#1C1C1C' : '#fff' }}
+                  >
+                    {s.num}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-sm text-gray-900 dark:text-white">{s.title}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">{s.desc}</p>
+                  </div>
+                </div>
+              ))}
             </div>
-            <h1 className="text-lg font-semibold text-gray-800 dark:text-white mt-2">Build Your Compass</h1>
-            <p className="text-gray-500 dark:text-gray-400 text-sm mt-1 text-center">
-              Click a topic below to add it to your compass — or start with a lens
-            </p>
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                ref={localLensRef}
+                onClick={() => setSelectedLens('local')}
+                style={{ background: LOCAL_LENS.color }}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold text-white hover:opacity-90 active:scale-95 transition-all cursor-pointer shadow-sm"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 shrink-0">
+                  <path fillRule="evenodd" d="M9.293 2.293a1 1 0 011.414 0l7 7A1 1 0 0117 11h-1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-3a1 1 0 00-1-1H9a1 1 0 00-1 1v3a1 1 0 01-1 1H5a1 1 0 01-1-1v-6H3a1 1 0 01-.707-1.707l7-7z" clipRule="evenodd" />
+                </svg>
+                Start with Local Lens →
+              </button>
+              <button
+                onClick={() => setSelectedLens('judicial')}
+                style={{ background: JUDICIAL_LENS.color }}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold text-white hover:opacity-90 active:scale-95 transition-all cursor-pointer"
+              >
+                Judicial Lens
+              </button>
+              <button
+                onClick={() => setSelectedLens('all')}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold bg-[#D4940B] text-white hover:opacity-90 active:scale-95 transition-all cursor-pointer"
+              >
+                All Topics
+              </button>
+            </div>
           </div>
         )}
       </div>
 
-      {/* ── Divider ── */}
-      <div className="border-t border-gray-200 dark:border-zinc-700 mx-6 my-4" />
-
-      {/* ── Calibration CTAs — 3 equal square-ish tiles ── */}
-      <div className="mx-4 md:mx-auto max-w-3xl mb-6 flex gap-2">
-
-        {/* Local Lens */}
-        <button
-          ref={localLensRef}
-          onClick={handleStartLocalLens}
-          style={{ background: LOCAL_LENS.color }}
-          className="flex-1 flex flex-col items-center justify-center gap-1.5 px-3 py-5 rounded-2xl text-white cursor-pointer hover:opacity-90 active:scale-95 transition-all"
-          title="The most commonly answered local election topics — compare with your city and county leaders"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 opacity-90">
-            <path d="M11.47 3.841a.75.75 0 0 1 1.06 0l8.69 8.69a.75.75 0 1 0 1.06-1.061l-8.689-8.69a2.25 2.25 0 0 0-3.182 0l-8.69 8.69a.75.75 0 1 0 1.061 1.06l8.69-8.689Z" />
-            <path d="m12 5.432 8.159 8.159c.03.03.06.058.091.086v6.198c0 1.035-.84 1.875-1.875 1.875H15a.75.75 0 0 1-.75-.75v-4.5a.75.75 0 0 0-.75-.75h-3a.75.75 0 0 0-.75.75V21a.75.75 0 0 1-.75.75H5.625a1.875 1.875 0 0 1-1.875-1.875v-6.198a2.29 2.29 0 0 0 .091-.086L12 5.432Z" />
-          </svg>
-          <p className="font-bold text-sm leading-tight">Local Lens</p>
-          <p className="text-xs opacity-80">{localLensRemaining > 0 ? `${localLensRemaining} left` : "Complete ✓"}</p>
-        </button>
-
-        {/* Judicial Lens */}
-        <button
-          onClick={handleStartJudicialLens}
-          style={{ background: JUDICIAL_LENS.color }}
-          className="flex-1 flex flex-col items-center justify-center gap-1.5 px-3 py-5 rounded-2xl text-white cursor-pointer hover:opacity-90 active:scale-95 transition-all"
-          title="Questions for judicial races, DAs, and public defenders — courts, bail, and criminal justice"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 opacity-90">
-            <path fillRule="evenodd" d="M7.502 6h7.128A3.375 3.375 0 0 1 18 9.375v9.375a3 3 0 0 0 3-3V6.108c0-1.505-1.125-2.811-2.664-2.94a48.972 48.972 0 0 0-.673-.05A3 3 0 0 0 15 1.5h-1.5a3 3 0 0 0-2.663 1.618c-.225.015-.45.032-.673.05C8.662 3.295 7.554 4.542 7.502 6ZM13.5 3A1.5 1.5 0 0 0 12 4.5h4.5A1.5 1.5 0 0 0 15 3h-1.5Z" clipRule="evenodd" />
-            <path fillRule="evenodd" d="M3 9.375C3 8.339 3.84 7.5 4.875 7.5h9.75c1.036 0 1.875.84 1.875 1.875v11.25c0 1.035-.84 1.875-1.875 1.875h-9.75A1.875 1.875 0 0 1 3 20.625V9.375ZM6 12a.75.75 0 0 1 .75-.75h.008a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75H6.75a.75.75 0 0 1-.75-.75V12Zm2.25 0a.75.75 0 0 1 .75-.75h3.75a.75.75 0 0 1 0 1.5H9a.75.75 0 0 1-.75-.75ZM6 15a.75.75 0 0 1 .75-.75h.008a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75H6.75a.75.75 0 0 1-.75-.75V15Zm2.25 0a.75.75 0 0 1 .75-.75h3.75a.75.75 0 0 1 0 1.5H9a.75.75 0 0 1-.75-.75ZM6 18a.75.75 0 0 1 .75-.75h.008a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75H6.75a.75.75 0 0 1-.75-.75V18Zm2.25 0a.75.75 0 0 1 .75-.75h3.75a.75.75 0 0 1 0 1.5H9a.75.75 0 0 1-.75-.75Z" clipRule="evenodd" />
-          </svg>
-          <p className="font-bold text-sm leading-tight">Judicial Lens</p>
-          <p className="text-xs opacity-80">{judicialLensRemaining > 0 ? `${judicialLensRemaining} left` : "Complete ✓"}</p>
-        </button>
-
-        {/* All Topics */}
-        <button
-          onClick={() => navigate("/quiz?mode=full")}
-          className="flex-1 flex flex-col items-center justify-center gap-1.5 px-3 py-5 rounded-2xl bg-ev-yellow hover:bg-ev-yellow-dark active:scale-95 transition-all cursor-pointer"
-          title="Answer all topics across every category"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 opacity-80 text-black">
-            <path d="M11.25 4.533A9.707 9.707 0 0 0 6 3a9.735 9.735 0 0 0-3.25.555.75.75 0 0 0-.5.707v14.25a.75.75 0 0 0 1 .707A8.237 8.237 0 0 1 6 18.75c1.995 0 3.823.707 5.25 1.886V4.533ZM12.75 20.636A8.214 8.214 0 0 1 18 18.75c.966 0 1.89.166 2.75.47a.75.75 0 0 0 1-.708V4.262a.75.75 0 0 0-.5-.707A9.735 9.735 0 0 0 18 3a9.707 9.707 0 0 0-5.25 1.533v16.103Z" />
-          </svg>
-          <p className="font-bold text-sm text-black leading-tight">All Topics</p>
-          <p className="text-xs text-black/60">{unansweredCount > 0 ? `${unansweredCount} left` : "All answered ✓"}</p>
-        </button>
-      </div>
+      {/* ── DELETED old section below — replaced by hero above ──
+          (old CTA buttons were here, now removed)
+      ── */}
 
       {/* ── Topic Selection Section ── */}
       <div className="px-4 md:px-6 max-w-5xl mx-auto">
