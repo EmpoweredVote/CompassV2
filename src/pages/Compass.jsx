@@ -70,7 +70,7 @@ function BelowThresholdChart({ answeredCompassCount, needsMore, onStartCalibrati
       </div>
       {/* Overlay message centered on top of chart */}
       <div className="absolute inset-0 flex flex-col items-center justify-center px-4 text-center">
-        <div className="bg-white/90 dark:bg-zinc-900/90 backdrop-blur-sm rounded-2xl px-6 py-5 shadow-lg max-w-xs">
+        <div className="bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-600 rounded-2xl px-6 py-5 shadow-lg max-w-xs">
           {/* Dot progress indicator: 3 dots */}
           <div className="flex items-center justify-center gap-3 mb-3">
             {[0, 1, 2].map((i) => (
@@ -92,7 +92,7 @@ function BelowThresholdChart({ answeredCompassCount, needsMore, onStartCalibrati
           </p>
           <button
             onClick={(e) => { e.stopPropagation(); onStartCalibration(); }}
-            className="px-5 py-2 bg-black text-white rounded-full text-sm font-semibold hover:opacity-90 transition-opacity cursor-pointer"
+            className="px-5 py-2 bg-[#00657c] text-white rounded-full text-sm font-semibold hover:opacity-90 transition-opacity cursor-pointer"
           >
             Start Calibration
           </button>

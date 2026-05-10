@@ -427,7 +427,7 @@ function Library() {
               />
               {belowThreshold && (
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <p className="text-sm font-semibold text-gray-500 dark:text-gray-400 text-center px-4 bg-white/80 dark:bg-zinc-900/80 rounded-lg py-2">
+                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-200 text-center px-4 bg-white/90 dark:bg-zinc-700/95 border border-gray-200 dark:border-zinc-500 rounded-lg py-2">
                     Answer {needsMore} more topic{needsMore !== 1 ? "s" : ""} to see your compass
                   </p>
                 </div>
