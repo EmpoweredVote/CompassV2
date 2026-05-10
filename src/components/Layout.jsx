@@ -232,7 +232,9 @@ function Layout({ children }) {
   };
 
   const handleNavigate = (href) => {
-    if (href.startsWith("/")) {
+    if (href === '/') {
+      window.location.href = 'https://alpha.empowered.vote';
+    } else if (href.startsWith("/")) {
       navigate(href);
     } else {
       window.location.href = href;
@@ -245,6 +247,8 @@ function Layout({ children }) {
       { label: `Save stances (${Object.keys(answers).length})`, onClick: handleSaveStances },
       { label: "Restore stances", onClick: handleRestoreStances },
     ] : []),
+    { label: "Profile", onClick: () => { window.location.href = 'https://login.empowered.vote/profile'; } },
+    { label: "EV Financials", onClick: () => { window.location.href = 'https://financials.empowered.vote'; } },
     { label: "Reset compass", onClick: handleClearCompass },
     { label: "Feedback", href: "https://feedback.empowered.vote" },
     { label: "Logout", onClick: logout },
