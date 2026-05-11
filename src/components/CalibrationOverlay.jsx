@@ -1510,7 +1510,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
         </div>
 
         {/* Topic pill strip */}
-        <div className="flex gap-2 px-4 py-2 overflow-x-auto shrink-0 justify-center">
+        <div className="flex gap-2 px-4 py-2 md:py-4 overflow-x-auto shrink-0 justify-center">
           {pickedTopics.map((id, idx) => {
             const topic = topics.find((tp) => tp.id === id);
             const isAnswered = topic && answers[topic.short_title] != null && answers[topic.short_title] > 0;
@@ -1584,7 +1584,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
           </div>
 
           {/* Question + Stance buttons — right 50% */}
-          <div ref={stancesPanelRef} className="md:basis-1/2 flex flex-col gap-1.5 px-3 pb-4 md:pb-0 md:pt-6 md:pr-6 max-w-md mx-auto md:mx-0">
+          <div ref={stancesPanelRef} className="md:basis-1/2 flex flex-col md:justify-center gap-1.5 px-3 pb-4 md:pb-0 md:pr-6 max-w-md mx-auto md:mx-0">
             <div className="mb-2">
               <p className="text-base md:text-lg font-semibold leading-snug" style={{ color: t.textHead }}>
                 {getQuestionText(currentTopic) || parseTensionTitle(currentTopic).name}
