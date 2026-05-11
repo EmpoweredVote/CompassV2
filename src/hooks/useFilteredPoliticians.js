@@ -196,10 +196,15 @@ export function useFilteredPoliticians(politicians) {
     });
 
     return [...results].sort((a, b) => {
+      // Primary: most answers first (politicians with fuller compasses rank higher)
+      const ca = b.answer_count ?? 0;
+      const cb = a.answer_count ?? 0;
+      if (ca !== cb) return ca - cb;
+      // Secondary: office prominence
       const pa = DT_PRIORITY[a.district_type] ?? 99;
       const pb = DT_PRIORITY[b.district_type] ?? 99;
       if (pa !== pb) return pa - pb;
-      // Within same type: alphabetical by last name
+      // Tertiary: alphabetical by last name
       return (a.last_name || '').localeCompare(b.last_name || '');
     });
   }, [politicians, level, stateFilter]);

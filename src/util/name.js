@@ -1,11 +1,14 @@
 export function getPolName(politician) {
   if (!politician) return "";
-  const polName = politician.preferred_name
-    ? politician.preferred_name + " " + politician.last_name
-    : politician.full_name
-    ? politician.full_name
-    : politician.first_name + " " + politician.last_name;
-  return polName;
+  if (politician.preferred_name) {
+    const pn = politician.preferred_name.trim();
+    const ln = (politician.last_name || "").trim();
+    // Don't double-append if preferred_name already contains the last name
+    if (ln && pn.toLowerCase().endsWith(ln.toLowerCase())) return pn;
+    return ln ? pn + " " + ln : pn;
+  }
+  if (politician.full_name) return politician.full_name;
+  return ((politician.first_name || "") + " " + (politician.last_name || "")).trim();
 }
 
 export function normalizeOfficeTitle(title) {
