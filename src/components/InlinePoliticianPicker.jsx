@@ -16,6 +16,7 @@ import placeholder from "../assets/placeholder.png";
 import usePoliticianList from "../hooks/usePoliticianList";
 import { useFilteredPoliticians } from "../hooks/useFilteredPoliticians";
 import PoliticianFilters from "./PoliticianFilters";
+import { useCompass } from "./CompassContext";
 
 const normalize = (s = "") =>
   s
@@ -32,6 +33,7 @@ export default function InlinePoliticianPicker({
   defaultOpen = false,
 }) {
   const { politicians, loading } = usePoliticianList();
+  const { selectedTopics } = useCompass();
   const {
     level,
     setLevel,
@@ -313,8 +315,13 @@ export default function InlinePoliticianPicker({
             )}
             {options.map((p, i) => {
               const active = i === highlight;
-              const isCurrent =
-                currentPolitician && p.id === currentPolitician.id;
+              const isCurrent = currentPolitician && p.id === currentPolitician.id;
+              const total = selectedTopics.length;
+              const matched = total > 0
+                ? (p.answered_topic_ids ?? []).filter(id => selectedTopics.includes(id)).length
+                : 0;
+              const allMatch = total > 0 && matched === total;
+              const polName = getPolName(p);
               return (
                 <button
                   key={p.id}
@@ -332,15 +339,29 @@ export default function InlinePoliticianPicker({
                         src={p.photo_origin_url || p.photo_custom_url || placeholder}
                         loading="lazy"
                         className="w-full h-full object-cover"
-                        alt={getPolName(p)}
+                        alt={polName}
                       />
                     </div>
                     <div className="flex flex-col min-w-0 flex-1">
-                      <div className="font-medium truncate dark:text-white">{getPolName(p)}</div>
+                      <div className="font-medium truncate dark:text-white">{polName}</div>
                       <div className="text-neutral-500 dark:text-gray-400 text-xs truncate">
                         {getOfficeSubtitle(p)}
                       </div>
                     </div>
+                    {total > 0 && (
+                      <span
+                        title={`${polName} has answered ${matched} of your ${total} active compass topic${total === 1 ? '' : 's'}`}
+                        className={`shrink-0 text-xs font-semibold tabular-nums px-1.5 py-0.5 rounded-md ${
+                          allMatch
+                            ? 'text-[#5A9A6E] dark:text-[#6DD28C] bg-[#5A9A6E]/10 dark:bg-[#6DD28C]/10'
+                            : matched > 0
+                            ? 'text-neutral-500 dark:text-gray-400 bg-neutral-100 dark:bg-zinc-700'
+                            : 'text-neutral-400 dark:text-zinc-500 bg-neutral-100 dark:bg-zinc-700'
+                        }`}
+                      >
+                        {matched}/{total}
+                      </span>
+                    )}
                     {isCurrent && (
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
