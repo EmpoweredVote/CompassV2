@@ -681,7 +681,7 @@ function Library() {
               <div className="flex flex-wrap justify-center gap-3">
                 <button
                   ref={localLensRef}
-                  onClick={() => setSelectedLens('local')}
+                  onClick={doStartLocalLens}
                   style={{ background: LOCAL_LENS.color }}
                   className="flex items-center gap-2 px-7 py-3 rounded-full text-base font-bold text-white hover:opacity-90 active:scale-95 transition-all cursor-pointer shadow-md"
                 >
@@ -691,14 +691,14 @@ function Library() {
                   Local Lens
                 </button>
                 <button
-                  onClick={() => setSelectedLens('judicial')}
+                  onClick={doStartJudicialLens}
                   style={{ background: JUDICIAL_LENS.color }}
                   className="flex items-center gap-2 px-6 py-3 rounded-full text-sm font-semibold text-white hover:opacity-90 active:scale-95 transition-all cursor-pointer"
                 >
                   Judicial Lens
                 </button>
                 <button
-                  onClick={() => setSelectedLens('all')}
+                  onClick={doStartAllTopics}
                   className="flex items-center gap-2 px-6 py-3 rounded-full text-sm font-semibold bg-[#D4940B] text-white hover:opacity-90 active:scale-95 transition-all cursor-pointer"
                 >
                   All Topics
@@ -759,7 +759,7 @@ function Library() {
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">8 questions covering the most-answered local election topics — the fastest way to build your compass</p>
                   </div>
                   <button
-                    onClick={handleStartLocalLens}
+                    onClick={doStartLocalLens}
                     style={{ background: LOCAL_LENS.color }}
                     className="shrink-0 px-4 py-2 rounded-full text-xs font-bold text-white hover:opacity-90 cursor-pointer"
                   >
