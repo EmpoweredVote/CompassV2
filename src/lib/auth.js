@@ -5,7 +5,7 @@
 // directly via the absolute URL.
 export const API_BASE = import.meta.env.DEV
   ? '/api'
-  : 'https://api.empowered.vote/api';
+  : 'https://accounts-api.empowered.vote/api';
 
 export const TOKEN_KEY = 'ev_token';
 export const AUTH_HUB_URL = 'https://accounts.empowered.vote';
