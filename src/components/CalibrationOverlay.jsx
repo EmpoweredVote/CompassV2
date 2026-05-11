@@ -200,6 +200,43 @@ function SortableTopicPill({ id, label, onRemove, t }) {
   );
 }
 
+function SortableStancePill({ id, label, isCurrent, isAnswered, onClick, t }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id, transition: SMOOTH_TRANSITION });
+
+  return (
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      onClick={onClick}
+      style={{
+        transform: CSS.Translate.toString(transform),
+        transition: isDragging ? undefined : transition,
+        opacity: isDragging ? 0.5 : 1,
+        touchAction: 'none',
+        ...(isCurrent
+          ? { border: `2px solid ${t.borderAccent}`, background: t.selBg, color: t.textAccent }
+          : isAnswered
+          ? { background: t.cardElev, color: t.textMuted, border: '2px solid transparent' }
+          : { background: t.card, border: `1px solid ${t.border}`, color: t.textBody }),
+      }}
+      className="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium cursor-grab active:cursor-grabbing select-none"
+    >
+      {isAnswered && !isCurrent && (
+        <span className="mr-1" style={{ color: '#5A9A6E' }}>✓</span>
+      )}
+      {label}
+    </div>
+  );
+}
+
 function SortableWriteInCard({ id, text, onChange, onCancel, showHint, isDark }) {
   const t = isDark ? DARK_THEME : LIGHT_THEME;
   const {
@@ -763,6 +800,16 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     const oldIndex = pickedTopics.indexOf(active.id);
     const newIndex = pickedTopics.indexOf(over.id);
     setPickedTopics(arrayMove(pickedTopics, oldIndex, newIndex));
+  };
+
+  const handleStancePillDragEnd = ({ active, over }) => {
+    if (!over || active.id === over.id) return;
+    const oldIndex = pickedTopics.indexOf(active.id);
+    const newIndex = pickedTopics.indexOf(over.id);
+    const newOrder = arrayMove(pickedTopics, oldIndex, newIndex);
+    const currentTopicId = pickedTopics[currentIndex];
+    setCurrentIndex(newOrder.indexOf(currentTopicId));
+    setPickedTopics(newOrder);
   };
 
   const handleWriteInTextChange = (newText) => {
@@ -1502,33 +1549,29 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
           </div>
         </div>
 
-        {/* Topic pill strip */}
-        <div className="flex gap-2 px-4 py-2 md:py-4 overflow-x-auto shrink-0 justify-center">
-          {pickedTopics.map((id, idx) => {
-            const topic = topics.find((tp) => tp.id === id);
-            const isAnswered = topic && answers[topic.short_title] != null && answers[topic.short_title] > 0;
-            const isCurrent = idx === currentIndex;
-            return (
-              <button
-                key={id}
-                onClick={() => { setCurrentIndex(idx); setSelectedAnswer(null); }}
-                className="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer"
-                style={
-                  isCurrent
-                    ? { border: `2px solid ${t.borderAccent}`, background: t.selBg, color: t.textAccent }
-                    : isAnswered
-                    ? { background: t.cardElev, color: t.textMuted, border: '2px solid transparent' }
-                    : { background: t.card, border: `1px solid ${t.border}`, color: t.textBody }
-                }
-              >
-                {isAnswered && !isCurrent && (
-                  <span className="mr-1" style={{ color: '#5A9A6E' }}>✓</span>
-                )}
-                {topic ? parseTensionTitle(topic).name : "..."}
-              </button>
-            );
-          })}
-        </div>
+        {/* Topic pill strip — draggable to reorder */}
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleStancePillDragEnd}>
+          <SortableContext items={pickedTopics} strategy={horizontalListSortingStrategy}>
+            <div className="flex gap-2 px-4 py-2 md:py-4 overflow-x-auto shrink-0 justify-center">
+              {pickedTopics.map((id, idx) => {
+                const topic = topics.find((tp) => tp.id === id);
+                const isAnswered = topic && answers[topic.short_title] != null && answers[topic.short_title] > 0;
+                const isCurrent = idx === currentIndex;
+                return (
+                  <SortableStancePill
+                    key={id}
+                    id={id}
+                    label={topic ? parseTensionTitle(topic).name : "..."}
+                    isCurrent={isCurrent}
+                    isAnswered={isAnswered}
+                    onClick={() => { setCurrentIndex(idx); setSelectedAnswer(null); }}
+                    t={t}
+                  />
+                );
+              })}
+            </div>
+          </SortableContext>
+        </DndContext>
 
         {/* Main content: compass + stances */}
         <div className="flex-1 flex flex-col md:flex-row md:overflow-hidden">

@@ -76,6 +76,16 @@ function ComparePanel({
     setSources([]);
   };
 
+  const selectTopic = (topicName) => {
+    setDropdownValue(topicName);
+    setReasoning("");
+    setSources([]);
+  };
+
+  const currentTopicIndex = topicSelected ? topicNames.indexOf(dropdownValue) : -1;
+  const hasPrev = currentTopicIndex > 0;
+  const hasNext = currentTopicIndex >= 0 && currentTopicIndex < topicNames.length - 1;
+
   const updateStance = (stanceIndex) => {
     if (saving || !selectedTopic) return;
     setSaving(true);
@@ -180,11 +190,11 @@ function ComparePanel({
               {/* Legend */}
               <div className="flex items-center gap-3 text-xs text-neutral-400 dark:text-gray-500 px-5 pb-2">
                 <span className="flex items-center gap-1">
-                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#ff5740]" />
+                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#7C6B9E]" />
                   You
                 </span>
                 <span className="flex items-center gap-1">
-                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#59b0c4]" />
+                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#5A9A6E] dark:bg-[#6DD28C]" />
                   {polName}
                 </span>
               </div>
@@ -221,10 +231,10 @@ function ComparePanel({
                       {(isUser || isPol) && (
                         <span className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
                           {isUser && (
-                            <span className="w-2.5 h-2.5 rounded-full bg-[#ff5740] ring-2 ring-[#ff5740]/20" />
+                            <span className="w-2.5 h-2.5 rounded-full bg-[#7C6B9E] ring-2 ring-[#7C6B9E]/20" />
                           )}
                           {isPol && (
-                            <span className="w-2.5 h-2.5 rounded-full bg-[#59b0c4] ring-2 ring-[#59b0c4]/20" />
+                            <span className="w-2.5 h-2.5 rounded-full bg-[#5A9A6E] dark:bg-[#6DD28C] ring-2 ring-[#5A9A6E]/20 dark:ring-[#6DD28C]/20" />
                           )}
                         </span>
                       )}
@@ -233,20 +243,20 @@ function ComparePanel({
                 })}
 
                 {isWriteIn && (
-                  <div className="relative px-3 py-3 rounded-xl bg-[#ff5740]/5 dark:bg-[#ff5740]/10 border border-[#ff5740]/20">
+                  <div className="relative px-3 py-3 rounded-xl bg-[#7C6B9E]/5 dark:bg-[#7C6B9E]/10 border border-[#7C6B9E]/20">
                     <span className="text-sm text-neutral-900 dark:text-white pr-6">
                       {writeIns[dropdownValue] || "(Custom stance)"}
                     </span>
                     <span className="absolute right-3 top-1/2 -translate-y-1/2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-[#ff5740] ring-2 ring-[#ff5740]/20 inline-block" />
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#7C6B9E] ring-2 ring-[#7C6B9E]/20 inline-block" />
                     </span>
                   </div>
                 )}
               </div>
 
-              {/* Scrollable reasoning + sources */}
+              {/* Reasoning + sources */}
               {hasContent && (
-                <div className="px-5 pb-5 border-t border-neutral-100 dark:border-zinc-700 overflow-y-auto lg:max-h-[20rem]">
+                <div className="px-5 pb-5 border-t border-neutral-100 dark:border-zinc-700">
                   {reasoning && (
                     <p className="whitespace-pre-wrap text-[0.94rem] leading-relaxed text-neutral-800 dark:text-gray-200 pt-4">
                       {reasoning}
@@ -290,6 +300,28 @@ function ComparePanel({
               <p className="text-sm text-neutral-500 dark:text-gray-400 text-center italic">
                 {polName} hasn&apos;t answered this topic yet.
               </p>
+            </div>
+          )}
+
+          {topicNames.length > 1 && (
+            <div className="px-5 py-3 border-t border-neutral-100 dark:border-zinc-700 flex items-center justify-between">
+              <button
+                onClick={() => hasPrev && selectTopic(topicNames[currentTopicIndex - 1])}
+                disabled={!hasPrev}
+                className={`text-sm px-3 py-1.5 rounded-lg transition-colors ${hasPrev ? "text-neutral-700 dark:text-gray-300 hover:bg-neutral-100 dark:hover:bg-zinc-700 cursor-pointer" : "text-neutral-300 dark:text-zinc-600 cursor-not-allowed"}`}
+              >
+                ← Back
+              </button>
+              <span className="text-xs text-neutral-400 dark:text-gray-500">
+                {currentTopicIndex + 1} of {topicNames.length}
+              </span>
+              <button
+                onClick={() => hasNext && selectTopic(topicNames[currentTopicIndex + 1])}
+                disabled={!hasNext}
+                className={`text-sm px-3 py-1.5 rounded-lg transition-colors ${hasNext ? "text-neutral-700 dark:text-gray-300 hover:bg-neutral-100 dark:hover:bg-zinc-700 cursor-pointer" : "text-neutral-300 dark:text-zinc-600 cursor-not-allowed"}`}
+              >
+                Next →
+              </button>
             </div>
           )}
         </>

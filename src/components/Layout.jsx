@@ -287,7 +287,10 @@ function Layout({ children }) {
             ? { label: null, items: [] }
             : isLoggedIn
               ? { label: username, items: profileItems }
-              : { label: null, items: [{ label: "Sign in", onClick: () => navigate("/login") }] }
+              : { label: null, items: [
+                  { label: "Sign in", onClick: () => navigate("/login") },
+                  { label: "EV Financials", onClick: () => { window.location.href = 'https://financials.empowered.vote'; } },
+                ] }
         }
       />
       <main className="flex-1">{children}</main>

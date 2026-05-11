@@ -1105,7 +1105,7 @@ function Compass() {
 
         {/* right: compare panel or Compare entry button — always visible when chart is shown */}
         {showChart && (
-          <div className="flex-[1] min-w-[280px] max-w-[360px]">
+          <div className="flex-[1] min-w-[300px] max-w-[420px]">
             {(comparePol || compareMode) ? (
               <ComparePanel
                 politician={comparePol}
