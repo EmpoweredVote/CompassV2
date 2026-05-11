@@ -1458,11 +1458,6 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
       >
         {/* ── Header ── */}
         <div className="flex flex-col px-4 pt-3 pb-2 shrink-0">
-          {/* Phase indicator */}
-          <div className="mb-3">
-            <PhaseIndicator current={2} />
-          </div>
-
           <div className="flex items-center justify-between gap-2">
             <button
               onClick={handleBack}
@@ -1473,10 +1468,11 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
               <BackArrow />
             </button>
 
-            {/* Progress bar */}
-            <div className="flex flex-col items-center flex-1 max-w-xs">
+            {/* Phase indicator + progress bar — stacked and centered together */}
+            <div className="flex flex-col items-center flex-1 max-w-xs gap-1.5">
+              <PhaseIndicator current={2} />
               <div
-                className="w-full h-1.5 rounded-full overflow-hidden mb-1"
+                className="w-full h-1.5 rounded-full overflow-hidden"
                 style={{ background: t.progressBg }}
               >
                 <div
@@ -1487,9 +1483,6 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
                   }}
                 />
               </div>
-              <p className="text-xs" style={{ color: t.textMuted }}>
-                {answeredCount} of {pickedTopics.length} answered
-              </p>
             </div>
 
             <div className="flex items-center gap-2">
