@@ -67,12 +67,13 @@ function Layout({ children }) {
     setWriteIns({});
     setSelectedTopics([]);
     setInvertedSpokes({});
-    // Clear active topics on server so other EV features see an empty compass.
-    // Answers (stances) are intentionally preserved — Restore reactivates them.
+    // Clear active topics and all stored answers on server so batch fetch on
+    // remount finds nothing and cannot repopulate the freshly-reset compass.
     apiFetch('/compass/selected-topics', {
       method: "PUT",
       body: JSON.stringify({ topic_ids: [] }),
     }).catch(() => {});
+    apiFetch('/compass/answers/me', { method: "DELETE" }).catch(() => {});
     // Remount Compass.jsx and navigate to it so the calibration tutorial fires.
     setCompassVersion((v) => v + 1);
     navigate('/results');

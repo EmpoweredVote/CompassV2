@@ -38,7 +38,7 @@ const CATEGORY_COLORS = [
 const UNCALIBRATED_PURPLE = "#7C3AED";
 const CALIBRATED_TEAL = "#00657C";
 
-function SortableTopicPill({ id, label, isCalibrated, onRemove }) {
+function SortableTopicPill({ id, label, isCalibrated, onRemove, onMouseEnter, onMouseLeave }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id,
     transition: { duration: 200, easing: "ease" },
@@ -48,6 +48,8 @@ function SortableTopicPill({ id, label, isCalibrated, onRemove }) {
       ref={setNodeRef}
       {...attributes}
       {...listeners}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
       style={{
         transform: CSS.Translate.toString(transform),
         transition: isDragging ? undefined : transition,
@@ -90,6 +92,7 @@ function Library() {
   const [answeredTopicIDs, setAnsweredTopicIDs] = useState([]);
   const [answeredLoaded, setAnsweredLoaded] = useState(false);
   const [drawerTopic, setDrawerTopic] = useState(null);
+  const [hoveredPillShortTitle, setHoveredPillShortTitle] = useState(null);
 
   // -------- Library coach mark tour --------
   const [libTourStep, setLibTourStep] = useState(-1);
@@ -371,8 +374,13 @@ function Library() {
     [topics]
   );
   const localLensRemaining = useMemo(
-    () => localLensTopicIds.filter(id => !answeredSet.has(id)).length,
-    [localLensTopicIds, answeredSet]
+    () => localLensTopicIds.filter(id => {
+      const topic = topics.find(t => t.id === id);
+      if (!topic) return true;
+      const val = answers[topic.short_title];
+      return !(val != null && val > 0);
+    }).length,
+    [localLensTopicIds, topics, answers]
   );
   const localLensNotStarted = localLensRemaining === localLensTopicIds.length && localLensTopicIds.length > 0;
 
@@ -381,8 +389,13 @@ function Library() {
     [topics]
   );
   const judicialLensRemaining = useMemo(
-    () => judicialLensTopicIds.filter(id => !answeredSet.has(id)).length,
-    [judicialLensTopicIds, answeredSet]
+    () => judicialLensTopicIds.filter(id => {
+      const topic = topics.find(t => t.id === id);
+      if (!topic) return true;
+      const val = answers[topic.short_title];
+      return !(val != null && val > 0);
+    }).length,
+    [judicialLensTopicIds, topics, answers]
   );
 
   // Clicking a lens button shows the inline explainer first
@@ -566,10 +579,11 @@ function Library() {
 
         ) : showCompass ? (
           /* ── Compass Preview (has 3+ answered topics) ── */
-          <div className="px-4 md:px-6 pt-4 pb-6 max-w-5xl mx-auto">
-            <div className="flex flex-col md:flex-row items-center gap-6">
+          <div className="px-4 md:px-6 pt-4 pb-6 w-full max-w-screen-xl mx-auto">
+            <div className="flex flex-col lg:flex-row items-center gap-6">
+              {/* Chart — larger on desktop */}
               <div
-                className="w-full max-w-xs cursor-pointer hover:opacity-90 transition-opacity"
+                className="w-full max-w-sm lg:max-w-none lg:w-[500px] lg:shrink-0 cursor-pointer hover:opacity-90 transition-opacity"
                 onClick={() => navigate('/results', { state: { clearCompare: true } })}
                 title="View your compass"
               >
@@ -581,11 +595,43 @@ function Library() {
                   labelFontSize={14}
                   padding={80}
                   labelOffset={60}
+                  highlightedSpoke={hoveredPillShortTitle}
                 />
               </div>
-              <div className="flex-1">
+
+              {/* Right column: title + pills + lens buttons */}
+              <div className="flex-1 w-full">
                 <h1 className="text-lg font-semibold text-gray-800 dark:text-white mb-0.5">Your Compass</h1>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{answeredCompassCount} topic{answeredCompassCount !== 1 ? 's' : ''} calibrated</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">{answeredCompassCount} topic{answeredCompassCount !== 1 ? 's' : ''} calibrated</p>
+
+                {/* Draggable pill strip */}
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handlePillDragEnd}
+                  modifiers={[restrictToHorizontalAxis]}
+                >
+                  <SortableContext items={selectedTopics} strategy={horizontalListSortingStrategy}>
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {selectedTopics.map((id) => {
+                        const topic = topics.find(t => t.id === id);
+                        if (!topic) return null;
+                        return (
+                          <SortableTopicPill
+                            key={id}
+                            id={id}
+                            label={topic.short_title}
+                            isCalibrated={isTopicCalibrated(id)}
+                            onRemove={() => setSelectedTopics(prev => prev.filter(tid => tid !== id))}
+                            onMouseEnter={() => setHoveredPillShortTitle(topic.short_title)}
+                            onMouseLeave={() => setHoveredPillShortTitle(null)}
+                          />
+                        );
+                      })}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+
                 <button
                   onClick={() => navigate('/results', { state: { clearCompare: true } })}
                   className="px-4 py-2 text-sm font-semibold bg-[#00657c] text-white rounded-full hover:opacity-90 transition-opacity cursor-pointer mb-5 block"
@@ -620,7 +666,7 @@ function Library() {
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-[#D4940B] text-white hover:opacity-90 cursor-pointer"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3">
-                      <path d="M7.25 3.688L6.5 2H2.75A1.75 1.75 0 001 3.75v.513c.041-.013.084-.013.125 0a2.25 2.25 0 012.25 2.25V9.25a2.25 2.25 0 11-4.5 0V3.75A3.25 3.25 0 012.75.5h4.5a.75.75 0 01.694.464l.5 1.188a.75.75 0 01-.194.536z" />
+                      <path d="M2 2.5A.5.5 0 012.5 2h4a.5.5 0 01.5.5v4a.5.5 0 01-.5.5h-4A.5.5 0 012 6.5v-4zm7 0a.5.5 0 01.5-.5h4a.5.5 0 01.5.5v4a.5.5 0 01-.5.5h-4a.5.5 0 01-.5-.5v-4zm-7 7A.5.5 0 012.5 9h4a.5.5 0 01.5.5v4a.5.5 0 01-.5.5h-4a.5.5 0 01-.5-.5v-4zm7 0a.5.5 0 01.5-.5h4a.5.5 0 01.5.5v4a.5.5 0 01-.5.5h-4a.5.5 0 01-.5-.5v-4z" />
                     </svg>
                     All Topics
                   </button>
@@ -701,6 +747,9 @@ function Library() {
                   onClick={doStartAllTopics}
                   className="flex items-center gap-2 px-6 py-3 rounded-full text-sm font-semibold bg-[#D4940B] text-white hover:opacity-90 active:scale-95 transition-all cursor-pointer"
                 >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 shrink-0">
+                    <path d="M2 2.5A.5.5 0 012.5 2h4a.5.5 0 01.5.5v4a.5.5 0 01-.5.5h-4A.5.5 0 012 6.5v-4zm7 0a.5.5 0 01.5-.5h4a.5.5 0 01.5.5v4a.5.5 0 01-.5.5h-4a.5.5 0 01-.5-.5v-4zm-7 7A.5.5 0 012.5 9h4a.5.5 0 01.5.5v4a.5.5 0 01-.5.5h-4a.5.5 0 01-.5-.5v-4zm7 0a.5.5 0 01.5-.5h4a.5.5 0 01.5.5v4a.5.5 0 01-.5.5h-4a.5.5 0 01-.5-.5v-4z" />
+                  </svg>
                   All Topics
                 </button>
               </div>
@@ -721,8 +770,8 @@ function Library() {
       {/* ── Topic Selection Section ── */}
       <div className="px-4 md:px-6 max-w-5xl mx-auto">
 
-        {/* ── Compass spoke pill strip ── */}
-        <div className="mb-5">
+        {/* ── Compass spoke pill strip (hidden when compass preview is visible — pills live there) ── */}
+        <div className={`mb-5 ${showCompass ? 'hidden' : ''}`}>
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-base font-semibold dark:text-white">
               Your Compass Topics
