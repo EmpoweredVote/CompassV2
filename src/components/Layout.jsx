@@ -44,7 +44,7 @@ function Layout({ children }) {
   };
 
   const handleClearCompass = () => {
-    if (!window.confirm("Start a demo compass? Your stances are preserved and can be restored from this menu at any time.")) return;
+    if (!window.confirm("Reset to a demo compass? This clears your current stances locally — use 'Save stances' first if you want to restore them later.")) return;
     // Clear all local state and onboarding flags so the app looks brand-new
     localStorage.removeItem("answers");
     localStorage.removeItem("writeIns");
@@ -246,10 +246,10 @@ function Layout({ children }) {
       { label: "Admin", href: "/admin" },
       { label: `Save stances (${Object.keys(answers).length})`, onClick: handleSaveStances },
       { label: "Restore stances", onClick: handleRestoreStances },
+      { label: "Reset compass", onClick: handleClearCompass },
     ] : []),
     { label: "Profile", onClick: () => { window.location.href = 'https://login.empowered.vote/profile'; } },
     { label: "EV Financials", onClick: () => { window.location.href = 'https://financials.empowered.vote'; } },
-    { label: "Reset compass", onClick: handleClearCompass },
     { label: "Feedback", href: "https://feedback.empowered.vote" },
     { label: "Logout", onClick: logout },
   ];
