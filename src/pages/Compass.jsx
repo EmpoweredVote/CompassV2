@@ -590,18 +590,23 @@ function Compass() {
   ];
 
   // Tour advancement logic
+  const finishPostCalTour = () => {
+    localStorage.setItem("onboarding_postCalTour", "1");
+    setTourStep(-1);
+    // Start compare tour now if comparePol is already set and compare tour hasn't run
+    if (comparePol && !compareTourDismissed.current) {
+      setTimeout(() => setCompareTourStep(0), 300);
+    }
+  };
   const advanceTour = () => {
     if (tourStep < 4) {
       setTourStep(tourStep + 1);
     } else {
-      // Final step — dismiss
-      localStorage.setItem("onboarding_postCalTour", "1");
-      setTourStep(-1);
+      finishPostCalTour();
     }
   };
   const skipTour = () => {
-    localStorage.setItem("onboarding_postCalTour", "1");
-    setTourStep(-1);
+    finishPostCalTour();
   };
 
   const [drawerTopic, setDrawerTopic] = useState(null);
@@ -633,6 +638,9 @@ function Compass() {
   // -------- Compare tour trigger: fires on first compare selection --------
   useEffect(() => {
     if (!comparePol || compareTourDismissed.current) return;
+    // Don't start compare tour while post-cal tour is pending or active — both
+    // running simultaneously is confusing. It will start after post-cal tour ends.
+    if (!localStorage.getItem("onboarding_postCalTour")) return;
     // Delay to let ComparePanel render before positioning coach marks
     const timer = setTimeout(() => setCompareTourStep(0), 600);
     return () => clearTimeout(timer);
