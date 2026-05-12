@@ -29,7 +29,9 @@ const CUTOUT_RADIUS = 8;
 // Tooltip width (px) for positioning calculation
 const TOOLTIP_WIDTH = 280;
 // Tooltip approximate height (px) for positioning calculation
-const TOOLTIP_HEIGHT = 140;
+// Keep this generous — the below/above fallback logic depends on it being
+// at least as tall as the tallest tooltip (long messages, links, buttons).
+const TOOLTIP_HEIGHT = 180;
 // Minimum gap between tooltip and viewport edge (px)
 const VIEWPORT_MARGIN = 12;
 
@@ -251,7 +253,12 @@ export default function CoachMark({
   if (rect) {
     cutout = buildClipPath(rect, vpW, vpH);
     const pos = calcTooltipPosition(rect, vpW, vpH);
-    tooltipPos = pos;
+    // Hard-clamp so the tooltip never overflows the viewport bottom,
+    // even if TOOLTIP_HEIGHT underestimates the actual rendered height.
+    tooltipPos = {
+      ...pos,
+      top: Math.min(pos.top, vpH - TOOLTIP_HEIGHT - VIEWPORT_MARGIN),
+    };
     placement = pos.placement;
   }
 
