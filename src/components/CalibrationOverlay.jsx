@@ -381,10 +381,28 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed.step === "pick" || parsed.step === "answer") {
+          let pickedTopics = parsed.pickedTopics || [];
+          let lens = null;
+
+          // If this was a lens calibration, re-derive pickedTopics from the
+          // current lens definition so a topic swap (e.g. Voting Rights →
+          // Local Immigration Enforcement) is picked up instead of replaying
+          // the stale saved list.
+          if (parsed.lensKey) {
+            lens = parsed.lensKey === 'local' ? LOCAL_LENS
+                 : parsed.lensKey === 'judicial' ? JUDICIAL_LENS
+                 : null;
+            if (lens) {
+              pickedTopics = lens.topicIds.filter(id => topics.some(t => t.id === id));
+            }
+          }
+
           return {
             step: parsed.step,
-            pickedTopics: parsed.pickedTopics || [],
+            pickedTopics,
             currentIndex: parsed.currentIndex || 0,
+            lensApplied: !!lens,
+            lens,
           };
         }
       }
@@ -452,7 +470,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
 
   useEffect(() => {
     if (step === "welcome" || step === "lens_intro" || step === "complete") return;
-    const progress = { step, pickedTopics, currentIndex, resumeMode: resumeMode || false };
+    const progress = { step, pickedTopics, currentIndex, resumeMode: resumeMode || false, lensKey: activeLens?.key || null };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
   }, [step, pickedTopics, currentIndex, resumeMode]);
 
