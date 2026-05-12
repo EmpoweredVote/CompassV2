@@ -326,17 +326,9 @@ function Compass() {
     () => localStorage.getItem("calibration_skipped") === "true"
   );
   // calibrationCompleted: user finished onboarding — don't re-trigger overlay if topics drop below 3 later
-  const [calibrationCompleted, setCalibrationCompleted] = useState(() => {
-    // Belt-and-suspenders after Restore Stances: even if calibration_completed was
-    // somehow cleared from localStorage before this component mounted, the session-
-    // storage flag (set just before the page redirect) guarantees we start as done.
-    if (sessionStorage.getItem("restore_calibration_bypass") === "1") {
-      sessionStorage.removeItem("restore_calibration_bypass");
-      localStorage.setItem("calibration_completed", "true");
-      return true;
-    }
-    return localStorage.getItem("calibration_completed") === "true";
-  });
+  const [calibrationCompleted, setCalibrationCompleted] = useState(
+    () => localStorage.getItem("calibration_completed") === "true"
+  );
   // startWithLocalLens / startWithJudicialLens: consumed once from sessionStorage when Library lens buttons are clicked
   const [startWithLocalLens, setStartWithLocalLens] = useState(() => {
     const flag = sessionStorage.getItem("start_local_lens") === "1";

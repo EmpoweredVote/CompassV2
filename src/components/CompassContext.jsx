@@ -57,9 +57,8 @@ export function CompassProvider({ children }) {
   const [username, setUsername] = useState(null);
   const [userId, setUserId] = useState(null);
   const [authChecking, setAuthChecking] = useState(true);
-  // Incremented by Restore Stances to force Compass.jsx to remount and reset
-  // its local calibration state (calibrationActive, calibrationCompleted, etc.)
-  // without a full page reload — preserving all the correctly-restored context state.
+  // Incremented by Restore Stances and Reset Compass to force Compass.jsx to
+  // remount and re-initialize its local calibration state from localStorage.
   const [compassVersion, setCompassVersion] = useState(0);
 
   const setInvertedSpokes = useCallback((updater) => {
@@ -299,13 +298,6 @@ export function CompassProvider({ children }) {
   // Fetch selected topics from server (called after login, not on mount for guests)
   const refreshSelectedTopics = async () => {
     if (!getToken()) {
-      serverLoaded.current = true;
-      return;
-    }
-    // After Restore Stances the localStorage value is authoritative — skip the
-    // server GET so stale server data doesn't overwrite the restored topics.
-    if (sessionStorage.getItem("restore_skip_server_sel") === "1") {
-      sessionStorage.removeItem("restore_skip_server_sel");
       serverLoaded.current = true;
       return;
     }
