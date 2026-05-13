@@ -10,47 +10,49 @@ const CATEGORY_COLORS = [
 ];
 
 const DARK = {
-  bg:         '#131416',
-  sidebar:    '#1A1C1F',
-  sidebarBdr: '#2A2D33',
-  card:       '#2F3237',
-  border:     '#41454E',
-  textHead:   '#EBEDEF',
-  textBody:   '#D3D7DE',
-  textMuted:  '#9CA3AF',
-  textAccent: '#59B0C4',
-  selBg:      'rgba(89,176,196,0.10)',
-  selBorder:  '#59B0C4',
-  yellow:     '#FED12E',
-  progressBg: '#41454E',
-  stanceBg:   '#41454E',
-  stanceBdr:  '#555B66',
-  activeItem: 'rgba(89,176,196,0.09)',
-  checkColor: '#59B0C4',
-  headerBg:   'rgba(19,20,22,0.97)',
-  flipBtn:    '#41454E',
+  bg:           '#131416',
+  sidebar:      '#1A1C1F',
+  sidebarBdr:   '#2A2D33',
+  card:         '#2F3237',
+  border:       '#41454E',
+  textHead:     '#EBEDEF',
+  textBody:     '#D3D7DE',
+  textMuted:    '#9CA3AF',
+  textAccent:   '#59B0C4',
+  selBg:        'rgba(89,176,196,0.12)',
+  selBorder:    '#59B0C4',
+  yellow:       '#FED12E',
+  progressBg:   '#41454E',
+  stanceBg:     '#2F3237',
+  stanceBdr:    '#41454E',
+  stanceShadow: 'none',
+  activeItem:   'rgba(89,176,196,0.09)',
+  checkColor:   '#59B0C4',
+  headerBg:     'rgba(19,20,22,0.97)',
+  flipBtn:      '#41454E',
 };
 
 const LIGHT = {
-  bg:         '#F7F7F8',
-  sidebar:    '#FFFFFF',
-  sidebarBdr: '#E5E7EB',
-  card:       '#FFFFFF',
-  border:     '#D3D7DE',
-  textHead:   '#2F3237',
-  textBody:   '#535964',
-  textMuted:  '#9CA3AF',
-  textAccent: '#00657C',
-  selBg:      '#E4F3F6',
-  selBorder:  '#00657C',
-  yellow:     '#FED12E',
-  progressBg: '#D3D7DE',
-  stanceBg:   '#F7F7F8',
-  stanceBdr:  '#D3D7DE',
-  activeItem: '#EAF5F8',
-  checkColor: '#00657C',
-  headerBg:   'rgba(247,247,248,0.97)',
-  flipBtn:    '#E5E7EB',
+  bg:           '#F7F7F8',
+  sidebar:      '#FFFFFF',
+  sidebarBdr:   '#E5E7EB',
+  card:         '#FFFFFF',
+  border:       '#D3D7DE',
+  textHead:     '#2F3237',
+  textBody:     '#535964',
+  textMuted:    '#9CA3AF',
+  textAccent:   '#00657C',
+  selBg:        '#E4F3F6',
+  selBorder:    '#00657C',
+  yellow:       '#FED12E',
+  progressBg:   '#D3D7DE',
+  stanceBg:     '#FFFFFF',
+  stanceBdr:    '#D3D7DE',
+  stanceShadow: '0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.05)',
+  activeItem:   '#EAF5F8',
+  checkColor:   '#00657C',
+  headerBg:     'rgba(247,247,248,0.97)',
+  flipBtn:      '#E5E7EB',
 };
 
 function CheckIcon({ color }) {
@@ -408,11 +410,11 @@ export default function FullCalibration() {
               </div>
 
               {/* Stance buttons */}
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-2.5">
                 {orderedStances.map(stance => {
-                  const isSelected  = selectedValue === stance.value;
-                  const wasPicked   = answers[activeTopic.short_title] === stance.value;
-                  const highlight   = isSelected || (selectedValue === null && wasPicked);
+                  const isSelected = selectedValue === stance.value;
+                  const wasPicked  = answers[activeTopic.short_title] === stance.value;
+                  const highlight  = isSelected || (selectedValue === null && wasPicked);
                   return (
                     <button
                       key={stance.id}
@@ -420,11 +422,12 @@ export default function FullCalibration() {
                       disabled={selectedValue !== null}
                       className="w-full text-left px-4 py-3.5 rounded-xl text-sm font-medium leading-snug transition-all duration-150 cursor-pointer"
                       style={{
-                        background:   highlight ? th.selBg  : th.stanceBg,
-                        border:       `1.5px solid ${highlight ? th.selBorder : th.stanceBdr}`,
-                        color:        highlight ? th.textAccent : th.textBody,
-                        opacity:      selectedValue !== null && !isSelected ? 0.45 : 1,
-                        transform:    isSelected ? 'scale(1.01)' : 'scale(1)',
+                        background:  highlight ? th.selBg : th.stanceBg,
+                        border:      `1.5px solid ${highlight ? th.selBorder : th.stanceBdr}`,
+                        color:       highlight ? th.textAccent : th.textHead,
+                        boxShadow:   highlight ? 'none' : th.stanceShadow,
+                        opacity:     selectedValue !== null && !isSelected ? 0.4 : 1,
+                        transform:   isSelected ? 'scale(1.01)' : 'scale(1)',
                       }}
                     >
                       {stance.text}
