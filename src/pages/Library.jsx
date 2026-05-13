@@ -420,8 +420,7 @@ function Library() {
   };
   const doStartAllTopics = () => {
     localStorage.removeItem("comparePolitician");
-    sessionStorage.setItem("start_all_topics", "1");
-    navigate("/results");
+    navigate("/calibrate");
   };
 
   const MIN_TOPICS = 3;

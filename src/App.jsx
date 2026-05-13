@@ -13,9 +13,10 @@ import Layout from "./components/Layout";
 import { CompassProvider, useCompass } from "./components/CompassContext";
 import AdminDashboard from "./components/admin/AdminDashboard";
 import HowItWorks from "./pages/HowItWorks";
+import FullCalibration from "./pages/FullCalibration";
 
 // Routes that should bypass the calibration guard
-const GUARD_BYPASS = ["/help", "/how-it-works", "/login", "/register", "/admin", "/401", "/results", "/library"];
+const GUARD_BYPASS = ["/help", "/how-it-works", "/login", "/register", "/admin", "/401", "/results", "/library", "/calibrate"];
 
 function HelpGuard({ children }) {
   const location = useLocation();
@@ -106,6 +107,8 @@ function App() {
             </HelpGuard>
           }
         />
+        <Route path="/calibrate" element={<FullCalibration />} />
+
         <Route
           path="/home"
           element={

@@ -418,7 +418,7 @@ function Compass() {
     || (startResumeCalibration && answeredCompassCount > 0);
 
   // startAtPick: when true, CalibrationOverlay opens directly at the pick step
-  const [startAtPick, setStartAtPick] = useState((startResumeCalibration && answeredCompassCount === 0) || startAllTopics);
+  const [startAtPick, setStartAtPick] = useState(startResumeCalibration && answeredCompassCount === 0);
 
   // handleStartCalibration: full reset — used for first-time entry points
   const handleStartCalibration = () => {
@@ -954,6 +954,7 @@ function Compass() {
         startAtPick={startAtPick}
         startWithLocalLens={startWithLocalLens}
         startWithJudicialLens={startWithJudicialLens}
+        startWithAllTopics={startAllTopics}
         onComplete={() => {
           localStorage.removeItem("calibration_skipped");
           localStorage.removeItem("calibration_progress");

@@ -342,7 +342,7 @@ function BackArrow() {
 // Main component
 // ────────────────────────────────────────────────
 
-export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = false, startAtPick = false, startWithLocalLens = false, startWithJudicialLens = false }) {
+export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = false, startAtPick = false, startWithLocalLens = false, startWithJudicialLens = false, startWithAllTopics = false }) {
   const {
     topics,
     categories,
@@ -374,6 +374,10 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     if (startWithJudicialLens) {
       const lensIds = JUDICIAL_LENS.topicIds.filter(id => topics.some(t => t.id === id));
       return { step: "lens_intro", pickedTopics: lensIds, currentIndex: 0, lensApplied: true, lens: JUDICIAL_LENS };
+    }
+
+    if (startWithAllTopics) {
+      return { step: "answer", pickedTopics: topics.map(t => t.id), currentIndex: 0 };
     }
 
     try {
@@ -469,7 +473,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
   }, [topics, resumeMode, startAtPick, startWithLocalLens, startWithJudicialLens]);
 
   useEffect(() => {
-    if (step === "welcome" || step === "lens_intro" || step === "complete") return;
+    if (step === "welcome" || step === "lens_intro" || step === "complete" || startWithAllTopics) return;
     const progress = { step, pickedTopics, currentIndex, resumeMode: resumeMode || false, lensKey: activeLens?.key || null };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
   }, [step, pickedTopics, currentIndex, resumeMode]);
@@ -688,6 +692,11 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
   };
 
   const handleFinish = () => {
+    if (startWithAllTopics) {
+      localStorage.removeItem(STORAGE_KEY);
+      setStep("complete");
+      return;
+    }
     const unansweredIds = pickedTopics.filter((id) => {
       const topic = topics.find((t) => t.id === id);
       if (!topic) return true;
