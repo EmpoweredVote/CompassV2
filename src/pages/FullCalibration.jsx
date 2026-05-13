@@ -71,7 +71,7 @@ function CircleIcon({ color }) {
 }
 
 export default function FullCalibration() {
-  const { categories, answers, setAnswers, isLoggedIn, topicsLoaded } = useCompass();
+  const { topics, categories, answers, setAnswers, isLoggedIn, topicsLoaded } = useCompass();
   const { isDark } = useTheme();
   const th = isDark ? DARK : LIGHT;
   const navigate = useNavigate();
@@ -222,15 +222,18 @@ export default function FullCalibration() {
   }
 
   // ── Derive active topic display ──────────────────────────────────────────
-  const isFlipped = activeTopic ? (inversions[activeTopic.id] ?? false) : false;
-  const orderedStances = activeTopic?.stances
+  // categories API returns lightweight topic objects (no stances); look up the
+  // full topic from the topics array which includes the stances array.
+  const fullActiveTopic = activeTopic ? (topics.find(t => t.id === activeTopic.id) ?? activeTopic) : null;
+  const isFlipped = fullActiveTopic ? (inversions[fullActiveTopic.id] ?? false) : false;
+  const orderedStances = fullActiveTopic?.stances
     ? isFlipped
-      ? [...activeTopic.stances].sort((a, b) => a.value - b.value)
-      : [...activeTopic.stances].sort((a, b) => b.value - a.value)
+      ? [...fullActiveTopic.stances].sort((a, b) => a.value - b.value)
+      : [...fullActiveTopic.stances].sort((a, b) => b.value - a.value)
     : [];
-  const qText    = activeTopic ? getQuestionText(activeTopic) : "";
-  const { name: topicName, poles } = activeTopic
-    ? parseTensionTitle(activeTopic)
+  const qText    = fullActiveTopic ? getQuestionText(fullActiveTopic) : "";
+  const { name: topicName, poles } = fullActiveTopic
+    ? parseTensionTitle(fullActiveTopic)
     : { name: "", poles: null };
   const catIdx   = dedupedCategories.findIndex(cat => cat.topics.some(tp => tp.id === activeTopic?.id));
   const catColor = CATEGORY_COLORS[catIdx >= 0 ? catIdx % CATEGORY_COLORS.length : 0];
@@ -379,7 +382,7 @@ export default function FullCalibration() {
                 <button
                   onClick={handleFlip}
                   className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-opacity hover:opacity-70 cursor-pointer"
-                  style={{ background: th.flipBtn, color: th.textMuted }}
+                  style={{ background: th.flipBtn, color: isFlipped ? th.textAccent : th.textBody }}
                   title="Flip stance order"
                 >
                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
