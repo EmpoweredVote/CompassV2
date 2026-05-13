@@ -28,7 +28,6 @@ const DARK = {
   stanceShadow: 'none',
   activeItem:   'rgba(89,176,196,0.09)',
   checkColor:   '#59B0C4',
-  headerBg:     'rgba(19,20,22,0.97)',
   flipBtn:      '#41454E',
 };
 
@@ -51,7 +50,6 @@ const LIGHT = {
   stanceShadow: '0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.05)',
   activeItem:   '#EAF5F8',
   checkColor:   '#00657C',
-  headerBg:     'rgba(247,247,248,0.97)',
   flipBtn:      '#E5E7EB',
 };
 
@@ -74,7 +72,7 @@ function CircleIcon({ color }) {
 
 export default function FullCalibration() {
   const { topics, categories, answers, setAnswers, isLoggedIn, topicsLoaded } = useCompass();
-  const { isDark } = useTheme();
+  const { isDark, toggle: toggleDark } = useTheme();
   const th = isDark ? DARK : LIGHT;
   const navigate = useNavigate();
 
@@ -245,41 +243,81 @@ export default function FullCalibration() {
   return (
     <div className="h-screen flex flex-col" style={{ background: th.bg }}>
 
-      {/* ── Header ── */}
+      {/* ── Header (ev-ui style) ── */}
       <header
-        className="flex-none h-14 flex items-center px-4 gap-3 border-b z-10 backdrop-blur-sm"
-        style={{ background: th.headerBg, borderColor: th.border }}
+        className="flex-none z-30"
+        style={{
+          backgroundColor: isDark ? '#131416' : '#FFFFFF',
+          borderBottom: `1px solid ${isDark ? '#41454E' : '#E2EBEF'}`,
+        }}
       >
-        <button
-          onClick={() => navigate('/library')}
-          className="text-sm flex-none flex items-center gap-1 transition-opacity hover:opacity-60 cursor-pointer"
-          style={{ color: th.textMuted }}
+        <div
+          className="flex items-center justify-between gap-4 px-4 sm:px-6 py-3 sm:py-4"
+          style={{ maxWidth: '1512px', margin: '0 auto' }}
         >
-          ← Back
-        </button>
-
-        <div className="flex-1 flex items-center justify-center gap-3 min-w-0">
-          <span className="hidden sm:block text-sm font-semibold flex-none" style={{ color: th.textHead }}>
-            Full Calibration
-          </span>
-          <div className="flex items-center gap-2">
-            <div
-              className="w-24 sm:w-36 h-1.5 rounded-full overflow-hidden flex-none"
-              style={{ background: th.progressBg }}
-            >
-              <div
-                className="h-full rounded-full transition-all duration-500"
-                style={{ width: `${progressPct}%`, background: th.textAccent }}
-              />
+          {/* Left: logo + title + progress */}
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+            <img
+              src="/EVLogo.svg"
+              alt="Empowered Vote"
+              className="cursor-pointer flex-none"
+              style={{ height: '36px' }}
+              onClick={() => navigate('/library')}
+            />
+            <div className="flex flex-col gap-1 min-w-0">
+              <span
+                className="text-sm font-bold leading-none"
+                style={{ color: isDark ? '#EBEDEF' : '#2F3237', fontFamily: "'Manrope', sans-serif" }}
+              >
+                Full Calibration
+              </span>
+              <div className="flex items-center gap-2">
+                <div
+                  className="rounded-full overflow-hidden flex-none"
+                  style={{ width: '100px', height: '4px', background: isDark ? '#41454E' : '#D3D7DE' }}
+                >
+                  <div
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{ width: `${progressPct}%`, background: isDark ? '#59B0C4' : '#00657C' }}
+                  />
+                </div>
+                <span
+                  className="text-xs font-semibold tabular-nums"
+                  style={{ color: isDark ? '#59B0C4' : '#00657C' }}
+                >
+                  {answeredCount} / {totalCount}
+                </span>
+              </div>
             </div>
-            <span className="text-xs font-semibold tabular-nums flex-none" style={{ color: th.textAccent }}>
-              {answeredCount} / {totalCount}
-            </span>
+          </div>
+
+          {/* Right: dark toggle + back */}
+          <div className="flex items-center gap-1 flex-none">
+            <button
+              onClick={toggleDark}
+              aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+              className="w-9 h-9 rounded-full flex items-center justify-center transition-colors cursor-pointer hover:bg-gray-100 dark:hover:bg-zinc-700"
+              style={{ color: isDark ? '#9CA3AF' : '#535964' }}
+            >
+              {isDark ? (
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                  <path d="M10 2a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 0110 2zM10 15a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 0110 15zM10 7a3 3 0 100 6 3 3 0 000-6zM15.657 5.404a.75.75 0 10-1.06-1.06l-1.061 1.06a.75.75 0 001.06 1.06l1.061-1.06zM6.464 14.596a.75.75 0 10-1.06-1.06l-1.061 1.06a.75.75 0 001.06 1.06l1.061-1.06zM18 10a.75.75 0 01-.75.75h-1.5a.75.75 0 010-1.5h1.5A.75.75 0 0118 10zM5 10a.75.75 0 01-.75.75h-1.5a.75.75 0 010-1.5h1.5A.75.75 0 015 10zM14.596 15.657a.75.75 0 001.06-1.06l-1.06-1.061a.75.75 0 10-1.06 1.06l1.06 1.061zM5.404 6.464a.75.75 0 001.06-1.06l-1.06-1.061a.75.75 0 10-1.06 1.06l1.06 1.061z" />
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                  <path fillRule="evenodd" d="M7.455 2.004a.75.75 0 01.26.77 7 7 0 009.958 7.967.75.75 0 011.067.853A8.5 8.5 0 116.647 1.921a.75.75 0 01.808.083z" clipRule="evenodd" />
+                </svg>
+              )}
+            </button>
+            <button
+              onClick={() => navigate('/library')}
+              className="hidden sm:flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium transition-opacity hover:opacity-70 cursor-pointer"
+              style={{ color: isDark ? '#9CA3AF' : '#535964' }}
+            >
+              ← Back
+            </button>
           </div>
         </div>
-
-        {/* balance spacer */}
-        <div className="w-10 flex-none" />
       </header>
 
       {/* ── Body ── */}
