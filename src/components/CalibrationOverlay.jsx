@@ -668,6 +668,15 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
   };
 
   const handleNext = () => {
+    if (lensApplied) {
+      if (currentIndex < pickedTopics.length - 1) {
+        setCurrentIndex(currentIndex + 1);
+        setSelectedAnswer(null);
+      } else {
+        handleFinish();
+      }
+      return;
+    }
     const nextUnanswered = pickedTopics.findIndex((id, idx) => {
       if (idx <= currentIndex) return false;
       const topic = topics.find((t) => t.id === id);
