@@ -1212,37 +1212,24 @@ function CombinedPage() {
     return val != null && val > 0;
   };
 
-  // -------- Lens Triggers — direct state setters (no navigate, no sessionStorage) --------
+  // -------- Lens Triggers — swap spokes instantly; no overlay --------
   const doStartLocalLens = () => {
-    setSelectedTopics([]);
-    localStorage.removeItem("comparePolitician");
-    setComparePol(null);
-    setCompareAnswers({});
-    setCompareDisplayTopics(null);
-    setCompareReplacedSpokes({});
-    localStorage.removeItem("calibration_skipped");
-    localStorage.removeItem("calibration_completed");
-    setCalibrationSkipped(false);
-    setCalibrationCompleted(false);
-    setStartAtPick(false);
-    setStartWithLocalLens(true);
-    setStartWithJudicialLens(false);
-    setCalibrationActive(true);
+    setSelectedTopics(localLensTopicIds.slice(0, MAX_TOPICS));
   };
   const doStartJudicialLens = () => {
+    setSelectedTopics(judicialLensTopicIds.slice(0, MAX_TOPICS));
+  };
+
+  // Full calibration overlay entry points (used by the empty-state "Start Local Lens →" CTA)
+  const doCalibrateLens = (isLocal) => {
     setSelectedTopics([]);
-    localStorage.removeItem("comparePolitician");
-    setComparePol(null);
-    setCompareAnswers({});
-    setCompareDisplayTopics(null);
-    setCompareReplacedSpokes({});
     localStorage.removeItem("calibration_skipped");
     localStorage.removeItem("calibration_completed");
     setCalibrationSkipped(false);
     setCalibrationCompleted(false);
     setStartAtPick(false);
-    setStartWithLocalLens(false);
-    setStartWithJudicialLens(true);
+    setStartWithLocalLens(isLocal);
+    setStartWithJudicialLens(!isLocal);
     setCalibrationActive(true);
   };
 
@@ -1338,7 +1325,7 @@ function CombinedPage() {
           }}
         />
       ) : (
-        <div className="px-4 py-6 pb-16 flex flex-col items-center overflow-x-hidden dark:bg-[#131416] min-h-full">
+        <div className="px-4 lg:px-0 py-6 pb-16 flex flex-col items-center overflow-x-hidden dark:bg-[#131416] min-h-full">
 
           {/* -------- 260426-mw6: guest → authed promotion banner -------- */}
           {promoteCompassShouldPrompt && (
@@ -1357,8 +1344,8 @@ function CombinedPage() {
           <TabBar />
 
           {/* -------- desktop 3-column layout: pills | chart | compare -------- */}
-          <div className="hidden lg:block w-full max-w-[1600px] mx-auto relative">
-            <div className="flex items-start gap-4 pr-[440px]">
+          <div className="hidden lg:block w-full relative">
+            <div className="flex items-start gap-4 pl-2 pr-[490px]">
 
             {/* Left column: vertical topic pills */}
             <div className="w-44 shrink-0 flex flex-col gap-1.5">
@@ -1393,7 +1380,7 @@ function CombinedPage() {
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">8 local election questions — fastest way to build your compass</p>
                       </div>
                       <button
-                        onClick={doStartLocalLens}
+                        onClick={() => doCalibrateLens(true)}
                         style={{ background: LOCAL_LENS.color }}
                         className="px-3 py-1.5 rounded-full text-xs font-bold text-white hover:opacity-90 cursor-pointer w-full"
                       >
@@ -1547,7 +1534,7 @@ function CombinedPage() {
 
             {/* Right: compare panel (absolute, floats over library when expanded) */}
             {showChart && (
-              <div className={`absolute top-0 right-0 w-[420px] z-10 ${compareExpanded ? 'shadow-2xl' : 'bottom-0 overflow-y-auto'}`}>
+              <div className={`absolute top-0 right-0 w-[480px] z-10 ${compareExpanded ? 'shadow-2xl' : 'bottom-0 overflow-y-auto'}`}>
                 {(comparePol || compareMode) ? (
                   <>
                     <ComparePanel
