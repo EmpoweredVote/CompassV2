@@ -1307,36 +1307,36 @@ function CombinedPage() {
           <div className="hidden lg:flex lg:items-start lg:gap-6 xl:gap-8 w-full max-w-[1400px] mx-auto">
             {/* left: chart or below-threshold overlay */}
             <div className="flex-[3] min-w-0 flex flex-col items-center">
-              {showChart ? (
-                <>
-                  <Legend />
-                  <div
-                    ref={(el) => { chartContainerRef.current = el; spokeRef.current = el; }}
-                    className="w-full max-w-[min(900px,calc(100dvh-160px))] mx-auto relative"
+              {showChart && <Legend />}
+              <div
+                ref={(el) => { chartContainerRef.current = el; spokeRef.current = el; }}
+                className="w-full max-w-[min(900px,calc(100dvh-160px))] mx-auto relative"
+              >
+                {/* Lens icon badges — top-left, always visible */}
+                <div className="absolute top-2 left-2 z-10 flex gap-1.5">
+                  <button
+                    onClick={doStartLocalLens}
+                    title={`Local Lens — ${LOCAL_LENS.name}`}
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-white hover:opacity-80 transition-opacity cursor-pointer"
+                    style={{ background: LOCAL_LENS.color }}
                   >
-                    {/* Lens icon badges — top-left */}
-                    <div className="absolute top-2 left-2 z-10 flex gap-1.5">
-                      <button
-                        onClick={doStartLocalLens}
-                        title={`Local Lens — ${LOCAL_LENS.name}`}
-                        className="w-7 h-7 rounded-full flex items-center justify-center text-white hover:opacity-80 transition-opacity cursor-pointer"
-                        style={{ background: LOCAL_LENS.color }}
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
-                          <path fillRule="evenodd" d="M9.293 2.293a1 1 0 011.414 0l7 7A1 1 0 0117 11h-1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-3a1 1 0 00-1-1H9a1 1 0 00-1 1v3a1 1 0 01-1 1H5a1 1 0 01-1-1v-6H3a1 1 0 01-.707-1.707l7-7z" clipRule="evenodd" />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={doStartJudicialLens}
-                        title={`Judicial Lens — ${JUDICIAL_LENS.name}`}
-                        className="w-7 h-7 rounded-full flex items-center justify-center text-white hover:opacity-80 transition-opacity cursor-pointer"
-                        style={{ background: JUDICIAL_LENS.color }}
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
-                          <path fillRule="evenodd" d="M10 1a.75.75 0 01.75.75v1.5h2.75A2.75 2.75 0 0116.25 6v.75H18a.75.75 0 010 1.5h-1.75v5H18a.75.75 0 010 1.5h-1.75V15a2.75 2.75 0 01-2.75 2.75H6.5A2.75 2.75 0 013.75 15v-.25H2a.75.75 0 010-1.5h1.75v-5H2a.75.75 0 010-1.5h1.75V6A2.75 2.75 0 016.5 3.25h2.75v-1.5A.75.75 0 0110 1zm0 4.25H6.5A1.25 1.25 0 005.25 6.5v7A1.25 1.25 0 006.5 14.75h7A1.25 1.25 0 0014.75 13.5v-7A1.25 1.25 0 0013.5 5.25H10z" clipRule="evenodd" />
-                        </svg>
-                      </button>
-                    </div>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
+                      <path fillRule="evenodd" d="M9.293 2.293a1 1 0 011.414 0l7 7A1 1 0 0117 11h-1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-3a1 1 0 00-1-1H9a1 1 0 00-1 1v3a1 1 0 01-1 1H5a1 1 0 01-1-1v-6H3a1 1 0 01-.707-1.707l7-7z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={doStartJudicialLens}
+                    title={`Judicial Lens — ${JUDICIAL_LENS.name}`}
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-white hover:opacity-80 transition-opacity cursor-pointer"
+                    style={{ background: JUDICIAL_LENS.color }}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
+                      <path fillRule="evenodd" d="M10 1a.75.75 0 01.75.75v1.5h2.75A2.75 2.75 0 0116.25 6v.75H18a.75.75 0 010 1.5h-1.75v5H18a.75.75 0 010 1.5h-1.75V15a2.75 2.75 0 01-2.75 2.75H6.5A2.75 2.75 0 013.75 15v-.25H2a.75.75 0 010-1.5h1.75v-5H2a.75.75 0 010-1.5h1.75V6A2.75 2.75 0 016.5 3.25h2.75v-1.5A.75.75 0 0110 1zm0 4.25H6.5A1.25 1.25 0 005.25 6.5v7A1.25 1.25 0 006.5 14.75h7A1.25 1.25 0 0014.75 13.5v-7A1.25 1.25 0 0013.5 5.25H10z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
+                {showChart && (
+                  <>
                     {/* ? help link — top-right */}
                     <a
                       href="/how-it-works#compass-positions"
@@ -1376,41 +1376,43 @@ function CombinedPage() {
                         </svg>
                       </button>
                     </div>
-                    {comparePol && !compareHasEnoughSpokes ? (
-                      <div className="flex items-center justify-center h-full">
-                        <p className="text-center text-gray-500 dark:text-gray-400 text-sm px-6">
-                          Not enough shared topics to display a comparison compass.
-                        </p>
-                      </div>
-                    ) : (
-                      <RadarChart
-                        key={(comparePol ? compareDisplayTopics?.length : selectedTopics.length) ?? selectedTopics.length}
-                        data={comparePol ? compareChartData : chartData}
-                        unansweredSpokes={comparePol ? compareUnansweredSpokesMap : unansweredSpokesMap}
-                        compareData={compareAnswers}
-                        invertedSpokes={invertedSpokes}
-                        writeIns={writeIns}
-                        darkMode={isDark}
-                        replacedSpokes={compareReplacedSpokes}
-                        boldOriginalSpokes={!!comparePol}
-                        onToggleInversion={(topic) =>
-                          setInvertedSpokes((prev) => ({
-                            ...prev,
-                            [topic]: !prev[topic],
-                          }))
-                        }
-                        onReplaceTopic={handleSpokeClick}
-                      />
-                    )}
-                  </div>
-                </>
-              ) : (
-                <BuildCompassPrompt
-                  answeredCompassCount={answeredCompassCount}
-                  needsMore={needsMore}
-                  onStartCalibration={handleStartCalibrationFromBelow3}
-                />
-              )}
+                  </>
+                )}
+                {showChart ? (
+                  comparePol && !compareHasEnoughSpokes ? (
+                    <div className="flex items-center justify-center h-full">
+                      <p className="text-center text-gray-500 dark:text-gray-400 text-sm px-6">
+                        Not enough shared topics to display a comparison compass.
+                      </p>
+                    </div>
+                  ) : (
+                    <RadarChart
+                      key={(comparePol ? compareDisplayTopics?.length : selectedTopics.length) ?? selectedTopics.length}
+                      data={comparePol ? compareChartData : chartData}
+                      unansweredSpokes={comparePol ? compareUnansweredSpokesMap : unansweredSpokesMap}
+                      compareData={compareAnswers}
+                      invertedSpokes={invertedSpokes}
+                      writeIns={writeIns}
+                      darkMode={isDark}
+                      replacedSpokes={compareReplacedSpokes}
+                      boldOriginalSpokes={!!comparePol}
+                      onToggleInversion={(topic) =>
+                        setInvertedSpokes((prev) => ({
+                          ...prev,
+                          [topic]: !prev[topic],
+                        }))
+                      }
+                      onReplaceTopic={handleSpokeClick}
+                    />
+                  )
+                ) : (
+                  <BuildCompassPrompt
+                    answeredCompassCount={answeredCompassCount}
+                    needsMore={needsMore}
+                    onStartCalibration={handleStartCalibrationFromBelow3}
+                  />
+                )}
+              </div>
             </div>
 
             {/* right: compare panel or Compare entry button */}
@@ -1476,70 +1478,66 @@ function CombinedPage() {
           {/* -------- mobile: tab 1 (Graph) -------- */}
           {selectedTab === 1 && (
             <div className="w-full max-w-md md:max-w-lg flex flex-col items-center mx-auto lg:hidden">
-              {showChart ? (
-                <>
-                  <Legend />
-                  <div className="w-full max-h-[calc(100dvh-240px)] mx-auto relative">
-                    {/* Lens icon badges (mobile) — top-left */}
-                    {showChart && (
-                      <div className="absolute top-2 left-2 z-10 flex gap-1.5">
-                        <button
-                          onClick={doStartLocalLens}
-                          title={`Local Lens — ${LOCAL_LENS.name}`}
-                          className="w-7 h-7 rounded-full flex items-center justify-center text-white hover:opacity-80 transition-opacity cursor-pointer"
-                          style={{ background: LOCAL_LENS.color }}
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
-                            <path fillRule="evenodd" d="M9.293 2.293a1 1 0 011.414 0l7 7A1 1 0 0117 11h-1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-3a1 1 0 00-1-1H9a1 1 0 00-1 1v3a1 1 0 01-1 1H5a1 1 0 01-1-1v-6H3a1 1 0 01-.707-1.707l7-7z" clipRule="evenodd" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={doStartJudicialLens}
-                          title={`Judicial Lens — ${JUDICIAL_LENS.name}`}
-                          className="w-7 h-7 rounded-full flex items-center justify-center text-white hover:opacity-80 transition-opacity cursor-pointer"
-                          style={{ background: JUDICIAL_LENS.color }}
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
-                            <path fillRule="evenodd" d="M10 1a.75.75 0 01.75.75v1.5h2.75A2.75 2.75 0 0116.25 6v.75H18a.75.75 0 010 1.5h-1.75v5H18a.75.75 0 010 1.5h-1.75V15a2.75 2.75 0 01-2.75 2.75H6.5A2.75 2.75 0 013.75 15v-.25H2a.75.75 0 010-1.5h1.75v-5H2a.75.75 0 010-1.5h1.75V6A2.75 2.75 0 016.5 3.25h2.75v-1.5A.75.75 0 0110 1zm0 4.25H6.5A1.25 1.25 0 005.25 6.5v7A1.25 1.25 0 006.5 14.75h7A1.25 1.25 0 0014.75 13.5v-7A1.25 1.25 0 0013.5 5.25H10z" clipRule="evenodd" />
-                          </svg>
-                        </button>
-                      </div>
-                    )}
-                    {comparePol && !compareHasEnoughSpokes ? (
-                      <div className="flex items-center justify-center py-12">
-                        <p className="text-center text-gray-500 dark:text-gray-400 text-sm px-6">
-                          Not enough shared topics to display a comparison compass.
-                        </p>
-                      </div>
-                    ) : (
-                      <RadarChart
-                        key={(comparePol ? compareDisplayTopics?.length : selectedTopics.length) ?? selectedTopics.length}
-                        data={comparePol ? compareChartData : chartData}
-                        unansweredSpokes={comparePol ? compareUnansweredSpokesMap : unansweredSpokesMap}
-                        compareData={compareAnswers}
-                        invertedSpokes={invertedSpokes}
-                        writeIns={writeIns}
-                        darkMode={isDark}
-                        replacedSpokes={compareReplacedSpokes}
-                        boldOriginalSpokes={!!comparePol}
-                        onToggleInversion={(topic) =>
-                          setInvertedSpokes((prev) => ({
-                            ...prev,
-                            [topic]: !prev[topic],
-                          }))
-                        }
-                        onReplaceTopic={handleSpokeClick}
-                      />
-                    )}
-                  </div>
-                </>
-              ) : (
-                <BuildCompassPrompt
-                  answeredCompassCount={answeredCompassCount}
-                  needsMore={needsMore}
-                  onStartCalibration={handleStartCalibrationFromBelow3}
-                />
-              )}
+              {showChart && <Legend />}
+              <div className="w-full max-h-[calc(100dvh-240px)] mx-auto relative">
+                {/* Lens icon badges (mobile) — top-left, always visible */}
+                <div className="absolute top-2 left-2 z-10 flex gap-1.5">
+                  <button
+                    onClick={doStartLocalLens}
+                    title={`Local Lens — ${LOCAL_LENS.name}`}
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-white hover:opacity-80 transition-opacity cursor-pointer"
+                    style={{ background: LOCAL_LENS.color }}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
+                      <path fillRule="evenodd" d="M9.293 2.293a1 1 0 011.414 0l7 7A1 1 0 0117 11h-1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-3a1 1 0 00-1-1H9a1 1 0 00-1 1v3a1 1 0 01-1 1H5a1 1 0 01-1-1v-6H3a1 1 0 01-.707-1.707l7-7z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={doStartJudicialLens}
+                    title={`Judicial Lens — ${JUDICIAL_LENS.name}`}
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-white hover:opacity-80 transition-opacity cursor-pointer"
+                    style={{ background: JUDICIAL_LENS.color }}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
+                      <path fillRule="evenodd" d="M10 1a.75.75 0 01.75.75v1.5h2.75A2.75 2.75 0 0116.25 6v.75H18a.75.75 0 010 1.5h-1.75v5H18a.75.75 0 010 1.5h-1.75V15a2.75 2.75 0 01-2.75 2.75H6.5A2.75 2.75 0 013.75 15v-.25H2a.75.75 0 010-1.5h1.75v-5H2a.75.75 0 010-1.5h1.75V6A2.75 2.75 0 016.5 3.25h2.75v-1.5A.75.75 0 0110 1zm0 4.25H6.5A1.25 1.25 0 005.25 6.5v7A1.25 1.25 0 006.5 14.75h7A1.25 1.25 0 0014.75 13.5v-7A1.25 1.25 0 0013.5 5.25H10z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
+                {showChart ? (
+                  comparePol && !compareHasEnoughSpokes ? (
+                    <div className="flex items-center justify-center py-12">
+                      <p className="text-center text-gray-500 dark:text-gray-400 text-sm px-6">
+                        Not enough shared topics to display a comparison compass.
+                      </p>
+                    </div>
+                  ) : (
+                    <RadarChart
+                      key={(comparePol ? compareDisplayTopics?.length : selectedTopics.length) ?? selectedTopics.length}
+                      data={comparePol ? compareChartData : chartData}
+                      unansweredSpokes={comparePol ? compareUnansweredSpokesMap : unansweredSpokesMap}
+                      compareData={compareAnswers}
+                      invertedSpokes={invertedSpokes}
+                      writeIns={writeIns}
+                      darkMode={isDark}
+                      replacedSpokes={compareReplacedSpokes}
+                      boldOriginalSpokes={!!comparePol}
+                      onToggleInversion={(topic) =>
+                        setInvertedSpokes((prev) => ({
+                          ...prev,
+                          [topic]: !prev[topic],
+                        }))
+                      }
+                      onReplaceTopic={handleSpokeClick}
+                    />
+                  )
+                ) : (
+                  <BuildCompassPrompt
+                    answeredCompassCount={answeredCompassCount}
+                    needsMore={needsMore}
+                    onStartCalibration={handleStartCalibrationFromBelow3}
+                  />
+                )}
+              </div>
               <ActionButtons />
             </div>
           )}
@@ -1556,7 +1554,7 @@ function CombinedPage() {
                 </h2>
                 {uncalibratedCount > 0 && (
                   <button
-                    onClick={() => { setStartAtPick(true); setCalibrationActive(true); }}
+                    onClick={() => { setStartAtPick(false); setCalibrationActive(true); }}
                     style={{ background: UNCALIBRATED_PURPLE }}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white hover:opacity-90 transition-opacity cursor-pointer"
                   >
