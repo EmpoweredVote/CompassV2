@@ -1306,7 +1306,7 @@ function CombinedPage() {
           {/* -------- desktop 2-column layout (centered, max-width container) -------- */}
           <div className="hidden lg:flex lg:items-start lg:gap-6 xl:gap-8 w-full max-w-[1400px] mx-auto">
             {/* left: chart or below-threshold overlay */}
-            <div className="flex-[3] min-w-0 flex flex-col items-center">
+            <div className="flex-[2] min-w-0 flex flex-col items-center">
               {showChart && <Legend />}
               <div
                 ref={(el) => { chartContainerRef.current = el; spokeRef.current = el; }}
@@ -1417,7 +1417,7 @@ function CombinedPage() {
 
             {/* right: compare panel or Compare entry button */}
             {showChart && (
-              <div className="flex-[1] min-w-[300px] max-w-[420px]">
+              <div className="flex-[1] min-w-[300px] sticky top-20 self-start max-h-[calc(100vh-5rem)] overflow-y-auto">
                 {(comparePol || compareMode) ? (
                   <ComparePanel
                     politician={comparePol}
