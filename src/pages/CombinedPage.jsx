@@ -674,7 +674,7 @@ function CombinedPage() {
 
   // -------- Local UI State --------
   // Post-calibration tour state
-  const [tourStep, setTourStep] = useState(-1); // -1 = not active, 0-4 = active step
+  const [tourStep, setTourStep] = useState(-1); // -1 = not active, 0-1 = active step
 
   // Tour target refs
   const spokeRef = useRef(null);      // Chart container div (step 0 — "tap any spoke label")
@@ -682,15 +682,12 @@ function CombinedPage() {
   const compareRef = useRef(null);    // Compare button (step 2)
   const backToLibRef = useRef(null);  // Step 3 ref — kept for CoachMark positioning (may be null)
 
-  // Tour messages indexed by step
+  // Tour messages indexed by step (2 steps total)
   const tourMessages = [
-    "Tap any spoke label to flip its direction. It only changes how the chart looks, not your stance. We do the same flip on the quiz, at random, so neither side ever starts on top.",
-    "Max pushes all your moderate stances outward — useful for seeing your strongest positions at a glance. Min does the opposite, collapsing strong stances inward. Neither changes your actual answer.",
-    "See how your views line up with a politician",
-    "Scroll down to add or change topics from the library below",
+    "Tap any spoke label to flip its direction — purely visual, your stance doesn't change.",
     (
       <>
-        Your compass may look scattered — that's intentional. We randomize stance spectrum direction and don't encode left/right on the chart, so the shape isn't a partisan score.{" "}
+        The shape isn&apos;t a political score. We randomize which end of each spoke is &ldquo;strong&rdquo; so the chart doesn&apos;t encode left vs. right.{" "}
         <a
           href="/how-it-works#compass-positions"
           target="_blank"
@@ -698,7 +695,7 @@ function CombinedPage() {
           className="text-[#00657c] dark:text-ev-teal-light underline hover:text-[#ff5740]"
           onClick={(e) => e.stopPropagation()}
         >
-          Want the full story?
+          Why?
         </a>
       </>
     ),
@@ -714,7 +711,7 @@ function CombinedPage() {
     }
   };
   const advanceTour = () => {
-    if (tourStep < 4) {
+    if (tourStep < 1) {
       setTourStep(tourStep + 1);
     } else {
       finishPostCalTour();
@@ -729,7 +726,7 @@ function CombinedPage() {
   const [compareExpanded, setCompareExpanded] = useState(false);
 
   // -------- Compare deep-dive tour --------
-  const [compareTourStep, setCompareTourStep] = useState(-1); // -1 = inactive, 0-3 = active
+  const [compareTourStep, setCompareTourStep] = useState(-1); // -1 = inactive, 0-1 = active
   const compareTourDismissed = useRef(!!localStorage.getItem("onboarding_compareTour"));
   // Ref for the radar chart container — used as target for compare tour steps 2 & 3
   const chartContainerRef = useRef(null);
@@ -776,14 +773,12 @@ function CombinedPage() {
   };
 
   const compareTourMessages = [
-    "Search for any politician to compare your views side by side. You won't see their party here — we want you to look at the ideas first, not the labels.",
-    "Pick a topic to see how you both answered — your stances appear side by side below.",
-    "The blue overlay shows the politician's positions. The closer your points are on each spoke, the more you align on that topic.",
-    "Flipping a spoke changes the visual layout, but your actual stance stays exactly the same — it's just a different perspective.",
+    "Pick a topic from the dropdown to see your stances side by side. No party labels — just the ideas.",
+    "The blue overlay shows the politician's positions. Closer points on a spoke = more aligned on that issue.",
   ];
 
   const advanceCompareTour = () => {
-    if (compareTourStep < 3) {
+    if (compareTourStep < 1) {
       setCompareTourStep(compareTourStep + 1);
     } else {
       localStorage.setItem("onboarding_compareTour", "1");
@@ -1897,7 +1892,7 @@ function CombinedPage() {
             <CoachMark
               targetRef={getCompareTourRef(compareTourStep)}
               message={compareTourMessages[compareTourStep]}
-              stepLabel={`${compareTourStep + 1} of 4`}
+              stepLabel={`${compareTourStep + 1} of 2`}
               onNext={advanceCompareTour}
               onSkipAll={skipCompareTour}
               onDismiss={advanceCompareTour}
@@ -1908,20 +1903,14 @@ function CombinedPage() {
           {/* -------- Post-calibration guided tour -------- */}
           {tourStep >= 0 && (
             <CoachMark
-              targetRef={
-                tourStep === 0 ? spokeRef
-                : tourStep === 1 ? minMaxRef
-                : tourStep === 2 ? compareRef
-                : tourStep === 3 ? (backToLibRef.current ? backToLibRef : chartContainerRef)
-                : chartContainerRef
-              }
+              targetRef={tourStep === 0 ? spokeRef : chartContainerRef}
               message={tourMessages[tourStep]}
-              stepLabel={`${tourStep + 1} of 5`}
+              stepLabel={`${tourStep + 1} of 2`}
               onNext={advanceTour}
               onSkipAll={skipTour}
               onDismiss={advanceTour}
               show={true}
-              allowSpotlightInteraction={tourStep === 0 || tourStep === 4}
+              allowSpotlightInteraction={true}
             />
           )}
 

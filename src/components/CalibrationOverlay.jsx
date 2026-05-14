@@ -450,6 +450,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
   const [writeInText, setWriteInText] = useState("");
   const [orderedItems, setOrderedItems] = useState([]);
   const [hasRepositioned, setHasRepositioned] = useState(false);
+  const writeInSaveTimer = useRef(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 3 } }),
@@ -853,6 +854,21 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     if (selectedAnswer && !Number.isInteger(selectedAnswer)) {
       if (newText.trim()) {
         setWriteIns((prev) => ({ ...prev, [currentTopic.short_title]: newText }));
+        // Debounce server sync so typing doesn't flood the API, but ensure the
+        // final text is always persisted (drag saves position with empty text).
+        if (isLoggedIn && currentTopic) {
+          clearTimeout(writeInSaveTimer.current);
+          writeInSaveTimer.current = setTimeout(() => {
+            apiFetch('/compass/answers', {
+              method: "POST",
+              body: JSON.stringify({
+                topic_id: currentTopic.id,
+                value: selectedAnswer,
+                write_in_text: newText,
+              }),
+            }).catch(() => {});
+          }, 600);
+        }
       } else {
         setSelectedAnswer(null);
         setAnswers((prev) => {
