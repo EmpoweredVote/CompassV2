@@ -120,8 +120,8 @@ function tierFromDistrictType(dt) {
  *   filtered: Array
  * }}
  */
-export function useFilteredPoliticians(politicians) {
-  const [level, setLevelRaw] = useState("All");
+export function useFilteredPoliticians(politicians, initialLevel = "All") {
+  const [level, setLevelRaw] = useState(initialLevel);
   const [stateFilter, setStateFilter] = useState("");
 
   // When level changes, auto-clear stateFilter if it produces zero results at the new level.

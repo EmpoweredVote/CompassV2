@@ -675,6 +675,7 @@ function CombinedPage() {
 
   const [drawerTopic, setDrawerTopic] = useState(null);
   const [compareMode, setCompareMode] = useState(false);
+  const [compareExpanded, setCompareExpanded] = useState(false);
 
   // -------- Compare deep-dive tour --------
   const [compareTourStep, setCompareTourStep] = useState(-1); // -1 = inactive, 0-3 = active
@@ -1108,6 +1109,7 @@ function CombinedPage() {
     [localLensTopicIds, topics, answers]
   );
   const localLensNotStarted = localLensRemaining === localLensTopicIds.length && localLensTopicIds.length > 0;
+  const localLensActive = selectedTopics.length > 0 && selectedTopics.every(id => LOCAL_LENS.topicIds.includes(id));
 
   const judicialLensTopicIds = useMemo(
     () => JUDICIAL_LENS.topicIds.filter(id => topics.some(t => t.id === id)),
@@ -1303,10 +1305,78 @@ function CombinedPage() {
           {/* -------- mobile nav bar -------- */}
           <TabBar />
 
-          {/* -------- desktop 2-column layout (centered, max-width container) -------- */}
-          <div className="hidden lg:flex lg:items-start lg:gap-6 xl:gap-8 w-full max-w-[1400px] mx-auto">
-            {/* left: chart or below-threshold overlay */}
-            <div className="flex-[2] min-w-0 flex flex-col items-center">
+          {/* -------- desktop 3-column layout: pills | chart | compare -------- */}
+          <div className="hidden lg:block w-full max-w-[1400px] mx-auto relative">
+            <div className="flex items-start gap-6 pr-[500px]">
+
+            {/* Left column: vertical topic pills */}
+            <div className="w-56 shrink-0 flex flex-col gap-1.5">
+              <div className="flex items-center justify-between mb-0.5">
+                <h2 className="text-sm font-semibold dark:text-white">
+                  Your Compass
+                  <span className="ml-1.5 text-xs font-normal text-gray-400 dark:text-zinc-500">{selectedTopics.length}/8</span>
+                </h2>
+                {uncalibratedCount > 0 && (
+                  <button
+                    onClick={() => { setStartAtPick(false); setCalibrationActive(true); }}
+                    style={{ background: UNCALIBRATED_PURPLE }}
+                    className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold text-white hover:opacity-90 cursor-pointer"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
+                      <path fillRule="evenodd" d="M11.983 1.907a.75.75 0 00-1.292-.657l-8.5 9.5A.75.75 0 002.75 12h6.572l-1.305 6.093a.75.75 0 001.292.657l8.5-9.5A.75.75 0 0016.75 8h-6.572l1.305-6.093z" clipRule="evenodd" />
+                    </svg>
+                    Calibrate
+                  </button>
+                )}
+              </div>
+              {selectedTopics.length === 0 ? (
+                <div className={`rounded-xl border-2 px-3 py-2.5 flex flex-col gap-2 ${
+                  localLensNotStarted
+                    ? "border-[#5A9A6E] bg-[#5A9A6E]/5 dark:bg-[#5A9A6E]/10"
+                    : "border-dashed border-gray-300 dark:border-zinc-600"
+                }`}>
+                  {localLensNotStarted ? (
+                    <>
+                      <div>
+                        <p className="text-xs font-semibold text-[#3d7a53] dark:text-[#7dbf94]">Start with the Local Lens</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">8 local election questions — fastest way to build your compass</p>
+                      </div>
+                      <button
+                        onClick={doStartLocalLens}
+                        style={{ background: LOCAL_LENS.color }}
+                        className="px-3 py-1.5 rounded-full text-xs font-bold text-white hover:opacity-90 cursor-pointer w-full"
+                      >
+                        Start Local Lens →
+                      </button>
+                    </>
+                  ) : (
+                    <p className="text-xs text-gray-400 dark:text-zinc-500">Click any topic below to add it</p>
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-col gap-1">
+                  {selectedTopics.map((id) => {
+                    const topic = topics.find(t => t.id === id);
+                    if (!topic) return null;
+                    return (
+                      <div key={id} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-[#1a1a2e] dark:bg-zinc-700 text-white text-xs font-medium group">
+                        {!isTopicCalibrated(id) && (
+                          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: UNCALIBRATED_PURPLE }} />
+                        )}
+                        <span className="flex-1 truncate">{topic.short_title}</span>
+                        <button
+                          onClick={() => setSelectedTopics(prev => prev.filter(tid => tid !== id))}
+                          className="shrink-0 w-4 h-4 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 hover:bg-white/20 text-gray-300 hover:text-white transition-all cursor-pointer"
+                        >×</button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Center: chart */}
+            <div className="flex-1 min-w-0 flex flex-col items-center">
               {showChart && <Legend />}
               <div
                 ref={(el) => { chartContainerRef.current = el; spokeRef.current = el; }}
@@ -1415,19 +1485,39 @@ function CombinedPage() {
               </div>
             </div>
 
-            {/* right: compare panel or Compare entry button */}
+            </div>{/* end inner flex row */}
+
+            {/* Right: compare panel (absolute, floats over library when expanded) */}
             {showChart && (
-              <div className="flex-[1] min-w-[300px] sticky top-20 self-start max-h-[calc(100vh-5rem)] overflow-y-auto">
+              <div className={`absolute top-0 right-0 w-[480px] z-10 overflow-y-auto ${compareExpanded ? 'max-h-[80vh] shadow-2xl' : 'bottom-0'}`}>
                 {(comparePol || compareMode) ? (
-                  <ComparePanel
-                    politician={comparePol}
-                    dropdownValue={dropdownValue}
-                    setDropdownValue={setDropdownValue}
-                    onSwitchPolitician={handleSwitchPolitician}
-                    onClearComparison={handleClearComparison}
-                  />
+                  <>
+                    <ComparePanel
+                      politician={comparePol}
+                      dropdownValue={dropdownValue}
+                      setDropdownValue={setDropdownValue}
+                      onSwitchPolitician={handleSwitchPolitician}
+                      onClearComparison={handleClearComparison}
+                      defaultLevel={localLensActive ? "Local" : "All"}
+                    />
+                    <div className="sticky bottom-0 flex justify-center pb-2 pt-6 bg-gradient-to-t from-white dark:from-zinc-800 to-transparent pointer-events-none">
+                      <button
+                        onClick={() => setCompareExpanded(v => !v)}
+                        className="pointer-events-auto w-7 h-7 rounded-full bg-white dark:bg-zinc-700 border border-neutral-200 dark:border-zinc-600 shadow-sm flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors cursor-pointer"
+                        title={compareExpanded ? "Collapse compare panel" : "Expand compare panel"}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
+                          {compareExpanded ? (
+                            <path fillRule="evenodd" d="M14.77 12.79a.75.75 0 01-1.06-.02L10 8.832 6.29 12.77a.75.75 0 11-1.08-1.04l4.25-4.5a.75.75 0 011.08 0l4.25 4.5a.75.75 0 01-.02 1.06z" clipRule="evenodd" />
+                          ) : (
+                            <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                          )}
+                        </svg>
+                      </button>
+                    </div>
+                  </>
                 ) : (
-                  <div className="flex flex-col items-center gap-4 pt-8">
+                  <div className="bg-white dark:bg-zinc-800 rounded-2xl border border-neutral-200 dark:border-zinc-700 shadow-sm p-6 flex flex-col items-center gap-4">
                     <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
                       See how a candidate aligns with your compass
                     </p>
@@ -1545,8 +1635,8 @@ function CombinedPage() {
           {/* -------- LIBRARY SECTION -------- */}
           <div className="w-full max-w-[1400px] mx-auto mt-8">
 
-            {/* Pill strip (ALWAYS show — no showCompass condition) */}
-            <div className="mb-5 px-4 md:px-0">
+            {/* Pill strip — hidden on desktop (shown in left column instead) */}
+            <div className="lg:hidden mb-5 px-4 md:px-0">
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-base font-semibold dark:text-white">
                   Your Compass Topics

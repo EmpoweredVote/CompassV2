@@ -31,6 +31,7 @@ export default function InlinePoliticianPicker({
   onClear,
   onOpenFullModal,
   defaultOpen = false,
+  defaultLevel = "All",
 }) {
   const { politicians, loading } = usePoliticianList();
   const { selectedTopics } = useCompass();
@@ -44,7 +45,7 @@ export default function InlinePoliticianPicker({
     levelCounts,
     availableStates,
     filtered,
-  } = useFilteredPoliticians(politicians);
+  } = useFilteredPoliticians(politicians, defaultLevel);
   const [open, setOpen] = useState(defaultOpen);
   const [query, setQuery] = useState("");
   const [highlight, setHighlight] = useState(0);

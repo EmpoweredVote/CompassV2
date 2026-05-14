@@ -16,6 +16,7 @@ function ComparePanel({
   onSwitchPolitician,
   onClearComparison,
   onOpenFullModal,
+  defaultLevel = "All",
 }) {
   const { topics, selectedTopics, answers, setAnswers, compareAnswers, writeIns } =
     useCompass();
@@ -124,6 +125,7 @@ function ComparePanel({
           onSelect={onSwitchPolitician}
           onClear={onClearComparison}
           defaultOpen={!politician}
+          defaultLevel={defaultLevel}
         />
         {politician?.id && (
           <a
