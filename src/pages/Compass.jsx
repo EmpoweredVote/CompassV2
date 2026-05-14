@@ -854,6 +854,8 @@ function Compass() {
   // -------- Build compareAnswers when comparePol or topics change --------
   // Smart spoke logic: replace unanswered spokes with topics both parties share,
   // remove spokes where no replacement exists, and track which spokes are substitutions.
+  // Fetches the user's full answer history from the server so replacements work
+  // even on a fresh page load when non-compass answers aren't yet in memory.
   useEffect(() => {
     if (!comparePol || !selectedTopics.length) {
       setCompareAnswers({});
@@ -862,12 +864,29 @@ function Compass() {
       return;
     }
 
-    apiFetch(`/compass/politicians/${comparePol.id}/answers`)
-      .then((r) => r.json())
-      .then((allAnswers) => {
-        // allAnswers: [{topic_id, value}, ...]
+    const polFetch = apiFetch(`/compass/politicians/${comparePol.id}/answers`).then((r) => r.json());
+    // Fetch full user answer history so replacement pool is complete regardless of
+    // navigation path (batch fetch on mount only loads selectedTopics answers).
+    const userFetch = isLoggedIn
+      ? apiFetch('/compass/answers').then((r) => r.json())
+      : Promise.resolve([]);
+
+    Promise.all([polFetch, userFetch])
+      .then(([allAnswers, userAnswers]) => {
         const currentTopics = topicsRef.current;
         const currentAnswers = answersRef.current;
+
+        // Build a complete user answer map: server data merged with in-memory state.
+        // Server is authoritative for non-compass topics; in-memory wins for compass
+        // topics to avoid reverting a just-clicked stance.
+        const userAnswerMap = { ...currentAnswers };
+        for (const a of userAnswers) {
+          const t = currentTopics.find((tt) => tt.id === a.topic_id);
+          if (t && userAnswerMap[t.short_title] == null) {
+            userAnswerMap[t.short_title] = a.value;
+          }
+        }
+
         const polAnsweredSet = new Set(
           allAnswers.filter((a) => a.value > 0).map((a) => a.topic_id)
         );
@@ -875,10 +894,10 @@ function Compass() {
 
         // Topics the user has answered that are NOT in their current compass
         const userAnsweredNotSelected = currentTopics.filter((t) => {
-          const val = currentAnswers[t.short_title];
+          const val = userAnswerMap[t.short_title];
           return !selectedTopicSet.has(t.id) && val != null && val > 0;
         });
-        // Replacement pool: topics both user and politician have answered, not already displayed
+        // Replacement pool: topics both user and politician have answered
         const replacementPool = userAnsweredNotSelected.filter((t) =>
           polAnsweredSet.has(t.id)
         );
@@ -893,7 +912,7 @@ function Compass() {
           if (!t) continue;
 
           if (polAnsweredSet.has(id)) {
-            // Politician answered this topic — keep original spoke (bold candidate)
+            // Politician answered this topic — keep original spoke
             displayTopics.push(id);
             const a = allAnswers.find((x) => x.topic_id === id);
             if (a && a.value > 0) compareAnswersMap[t.short_title] = a.value;
@@ -920,7 +939,7 @@ function Compass() {
         setCompareDisplayTopics(null);
         setCompareReplacedSpokes({});
       });
-  }, [comparePol, selectedTopics, setCompareAnswers]);
+  }, [comparePol, selectedTopics, isLoggedIn, setCompareAnswers]);
 
   const navigate = useNavigate();
 
