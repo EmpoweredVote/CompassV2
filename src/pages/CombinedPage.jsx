@@ -12,7 +12,7 @@ import CoachMark from "../components/CoachMark";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router";
 import { useTheme } from "../ThemeProvider";
-import { LOCAL_LENS, JUDICIAL_LENS } from "../lib/lenses";
+import { LOCAL_LENS } from "../lib/lenses";
 import { getQuestionText, parseTensionTitle } from "../util/topic";
 import { TopicTierBadge } from "@empoweredvote/ev-ui";
 import {
@@ -161,30 +161,27 @@ function SortableVerticalPill({ id, topic, isCalibrated, onRemove, onOpen }) {
   return (
     <div
       ref={setNodeRef}
+      {...attributes}
+      {...listeners}
       style={{
         transform: CSS.Translate.toString(transform),
         transition: isDragging ? undefined : transition,
         opacity: isDragging ? 0.4 : 1,
         touchAction: "none",
       }}
-      className="flex items-center gap-1.5 px-2 py-1.5 rounded-xl bg-[#1a1a2e] dark:bg-zinc-700 text-white text-xs font-medium group select-none"
+      className="flex items-center gap-1.5 px-2 py-1.5 rounded-xl bg-[#1a1a2e] dark:bg-zinc-700 text-white text-xs font-medium group select-none cursor-grab active:cursor-grabbing"
     >
-      {/* Drag grip */}
-      <button
-        {...attributes}
-        {...listeners}
-        onPointerDown={(e) => e.stopPropagation()}
-        className="shrink-0 text-white/30 hover:text-white/70 transition-colors cursor-grab active:cursor-grabbing"
-        aria-label="Drag to reorder"
-      >
+      {/* Drag grip (visual only) */}
+      <span className="shrink-0 text-white/30">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
           <path d="M10 3a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM10 8.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM11.5 15.5a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0z" />
           <path d="M5 3a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM5 8.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM6.5 15.5a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0z" />
         </svg>
-      </button>
+      </span>
       {/* Topic name — click to open stance modal */}
       <button
         onClick={onOpen}
+        onPointerDown={(e) => e.stopPropagation()}
         className="flex-1 text-left min-w-0 flex items-center gap-1 cursor-pointer"
       >
         {!isCalibrated && (
@@ -1157,26 +1154,8 @@ function CombinedPage() {
   const localLensNotStarted = localLensRemaining === localLensTopicIds.length && localLensTopicIds.length > 0;
   const localLensActive = selectedTopics.length > 0 && selectedTopics.every(id => LOCAL_LENS.topicIds.includes(id));
 
-  const judicialLensTopicIds = useMemo(
-    () => JUDICIAL_LENS.topicIds.filter(id => topics.some(t => t.id === id)),
-    [topics]
-  );
-  const judicialLensRemaining = useMemo(
-    () => judicialLensTopicIds.filter(id => {
-      const topic = topics.find(t => t.id === id);
-      if (!topic) return true;
-      const val = answers[topic.short_title];
-      return !(val != null && val > 0);
-    }).length,
-    [judicialLensTopicIds, topics, answers]
-  );
-
   const localLensTopics = useMemo(
     () => LOCAL_LENS.topicIds.map(id => topics.find(t => t.id === id)).filter(Boolean),
-    [topics]
-  );
-  const judicialLensTopics = useMemo(
-    () => JUDICIAL_LENS.topicIds.map(id => topics.find(t => t.id === id)).filter(Boolean),
     [topics]
   );
 
@@ -1208,11 +1187,13 @@ function CombinedPage() {
   };
 
   // -------- Lens Triggers — swap spokes instantly; no overlay --------
+  // Toggle: if local lens already active, clear topics; otherwise load them.
   const doStartLocalLens = () => {
-    setSelectedTopics(localLensTopicIds.slice(0, MAX_TOPICS));
-  };
-  const doStartJudicialLens = () => {
-    setSelectedTopics(judicialLensTopicIds.slice(0, MAX_TOPICS));
+    if (localLensActive) {
+      setSelectedTopics([]);
+    } else {
+      setSelectedTopics(localLensTopicIds.slice(0, MAX_TOPICS));
+    }
   };
 
   // Full calibration overlay entry points (used by the empty-state "Start Local Lens →" CTA)
@@ -1413,6 +1394,19 @@ function CombinedPage() {
                   </SortableContext>
                 </DndContext>
               )}
+            {/* Full Calibration CTA */}
+            <a
+              href="https://compass.empowered.vote/calibrate"
+              target="_blank"
+              rel="noopener"
+              className="mt-2 w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-neutral-900 hover:opacity-90 transition-opacity"
+              style={{ background: "#FED12E" }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5 shrink-0">
+                <path d="M15.98 1.804a1 1 0 00-1.96 0l-.24 1.192a1 1 0 01-.784.785l-1.192.24a1 1 0 000 1.962l1.192.24a1 1 0 01.785.785l.24 1.192a1 1 0 001.962 0l.24-1.192a1 1 0 01.785-.785l1.192-.24a1 1 0 000-1.962l-1.192-.24a1 1 0 01-.785-.785l-.24-1.192zM6.949 5.684a1 1 0 00-1.898 0l-.683 2.051a1 1 0 01-.633.633l-2.051.683a1 1 0 000 1.898l2.051.684a1 1 0 01.633.632l.683 2.051a1 1 0 001.898 0l.683-2.051a1 1 0 01.633-.633l2.051-.683a1 1 0 000-1.898l-2.051-.683a1 1 0 01-.633-.633L6.95 5.684zM13.949 13.684a1 1 0 00-1.898 0l-.184.551a1 1 0 01-.632.633l-.551.183a1 1 0 000 1.898l.551.183a1 1 0 01.633.633l.183.551a1 1 0 001.898 0l.184-.551a1 1 0 01.632-.633l.551-.183a1 1 0 000-1.898l-.551-.184a1 1 0 01-.633-.632l-.183-.551z" />
+              </svg>
+              Full Calibration
+            </a>
             </div>
 
             {/* Center: chart */}
@@ -1422,26 +1416,19 @@ function CombinedPage() {
                 ref={(el) => { chartContainerRef.current = el; spokeRef.current = el; }}
                 className="w-full max-w-[min(900px,calc(100dvh-160px))] mx-auto relative"
               >
-                {/* Lens icon badges — top-left, always visible */}
-                <div className="absolute top-2 left-2 z-10 flex gap-1.5">
+                {/* Local Lens toggle badge — top-left, always visible */}
+                <div className="absolute top-2 left-2 z-10">
                   <button
                     onClick={doStartLocalLens}
-                    title={`Local Lens — ${LOCAL_LENS.name}`}
-                    className="w-7 h-7 rounded-full flex items-center justify-center text-white hover:opacity-80 transition-opacity cursor-pointer"
-                    style={{ background: LOCAL_LENS.color }}
+                    title={localLensActive ? "Local Lens active — click to clear" : `Local Lens — ${LOCAL_LENS.name}`}
+                    className="w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer"
+                    style={localLensActive
+                      ? { background: "#9ca3af", color: "#fff" }
+                      : { background: LOCAL_LENS.color, color: "#fff", opacity: 1 }
+                    }
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
                       <path fillRule="evenodd" d="M9.293 2.293a1 1 0 011.414 0l7 7A1 1 0 0117 11h-1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-3a1 1 0 00-1-1H9a1 1 0 00-1 1v3a1 1 0 01-1 1H5a1 1 0 01-1-1v-6H3a1 1 0 01-.707-1.707l7-7z" clipRule="evenodd" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={doStartJudicialLens}
-                    title={`Judicial Lens — ${JUDICIAL_LENS.name}`}
-                    className="w-7 h-7 rounded-full flex items-center justify-center text-white hover:opacity-80 transition-opacity cursor-pointer"
-                    style={{ background: JUDICIAL_LENS.color }}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
-                      <path fillRule="evenodd" d="M10 1a.75.75 0 01.75.75v1.5h2.75A2.75 2.75 0 0116.25 6v.75H18a.75.75 0 010 1.5h-1.75v5H18a.75.75 0 010 1.5h-1.75V15a2.75 2.75 0 01-2.75 2.75H6.5A2.75 2.75 0 013.75 15v-.25H2a.75.75 0 010-1.5h1.75v-5H2a.75.75 0 010-1.5h1.75V6A2.75 2.75 0 016.5 3.25h2.75v-1.5A.75.75 0 0110 1zm0 4.25H6.5A1.25 1.25 0 005.25 6.5v7A1.25 1.25 0 006.5 14.75h7A1.25 1.25 0 0014.75 13.5v-7A1.25 1.25 0 0013.5 5.25H10z" clipRule="evenodd" />
                     </svg>
                   </button>
                 </div>
@@ -1610,26 +1597,19 @@ function CombinedPage() {
             <div className="w-full max-w-md md:max-w-lg flex flex-col items-center mx-auto lg:hidden">
               {showChart && <Legend />}
               <div className="w-full max-h-[calc(100dvh-240px)] mx-auto relative">
-                {/* Lens icon badges (mobile) — top-left, always visible */}
-                <div className="absolute top-2 left-2 z-10 flex gap-1.5">
+                {/* Local Lens toggle badge (mobile) — top-left, always visible */}
+                <div className="absolute top-2 left-2 z-10">
                   <button
                     onClick={doStartLocalLens}
-                    title={`Local Lens — ${LOCAL_LENS.name}`}
-                    className="w-7 h-7 rounded-full flex items-center justify-center text-white hover:opacity-80 transition-opacity cursor-pointer"
-                    style={{ background: LOCAL_LENS.color }}
+                    title={localLensActive ? "Local Lens active — click to clear" : `Local Lens — ${LOCAL_LENS.name}`}
+                    className="w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer"
+                    style={localLensActive
+                      ? { background: "#9ca3af", color: "#fff" }
+                      : { background: LOCAL_LENS.color, color: "#fff" }
+                    }
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
                       <path fillRule="evenodd" d="M9.293 2.293a1 1 0 011.414 0l7 7A1 1 0 0117 11h-1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-3a1 1 0 00-1-1H9a1 1 0 00-1 1v3a1 1 0 01-1 1H5a1 1 0 01-1-1v-6H3a1 1 0 01-.707-1.707l7-7z" clipRule="evenodd" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={doStartJudicialLens}
-                    title={`Judicial Lens — ${JUDICIAL_LENS.name}`}
-                    className="w-7 h-7 rounded-full flex items-center justify-center text-white hover:opacity-80 transition-opacity cursor-pointer"
-                    style={{ background: JUDICIAL_LENS.color }}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
-                      <path fillRule="evenodd" d="M10 1a.75.75 0 01.75.75v1.5h2.75A2.75 2.75 0 0116.25 6v.75H18a.75.75 0 010 1.5h-1.75v5H18a.75.75 0 010 1.5h-1.75V15a2.75 2.75 0 01-2.75 2.75H6.5A2.75 2.75 0 013.75 15v-.25H2a.75.75 0 010-1.5h1.75v-5H2a.75.75 0 010-1.5h1.75V6A2.75 2.75 0 016.5 3.25h2.75v-1.5A.75.75 0 0110 1zm0 4.25H6.5A1.25 1.25 0 005.25 6.5v7A1.25 1.25 0 006.5 14.75h7A1.25 1.25 0 0014.75 13.5v-7A1.25 1.25 0 0013.5 5.25H10z" clipRule="evenodd" />
                     </svg>
                   </button>
                 </div>

@@ -102,7 +102,7 @@ function SortableWriteInCard({ id, text, onChange, onCancel, showHint }) {
           onChange={(e) => onChange(e.target.value)}
           placeholder="Write your stance here..."
           rows={2}
-          className="text-sm sm:text-base font-medium resize-none bg-transparent focus:outline-none"
+          className="text-sm sm:text-base font-medium resize-none bg-transparent focus:outline-none text-gray-900"
         />
         {showHint && (
           <p className="text-xs font-medium text-ev-coral">
