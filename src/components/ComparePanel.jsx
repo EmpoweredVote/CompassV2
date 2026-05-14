@@ -276,7 +276,7 @@ function ComparePanel({
                         {sources.map((source, i) => (
                           <li key={source + i} className="group">
                             <a
-                              href={source}
+                              href={ensureProtocol(source)}
                               target="_blank"
                               rel="noreferrer"
                               className="flex items-center gap-2.5 px-2.5 py-2 -mx-2.5 rounded-lg hover:bg-neutral-50 dark:hover:bg-zinc-700 transition-colors"
@@ -342,9 +342,15 @@ function ComparePanel({
 
 export default ComparePanel;
 
+function ensureProtocol(url) {
+  if (!url) return url;
+  if (/^https?:\/\//i.test(url)) return url;
+  return "https://" + url;
+}
+
 function getDisplayUrl(url) {
   try {
-    const u = new URL(url);
+    const u = new URL(ensureProtocol(url));
     let host = u.hostname.replace(/^www\./, "");
     const path = u.pathname === "/" ? "" : u.pathname;
     const display = host + path;
