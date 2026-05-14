@@ -1187,10 +1187,14 @@ function CombinedPage() {
   };
 
   // -------- Lens Triggers — swap spokes instantly; no overlay --------
-  // Toggle: if local lens already active, clear topics; otherwise load them.
+  // Toggle: if local lens already active, restore answered topics instead of clearing.
+  // If the user only has local lens answers, restoring = no-op (same topics shown).
   const doStartLocalLens = () => {
     if (localLensActive) {
-      setSelectedTopics([]);
+      const restore = answeredTopicIDs
+        .filter(id => activeTopicIDs.has(id))
+        .slice(0, MAX_TOPICS);
+      setSelectedTopics(restore);
     } else {
       setSelectedTopics(localLensTopicIds.slice(0, MAX_TOPICS));
     }
@@ -1421,7 +1425,7 @@ function CombinedPage() {
                 <div className="absolute top-2 left-2 z-10">
                   <button
                     onClick={doStartLocalLens}
-                    title={localLensActive ? "Local Lens active — click to clear" : `Local Lens — ${LOCAL_LENS.name}`}
+                    title={localLensActive ? "Local Lens active — click to restore full compass" : `Local Lens — ${LOCAL_LENS.name}`}
                     className="w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer"
                     style={localLensActive
                       ? { background: "#9ca3af", color: "#fff" }
@@ -1602,7 +1606,7 @@ function CombinedPage() {
                 <div className="absolute top-2 left-2 z-10">
                   <button
                     onClick={doStartLocalLens}
-                    title={localLensActive ? "Local Lens active — click to clear" : `Local Lens — ${LOCAL_LENS.name}`}
+                    title={localLensActive ? "Local Lens active — click to restore full compass" : `Local Lens — ${LOCAL_LENS.name}`}
                     className="w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer"
                     style={localLensActive
                       ? { background: "#9ca3af", color: "#fff" }
