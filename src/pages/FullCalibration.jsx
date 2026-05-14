@@ -97,9 +97,18 @@ export default function FullCalibration() {
       .filter(cat => cat.topics.length > 0);
   }, [categories]);
 
+  // Any live topic not in any category gets its own "Other" section so it's
+  // still answerable here (guards against admin mis-configuration).
+  const sidebarCategories = useMemo(() => {
+    const coveredIds = new Set(dedupedCategories.flatMap(cat => cat.topics.map(t => t.id)));
+    const uncategorized = topics.filter(t => !coveredIds.has(t.id));
+    if (uncategorized.length === 0) return dedupedCategories;
+    return [...dedupedCategories, { id: '__other__', title: 'Other', topics: uncategorized }];
+  }, [dedupedCategories, topics]);
+
   const allTopics = useMemo(
-    () => dedupedCategories.flatMap(cat => cat.topics),
-    [dedupedCategories]
+    () => sidebarCategories.flatMap(cat => cat.topics),
+    [sidebarCategories]
   );
 
   const answeredCount = useMemo(
@@ -235,9 +244,9 @@ export default function FullCalibration() {
   const { name: topicName, poles } = fullActiveTopic
     ? parseTensionTitle(fullActiveTopic)
     : { name: "", poles: null };
-  const catIdx   = dedupedCategories.findIndex(cat => cat.topics.some(tp => tp.id === activeTopic?.id));
+  const catIdx   = sidebarCategories.findIndex(cat => cat.topics.some(tp => tp.id === activeTopic?.id));
   const catColor = CATEGORY_COLORS[catIdx >= 0 ? catIdx % CATEGORY_COLORS.length : 0];
-  const catName  = dedupedCategories[catIdx]?.title ?? "";
+  const catName  = sidebarCategories[catIdx]?.title ?? "";
 
   // ── Main layout ──────────────────────────────────────────────────────────
   return (
@@ -372,7 +381,7 @@ export default function FullCalibration() {
           </div>
 
           {/* Categories + topics */}
-          {dedupedCategories.map((cat, catI) => {
+          {sidebarCategories.map((cat, catI) => {
             const color = CATEGORY_COLORS[catI % CATEGORY_COLORS.length];
             const catAnswered = cat.topics.filter(tp => answers[tp.short_title] > 0).length;
             return (
