@@ -27,10 +27,11 @@ import {
   SortableContext,
   useSortable,
   horizontalListSortingStrategy,
+  verticalListSortingStrategy,
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { restrictToHorizontalAxis } from "@dnd-kit/modifiers";
+import { restrictToHorizontalAxis, restrictToVerticalAxis } from "@dnd-kit/modifiers";
 
 // -------- Constants --------
 const CATEGORY_COLORS = [
@@ -148,6 +149,56 @@ function SortableTopicPill({ id, label, isCalibrated, onRemove, onMouseEnter, on
       >
         ×
       </button>
+    </div>
+  );
+}
+
+function SortableVerticalPill({ id, topic, isCalibrated, onRemove, onOpen }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id,
+    transition: { duration: 200, easing: "ease" },
+  });
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Translate.toString(transform),
+        transition: isDragging ? undefined : transition,
+        opacity: isDragging ? 0.4 : 1,
+        touchAction: "none",
+      }}
+      className="flex items-center gap-1.5 px-2 py-1.5 rounded-xl bg-[#1a1a2e] dark:bg-zinc-700 text-white text-xs font-medium group select-none"
+    >
+      {/* Drag grip */}
+      <button
+        {...attributes}
+        {...listeners}
+        onPointerDown={(e) => e.stopPropagation()}
+        className="shrink-0 text-white/30 hover:text-white/70 transition-colors cursor-grab active:cursor-grabbing"
+        aria-label="Drag to reorder"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
+          <path d="M10 3a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM10 8.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM11.5 15.5a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0z" />
+          <path d="M5 3a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM5 8.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM6.5 15.5a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0z" />
+        </svg>
+      </button>
+      {/* Topic name — click to open stance modal */}
+      <button
+        onClick={onOpen}
+        className="flex-1 text-left min-w-0 flex items-center gap-1 cursor-pointer"
+      >
+        {!isCalibrated && (
+          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "#7C6B9E" }} />
+        )}
+        <span className="truncate">{topic.short_title}</span>
+      </button>
+      {/* Remove */}
+      <button
+        onClick={(e) => { e.stopPropagation(); onRemove(); }}
+        onPointerDown={(e) => e.stopPropagation()}
+        className="shrink-0 opacity-0 group-hover:opacity-100 w-4 h-4 flex items-center justify-center rounded-full hover:bg-white/20 text-white/60 hover:text-white transition-all cursor-pointer"
+        aria-label={`Remove ${topic.short_title}`}
+      >×</button>
     </div>
   );
 }
@@ -1287,7 +1338,7 @@ function CombinedPage() {
           }}
         />
       ) : (
-        <div className="px-4 py-6 pb-16 flex flex-col items-center overflow-hidden dark:bg-[#131416] min-h-full">
+        <div className="px-4 py-6 pb-16 flex flex-col items-center overflow-x-hidden dark:bg-[#131416] min-h-full">
 
           {/* -------- 260426-mw6: guest → authed promotion banner -------- */}
           {promoteCompassShouldPrompt && (
@@ -1306,11 +1357,11 @@ function CombinedPage() {
           <TabBar />
 
           {/* -------- desktop 3-column layout: pills | chart | compare -------- */}
-          <div className="hidden lg:block w-full max-w-[1400px] mx-auto relative">
-            <div className="flex items-start gap-6 pr-[500px]">
+          <div className="hidden lg:block w-full max-w-[1600px] mx-auto relative">
+            <div className="flex items-start gap-4 pr-[440px]">
 
             {/* Left column: vertical topic pills */}
-            <div className="w-56 shrink-0 flex flex-col gap-1.5">
+            <div className="w-44 shrink-0 flex flex-col gap-1.5">
               <div className="flex items-center justify-between mb-0.5">
                 <h2 className="text-sm font-semibold dark:text-white">
                   Your Compass
@@ -1354,24 +1405,31 @@ function CombinedPage() {
                   )}
                 </div>
               ) : (
-                <div className="flex flex-col gap-1">
-                  {selectedTopics.map((id) => {
-                    const topic = topics.find(t => t.id === id);
-                    if (!topic) return null;
-                    return (
-                      <div key={id} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-[#1a1a2e] dark:bg-zinc-700 text-white text-xs font-medium group">
-                        {!isTopicCalibrated(id) && (
-                          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: UNCALIBRATED_PURPLE }} />
-                        )}
-                        <span className="flex-1 truncate">{topic.short_title}</span>
-                        <button
-                          onClick={() => setSelectedTopics(prev => prev.filter(tid => tid !== id))}
-                          className="shrink-0 w-4 h-4 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 hover:bg-white/20 text-gray-300 hover:text-white transition-all cursor-pointer"
-                        >×</button>
-                      </div>
-                    );
-                  })}
-                </div>
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handlePillDragEnd}
+                  modifiers={[restrictToVerticalAxis]}
+                >
+                  <SortableContext items={selectedTopics} strategy={verticalListSortingStrategy}>
+                    <div className="flex flex-col gap-1">
+                      {selectedTopics.map((id) => {
+                        const topic = topics.find(t => t.id === id);
+                        if (!topic) return null;
+                        return (
+                          <SortableVerticalPill
+                            key={id}
+                            id={id}
+                            topic={topic}
+                            isCalibrated={isTopicCalibrated(id)}
+                            onRemove={() => setSelectedTopics(prev => prev.filter(tid => tid !== id))}
+                            onOpen={() => setDrawerTopic(topic)}
+                          />
+                        );
+                      })}
+                    </div>
+                  </SortableContext>
+                </DndContext>
               )}
             </div>
 
@@ -1489,7 +1547,7 @@ function CombinedPage() {
 
             {/* Right: compare panel (absolute, floats over library when expanded) */}
             {showChart && (
-              <div className={`absolute top-0 right-0 w-[480px] z-10 overflow-y-auto ${compareExpanded ? 'max-h-[80vh] shadow-2xl' : 'bottom-0'}`}>
+              <div className={`absolute top-0 right-0 w-[420px] z-10 ${compareExpanded ? 'shadow-2xl' : 'bottom-0 overflow-y-auto'}`}>
                 {(comparePol || compareMode) ? (
                   <>
                     <ComparePanel
@@ -1517,7 +1575,7 @@ function CombinedPage() {
                     </div>
                   </>
                 ) : (
-                  <div className="bg-white dark:bg-zinc-800 rounded-2xl border border-neutral-200 dark:border-zinc-700 shadow-sm p-6 flex flex-col items-center gap-4">
+                  <div className="bg-white dark:bg-zinc-800 rounded-2xl border border-neutral-200 dark:border-zinc-700 shadow-sm p-8 flex flex-col items-center gap-4 h-full">
                     <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
                       See how a candidate aligns with your compass
                     </p>
