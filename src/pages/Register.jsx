@@ -6,7 +6,7 @@ function Register() {
     const returnTo = new URLSearchParams(window.location.search).get("return")
       || window.location.origin + "/results";
     window.location.replace(
-      `${AUTH_HUB_URL}/signup?redirect=${encodeURIComponent(returnTo)}`
+      `https://login.empowered.vote/signup/inform?redirect=${encodeURIComponent(returnTo)}`
     );
   }, []);
   return null;
