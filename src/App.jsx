@@ -14,6 +14,7 @@ import { CompassProvider, useCompass } from "./components/CompassContext";
 import AdminDashboard from "./components/admin/AdminDashboard";
 import HowItWorks from "./pages/HowItWorks";
 import FullCalibration from "./pages/FullCalibration";
+import CombinedPage from "./pages/CombinedPage";
 
 // Routes that should bypass the calibration guard
 const GUARD_BYPASS = ["/help", "/how-it-works", "/login", "/register", "/admin", "/401", "/results", "/library", "/calibrate"];
@@ -71,17 +72,13 @@ function App() {
           path="/"
           element={
             <HelpGuard>
-              <Layout><Library /></Layout>
+              <Layout><CombinedPage key={compassVersion} /></Layout>
             </HelpGuard>
           }
         />
         <Route
           path="/library"
-          element={
-            <HelpGuard>
-              <Layout><Library /></Layout>
-            </HelpGuard>
-          }
+          element={<Navigate to="/results" replace />}
         />
         <Route
           path="/quiz"
@@ -103,7 +100,7 @@ function App() {
           path="/results"
           element={
             <HelpGuard>
-              <Layout><Compass key={compassVersion} /></Layout>
+              <Layout><CombinedPage key={compassVersion} /></Layout>
             </HelpGuard>
           }
         />
