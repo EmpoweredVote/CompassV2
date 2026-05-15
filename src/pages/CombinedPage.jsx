@@ -965,7 +965,9 @@ function CombinedPage() {
       return;
     }
 
-    const polFetch = apiFetch(`/compass/politicians/${comparePol.id}/answers`).then((r) => r.json());
+    const polFetch = comparePol.is_candidate
+      ? apiFetch(`/compass/candidates/${comparePol.id}/answers`).then((r) => r.json())
+      : apiFetch(`/compass/politicians/${comparePol.id}/answers`).then((r) => r.json());
     const userFetch = isLoggedIn
       ? apiFetch('/compass/answers').then((r) => r.json())
       : Promise.resolve([]);

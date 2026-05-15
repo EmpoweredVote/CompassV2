@@ -864,7 +864,9 @@ function Compass() {
       return;
     }
 
-    const polFetch = apiFetch(`/compass/politicians/${comparePol.id}/answers`).then((r) => r.json());
+    const polFetch = comparePol.is_candidate
+      ? apiFetch(`/compass/candidates/${comparePol.id}/answers`).then((r) => r.json())
+      : apiFetch(`/compass/politicians/${comparePol.id}/answers`).then((r) => r.json());
     // Fetch full user answer history so replacement pool is complete regardless of
     // navigation path (batch fetch on mount only loads selectedTopics answers).
     const userFetch = isLoggedIn

@@ -33,7 +33,8 @@ export default function InlinePoliticianPicker({
   defaultOpen = false,
   defaultLevel = "All",
 }) {
-  const { politicians, loading } = usePoliticianList();
+  const [includeCandidates, setIncludeCandidates] = useState(false);
+  const { politicians, loading } = usePoliticianList(includeCandidates);
   const { selectedTopics } = useCompass();
   const {
     level,
@@ -251,6 +252,19 @@ export default function InlinePoliticianPicker({
             onClearAll={clearAll}
           />
 
+          {/* Include candidates toggle */}
+          <div className="px-3 pb-2">
+            <label className="flex items-center gap-2 cursor-pointer w-fit select-none">
+              <input
+                type="checkbox"
+                checked={includeCandidates}
+                onChange={(e) => setIncludeCandidates(e.target.checked)}
+                className="w-3.5 h-3.5 rounded accent-[#59b0c4] cursor-pointer"
+              />
+              <span className="text-xs text-neutral-500 dark:text-gray-400">Include candidates running for office</span>
+            </label>
+          </div>
+
           {/* Divider between filters and action rows */}
           <div className="border-t border-neutral-100 dark:border-zinc-700" />
 
@@ -344,7 +358,14 @@ export default function InlinePoliticianPicker({
                       />
                     </div>
                     <div className="flex flex-col min-w-0 flex-1">
-                      <div className="font-medium truncate dark:text-white">{polName}</div>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="font-medium truncate dark:text-white">{polName}</span>
+                        {p.is_candidate && (
+                          <span className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400">
+                            Candidate
+                          </span>
+                        )}
+                      </div>
                       <div className="text-neutral-500 dark:text-gray-400 text-xs truncate">
                         {getOfficeSubtitle(p)}
                       </div>
