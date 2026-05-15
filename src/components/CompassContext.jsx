@@ -179,8 +179,11 @@ export function CompassProvider({ children }) {
   // Cross-subdomain live receive: when another tab/subdomain updates the
   // shared compass (e.g. user calibrated on essentials), apply it locally
   // so this tab stays in sync without a refresh. Guest only.
+  // Guard on !authChecking: during the auth-check window isLoggedIn=false even
+  // for logged-in users, so without this guard the subscription fires with stale
+  // guest cache data and corrupts selectedTopics before auth resolves.
   useEffect(() => {
-    if (isLoggedIn) return;
+    if (isLoggedIn || authChecking) return;
     const unsub = evContext.subscribe((shared) => {
       // Keep the full-state cache up to date so writes can use it without a get().
       if (shared && typeof shared === 'object') evContextCacheRef.current = shared;
@@ -197,7 +200,7 @@ export function CompassProvider({ children }) {
       if (c.w && typeof c.w === 'object') setWriteIns(c.w);
     });
     return unsub;
-  }, [isLoggedIn]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isLoggedIn, authChecking]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Persist writeIns to localStorage on every change
   useEffect(() => {
