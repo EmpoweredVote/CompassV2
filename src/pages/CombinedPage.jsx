@@ -12,7 +12,7 @@ import CoachMark from "../components/CoachMark";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router";
 import { useTheme } from "../ThemeProvider";
-import { LOCAL_LENS } from "../lib/lenses";
+import { LOCAL_LENS, JUDICIAL_LENS } from "../lib/lenses";
 import { getQuestionText, parseTensionTitle } from "../util/topic";
 import { TopicTierBadge } from "@empoweredvote/ev-ui";
 import {
@@ -119,7 +119,7 @@ function BuildCompassPrompt({ answeredCompassCount, needsMore, onStartCalibratio
   );
 }
 
-function SortableTopicPill({ id, label, isCalibrated, onRemove, onMouseEnter, onMouseLeave }) {
+function SortableTopicPill({ id, label, isCalibrated, onRemove, onMouseEnter, onMouseLeave, pillBg }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id,
     transition: { duration: 200, easing: "ease" },
@@ -135,7 +135,7 @@ function SortableTopicPill({ id, label, isCalibrated, onRemove, onMouseEnter, on
         transform: CSS.Translate.toString(transform),
         transition: isDragging ? undefined : transition,
         opacity: isDragging ? 0.5 : 1,
-        background: isCalibrated ? CALIBRATED_TEAL : UNCALIBRATED_PURPLE,
+        background: pillBg ?? (isCalibrated ? CALIBRATED_TEAL : UNCALIBRATED_PURPLE),
         touchAction: "none",
       }}
       className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold text-white cursor-grab active:cursor-grabbing select-none"
@@ -153,7 +153,7 @@ function SortableTopicPill({ id, label, isCalibrated, onRemove, onMouseEnter, on
   );
 }
 
-function SortableVerticalPill({ id, topic, isCalibrated, onRemove, onOpen }) {
+function SortableVerticalPill({ id, topic, isCalibrated, onRemove, onOpen, pillBg }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id,
     transition: { duration: 200, easing: "ease" },
@@ -168,8 +168,9 @@ function SortableVerticalPill({ id, topic, isCalibrated, onRemove, onOpen }) {
         transition: isDragging ? undefined : transition,
         opacity: isDragging ? 0.4 : 1,
         touchAction: "none",
+        background: pillBg,
       }}
-      className="flex items-center gap-1.5 px-2 py-1.5 rounded-xl bg-[#1a1a2e] dark:bg-zinc-700 text-white text-xs font-medium group select-none cursor-grab active:cursor-grabbing"
+      className="flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-white text-xs font-medium group select-none cursor-grab active:cursor-grabbing"
     >
       {/* Drag grip (visual only) */}
       <span className="shrink-0 text-white/30">
@@ -185,7 +186,7 @@ function SortableVerticalPill({ id, topic, isCalibrated, onRemove, onOpen }) {
         className="flex-1 text-left min-w-0 flex items-center gap-1 cursor-pointer"
       >
         {!isCalibrated && (
-          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "#7C6B9E" }} />
+          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "rgba(255,255,255,0.5)" }} />
         )}
         <span className="truncate">{topic.short_title}</span>
       </button>
@@ -1155,6 +1156,9 @@ function CombinedPage() {
   );
   const localLensNotStarted = localLensRemaining === localLensTopicIds.length && localLensTopicIds.length > 0;
   const localLensActive = selectedTopics.length > 0 && selectedTopics.every(id => LOCAL_LENS.topicIds.includes(id));
+  const judicialLensActive = selectedTopics.length > 0 && selectedTopics.every(id => JUDICIAL_LENS.topicIds.includes(id));
+  const activeLens = localLensActive ? LOCAL_LENS : (judicialLensActive ? JUDICIAL_LENS : null);
+  const pillBg = activeLens ? activeLens.color : (isDark ? '#52525b' : '#6B7280');
 
   const localLensTopics = useMemo(
     () => LOCAL_LENS.topicIds.map(id => topics.find(t => t.id === id)).filter(Boolean),
@@ -1191,14 +1195,51 @@ function CombinedPage() {
   // -------- Lens Triggers — swap spokes instantly; no overlay --------
   // Toggle: if local lens already active, restore answered topics instead of clearing.
   // If the user only has local lens answers, restoring = no-op (same topics shown).
+  // Exit lens mode helper — saves current lens order, returns base topics to resume from.
+  const exitLensMode = () => {
+    localStorage.setItem("lensTopicsOrder", JSON.stringify(selectedTopics));
+    try {
+      const preLens = JSON.parse(localStorage.getItem("preLensTopics") || "null");
+      if (Array.isArray(preLens) && preLens.length > 0) {
+        localStorage.removeItem("preLensTopics");
+        return preLens;
+      }
+    } catch {}
+    return selectedTopics;
+  };
+
   const doStartLocalLens = () => {
     if (localLensActive) {
-      const restore = answeredTopicIDs
-        .filter(id => activeTopicIDs.has(id))
-        .slice(0, MAX_TOPICS);
-      setSelectedTopics(restore);
+      // Save lens order; restore pre-lens topics if they exist
+      const base = exitLensMode();
+      if (base !== selectedTopics) setSelectedTopics(base);
+      // else no pre-lens to restore — stay on current topics
     } else {
-      setSelectedTopics(localLensTopicIds.slice(0, MAX_TOPICS));
+      // Save current topics as pre-lens
+      if (selectedTopics.length > 0) {
+        localStorage.setItem("preLensTopics", JSON.stringify(selectedTopics));
+      }
+      // Restore saved lens order (validated to LOCAL_LENS IDs) or fall back to default
+      let lensTopics = localLensTopicIds.slice(0, MAX_TOPICS);
+      try {
+        const saved = JSON.parse(localStorage.getItem("lensTopicsOrder") || "null");
+        if (Array.isArray(saved) && saved.length > 0) {
+          const validated = saved.filter(id => LOCAL_LENS.topicIds.includes(id));
+          if (validated.length > 0) lensTopics = validated;
+        }
+      } catch {}
+      setSelectedTopics(lensTopics);
+      // If all lens topics already answered, mark calibration complete to block the overlay
+      if (!calibrationCompleted) {
+        const allAnswered = lensTopics.every(id => {
+          const t = topics.find(tt => tt.id === id);
+          return t && answers[t.short_title] != null && answers[t.short_title] > 0;
+        });
+        if (allAnswered) {
+          setCalibrationCompleted(true);
+          localStorage.setItem("calibration_completed", "true");
+        }
+      }
     }
   };
 
@@ -1217,18 +1258,24 @@ function CombinedPage() {
 
   // -------- Library Handlers --------
   const handleTileClick = (topicId) => {
-    if (selectedTopics.includes(topicId)) {
-      setSelectedTopics(prev => prev.filter(id => id !== topicId));
-    } else if (selectedTopics.length < MAX_TOPICS) {
-      setSelectedTopics(prev => [...prev, topicId]);
+    const base = localLensActive ? exitLensMode() : selectedTopics;
+    if (base.includes(topicId)) {
+      setSelectedTopics(base.filter(id => id !== topicId));
+    } else if (base.length < MAX_TOPICS) {
+      setSelectedTopics([...base, topicId]);
+    } else if (localLensActive) {
+      setSelectedTopics(base); // At cap — exit lens even if topic couldn't be added
     }
   };
 
-  // handleCalibrateClick: add to compass if room, then open drawer directly (no navigate)
+  // handleCalibrateClick: exit lens if active, add topic if room, open drawer
   const handleCalibrateClick = (e, topic) => {
     e.stopPropagation();
-    if (!selectedTopics.includes(topic.id) && selectedTopics.length < MAX_TOPICS) {
-      setSelectedTopics(prev => [...prev, topic.id]);
+    const base = localLensActive ? exitLensMode() : selectedTopics;
+    if (!base.includes(topic.id) && base.length < MAX_TOPICS) {
+      setSelectedTopics([...base, topic.id]);
+    } else if (localLensActive) {
+      setSelectedTopics(base); // Exit lens even if topic already present or at cap
     }
     setDrawerTopic(topic);
   };
@@ -1393,6 +1440,7 @@ function CombinedPage() {
                             isCalibrated={isTopicCalibrated(id)}
                             onRemove={() => setSelectedTopics(prev => prev.filter(tid => tid !== id))}
                             onOpen={() => setDrawerTopic(topic)}
+                            pillBg={pillBg}
                           />
                         );
                       })}
@@ -1434,8 +1482,8 @@ function CombinedPage() {
                       : { background: LOCAL_LENS.color, color: "#fff", opacity: 1 }
                     }
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
-                      <path fillRule="evenodd" d="M9.293 2.293a1 1 0 011.414 0l7 7A1 1 0 0117 11h-1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-3a1 1 0 00-1-1H9a1 1 0 00-1 1v3a1 1 0 01-1 1H5a1 1 0 01-1-1v-6H3a1 1 0 01-.707-1.707l7-7z" clipRule="evenodd" />
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
                     </svg>
                   </button>
                 </div>
@@ -1615,8 +1663,8 @@ function CombinedPage() {
                       : { background: LOCAL_LENS.color, color: "#fff" }
                     }
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
-                      <path fillRule="evenodd" d="M9.293 2.293a1 1 0 011.414 0l7 7A1 1 0 0117 11h-1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-3a1 1 0 00-1-1H9a1 1 0 00-1 1v3a1 1 0 01-1 1H5a1 1 0 01-1-1v-6H3a1 1 0 01-.707-1.707l7-7z" clipRule="evenodd" />
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
                     </svg>
                   </button>
                 </div>
@@ -1730,6 +1778,7 @@ function CombinedPage() {
                             onRemove={() => setSelectedTopics(prev => prev.filter(tid => tid !== id))}
                             onMouseEnter={() => setHoveredPillShortTitle(topic.short_title)}
                             onMouseLeave={() => setHoveredPillShortTitle(null)}
+                            pillBg={pillBg}
                           />
                         );
                       })}

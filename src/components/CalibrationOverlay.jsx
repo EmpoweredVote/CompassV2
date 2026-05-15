@@ -413,15 +413,17 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     } catch {}
 
     if (startAtPick) {
+      const validSelected = selectedTopics.filter(id => topics.some(t => t.id === id));
       return {
         step: "pick",
-        pickedTopics: [...selectedTopics],
+        pickedTopics: validSelected,
         currentIndex: 0,
       };
     }
 
     if (resumeMode) {
-      const firstUnanswered = selectedTopics.findIndex((id) => {
+      const validSelected = selectedTopics.filter(id => topics.some(t => t.id === id));
+      const firstUnanswered = validSelected.findIndex((id) => {
         const topic = topics.find((t) => t.id === id);
         if (!topic) return false;
         const val = answers[topic.short_title];
@@ -429,7 +431,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
       });
       return {
         step: "answer",
-        pickedTopics: [...selectedTopics],
+        pickedTopics: validSelected,
         currentIndex: firstUnanswered !== -1 ? firstUnanswered : 0,
       };
     }
