@@ -1802,7 +1802,8 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
             </button>
             <button
               onClick={isLastUnanswered ? handleFinish : handleNext}
-              className="px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 cursor-pointer"
+              disabled={lensApplied && !selectedAnswer}
+              className="px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
               style={
                 selectedAnswer
                   ? { background: t.btnBg, color: t.btnText }
