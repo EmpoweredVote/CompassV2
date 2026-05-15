@@ -365,6 +365,11 @@ export default function InlinePoliticianPicker({
                             Candidate
                           </span>
                         )}
+                        {p.stance_source === 'researched' && (
+                          <span className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-400">
+                            Researched
+                          </span>
+                        )}
                       </div>
                       <div className="text-neutral-500 dark:text-gray-400 text-xs truncate">
                         {getOfficeSubtitle(p)}
