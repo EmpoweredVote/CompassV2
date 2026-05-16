@@ -137,6 +137,8 @@ function SortableTopicPill({ id, label, isCalibrated, onRemove, onMouseEnter, on
         opacity: isDragging ? 0.5 : 1,
         background: pillBg ?? (isCalibrated ? CALIBRATED_TEAL : UNCALIBRATED_PURPLE),
         touchAction: "none",
+        outline: !isCalibrated ? `2px solid ${UNCALIBRATED_PURPLE}` : undefined,
+        outlineOffset: !isCalibrated ? '1px' : undefined,
       }}
       className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold text-white cursor-grab active:cursor-grabbing select-none"
     >
@@ -169,6 +171,8 @@ function SortableVerticalPill({ id, topic, isCalibrated, onRemove, onOpen, pillB
         opacity: isDragging ? 0.4 : 1,
         touchAction: "none",
         background: pillBg,
+        outline: !isCalibrated ? `2px solid ${UNCALIBRATED_PURPLE}` : undefined,
+        outlineOffset: !isCalibrated ? '1px' : undefined,
       }}
       className="flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-white text-xs font-medium group select-none cursor-grab active:cursor-grabbing"
     >
@@ -186,7 +190,7 @@ function SortableVerticalPill({ id, topic, isCalibrated, onRemove, onOpen, pillB
         className="flex-1 text-left min-w-0 flex items-center gap-1 cursor-pointer"
       >
         {!isCalibrated && (
-          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "rgba(255,255,255,0.5)" }} />
+          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: UNCALIBRATED_PURPLE }} />
         )}
         <span className="truncate">{topic.short_title}</span>
       </button>
