@@ -35,6 +35,8 @@ export default function InlinePoliticianPicker({
 }) {
   const [includeCandidates, setIncludeCandidates] = useState(false);
   const { politicians, loading } = usePoliticianList(includeCandidates);
+  // Always fetch the candidates list so we can hydrate stale photos from localStorage
+  const { politicians: allWithCandidates } = usePoliticianList(true);
   const { selectedTopics } = useCompass();
   const {
     level,
@@ -55,14 +57,16 @@ export default function InlinePoliticianPicker({
   const listRef = useRef(null);
   const inputRef = useRef(null);
 
-  // Hydrate stale localStorage politician with fresh API data (new fields)
+  // Hydrate stale localStorage politician with fresh API data (new fields, photos)
   useEffect(() => {
-    if (!currentPolitician || !politicians.length) return;
-    const fresh = politicians.find((p) => p.id === currentPolitician.id);
-    if (fresh && fresh.district_type && !currentPolitician.district_type) {
-      onSelect?.(fresh);
-    }
-  }, [politicians, currentPolitician, onSelect]);
+    if (!currentPolitician || !allWithCandidates.length) return;
+    const fresh = allWithCandidates.find((p) => p.id === currentPolitician.id);
+    if (!fresh) return;
+    const needsHydration =
+      (fresh.district_type && !currentPolitician.district_type) ||
+      (fresh.photo_origin_url && !currentPolitician.photo_origin_url);
+    if (needsHydration) onSelect?.(fresh);
+  }, [allWithCandidates, currentPolitician, onSelect]);
 
   // Pre-select state from the ev-context cross-subdomain bridge (one-shot on mount).
   // Honors a 30-day TTL and respects any state the user has already chosen.
@@ -173,6 +177,7 @@ export default function InlinePoliticianPicker({
   const polPhoto = currentPolitician
     ? currentPolitician.photo_origin_url ||
       currentPolitician.photo_custom_url ||
+      allWithCandidates.find((p) => p.id === currentPolitician.id)?.photo_origin_url ||
       placeholder
     : placeholder;
 
