@@ -991,7 +991,7 @@ function CombinedPage() {
         }
 
         const polAnsweredSet = new Set(
-          allAnswers.filter((a) => a.value > 0).map((a) => a.topic_id)
+          allAnswers.filter((a) => parseFloat(a.value) > 0).map((a) => a.topic_id)
         );
         const selectedTopicSet = new Set(selectedTopics);
 
@@ -1015,14 +1015,14 @@ function CombinedPage() {
           if (polAnsweredSet.has(id)) {
             displayTopics.push(id);
             const a = allAnswers.find((x) => x.topic_id === id);
-            if (a && a.value > 0) compareAnswersMap[t.short_title] = a.value;
+            if (a && parseFloat(a.value) > 0) compareAnswersMap[t.short_title] = parseFloat(a.value);
           } else {
             if (replacementIdx < replacementPool.length) {
               const replT = replacementPool[replacementIdx++];
               displayTopics.push(replT.id);
               replacedSpokes[replT.short_title] = true;
               const a = allAnswers.find((x) => x.topic_id === replT.id);
-              if (a && a.value > 0) compareAnswersMap[replT.short_title] = a.value;
+              if (a && parseFloat(a.value) > 0) compareAnswersMap[replT.short_title] = parseFloat(a.value);
             }
           }
         }
