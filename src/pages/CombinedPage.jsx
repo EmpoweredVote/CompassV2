@@ -1262,13 +1262,10 @@ function CombinedPage() {
 
   // -------- Library Handlers --------
   const handleTileClick = (topicId) => {
-    const base = localLensActive ? exitLensMode() : selectedTopics;
-    if (base.includes(topicId)) {
-      setSelectedTopics(base.filter(id => id !== topicId));
-    } else if (base.length < MAX_TOPICS) {
-      setSelectedTopics([...base, topicId]);
-    } else if (localLensActive) {
-      setSelectedTopics(base); // At cap — exit lens even if topic couldn't be added
+    if (selectedTopics.includes(topicId)) {
+      setSelectedTopics(selectedTopics.filter(id => id !== topicId));
+    } else if (selectedTopics.length < MAX_TOPICS) {
+      setSelectedTopics([...selectedTopics, topicId]);
     }
   };
 
