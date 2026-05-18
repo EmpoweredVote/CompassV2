@@ -57,7 +57,7 @@ export function CompassProvider({ children }) {
   const [username, setUsername] = useState(null);
   const [userId, setUserId] = useState(null);
   const [authChecking, setAuthChecking] = useState(true);
-  // Incremented by Restore Stances and Reset Compass to force Compass.jsx to
+  // Incremented by Restore Stances and Reset Compass to force CombinedPage to
   // remount and re-initialize its local calibration state from localStorage.
   const [compassVersion, setCompassVersion] = useState(0);
 

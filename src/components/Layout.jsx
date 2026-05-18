@@ -74,7 +74,7 @@ function Layout({ children }) {
       body: JSON.stringify({ topic_ids: [] }),
     }).catch(() => {});
     apiFetch('/compass/answers/me', { method: "DELETE" }).catch(() => {});
-    // Remount Compass.jsx and navigate to it so the calibration tutorial fires.
+    // Remount CombinedPage and navigate to it so the calibration tutorial fires.
     setCompassVersion((v) => v + 1);
     navigate('/results');
   };
@@ -200,7 +200,7 @@ function Layout({ children }) {
     localStorage.removeItem("calibration_skipped");
     localStorage.removeItem("calibration_progress");
 
-    // Sync to server before navigating — Compass.jsx batch-fetches answers on
+    // Sync to server before navigating — CombinedPage batch-fetches answers on
     // mount so the server must be up-to-date before the page reloads.
     const syncPromises = Object.entries(ans).map(([shortTitle, value]) => {
       const topic_id = titleToId.get(shortTitle);
@@ -220,7 +220,7 @@ function Layout({ children }) {
     alert(`Stances restored (${count} topic${count === 1 ? "" : "s"}).`);
 
     // Update context state directly — no page reload needed.
-    // setCompassVersion remounts Compass.jsx (keyed on compassVersion in App.jsx)
+    // setCompassVersion remounts CombinedPage (keyed on compassVersion in App.jsx)
     // so its local calibration flags re-initialize from localStorage.
     setAnswers(ans);
     setWriteIns(wi);
