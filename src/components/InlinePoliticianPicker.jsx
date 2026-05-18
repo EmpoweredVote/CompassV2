@@ -64,7 +64,8 @@ export default function InlinePoliticianPicker({
     if (!fresh) return;
     const needsHydration =
       (fresh.district_type && !currentPolitician.district_type) ||
-      (fresh.photo_origin_url && !currentPolitician.photo_origin_url);
+      (fresh.photo_origin_url && !currentPolitician.photo_origin_url) ||
+      (fresh.is_candidate !== currentPolitician.is_candidate);
     if (needsHydration) onSelect?.(fresh);
   }, [allWithCandidates, currentPolitician, onSelect]);
 
