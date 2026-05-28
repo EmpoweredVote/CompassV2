@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { usePostHog } from "posthog-js/react";
 import { useCompass } from "../components/CompassContext";
 import { useNavigate, useSearchParams } from "react-router";
 import { apiFetch } from "../lib/auth";
@@ -136,6 +137,7 @@ export function Quiz() {
   const { topics, categories, selectedTopics, setSelectedTopics, answers, setAnswers, writeIns, setWriteIns, invertedSpokes, setInvertedSpokes, initRandomInversions, isLoggedIn } =
     useCompass();
 
+  const posthog = usePostHog();
   const [searchParams] = useSearchParams();
   const mode = searchParams.get("mode") === "full" ? "full" : "curated";
 
@@ -156,6 +158,12 @@ export function Quiz() {
   }, [mode, categories]);
 
   const quizTopicIds = mode === "full" ? fullQuizTopicIds : selectedTopics;
+
+  // Fire quiz_started once topics are ready
+  useEffect(() => {
+    if (!quizTopicIds.length) return;
+    posthog?.capture('quiz_started', { quiz_type: mode, topic_count: quizTopicIds.length });
+  }, [quizTopicIds.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // In full mode, fetch ALL user answers so previous responses show up
   useEffect(() => {
@@ -354,6 +362,7 @@ export function Quiz() {
     const advanceOrFinish = () => {
       setSelectedAnswer(null);
       if (isLastQuestion) {
+        posthog?.capture('quiz_completed', { quiz_type: mode, topics_answered: quizTopicIds.length });
         localStorage.removeItem(QUIZ_STORAGE_KEY);
         if (mode === "full") {
           // Keep the user's existing preferred 8 if they have a valid selection;

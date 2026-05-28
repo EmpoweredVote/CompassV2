@@ -1,5 +1,6 @@
 // CalibrationOverlay.jsx
 import { useState, useEffect, useMemo, useRef } from "react";
+import { usePostHog } from "posthog-js/react";
 import { useTheme } from "../ThemeProvider";
 import { useCompass } from "./CompassContext";
 import { apiFetch } from "../lib/auth";
@@ -357,6 +358,30 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     initRandomInversions,
     isLoggedIn,
   } = useCompass();
+
+  const posthog = usePostHog();
+
+  // Determine quiz lens type for analytics
+  const lensType = startWithLocalLens ? 'local_lens'
+    : startWithJudicialLens ? 'judicial_lens'
+    : startWithAllTopics ? 'full'
+    : resumeMode ? 'resume'
+    : 'default';
+
+  // Fire quiz_started once on mount
+  useEffect(() => {
+    posthog?.capture('quiz_started', {
+      quiz_type: 'calibration',
+      lens: lensType,
+      topic_count: startWithLocalLens || startWithJudicialLens ? 8 : undefined,
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Wrap onComplete to fire analytics before handing off
+  const handleComplete = () => {
+    posthog?.capture('calibration_completed', { lens: lensType });
+    onComplete();
+  };
 
   // Offset overlay when ReturnBanner is visible (fixed z-[60] above us)
   const hasReturnBanner = !!sessionStorage.getItem("essentials_return_url");
@@ -731,7 +756,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     localStorage.removeItem(STORAGE_KEY);
 
     if (answeredIds.length < MIN_TOPICS) {
-      onComplete();
+      handleComplete();
       return;
     }
 
@@ -1901,7 +1926,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
             <button
               onClick={() => {
                 localStorage.removeItem(STORAGE_KEY);
-                onComplete();
+                handleComplete();
               }}
               className="w-full sm:w-auto px-8 py-3.5 rounded-full font-bold text-base transition-all hover:opacity-90 active:scale-95 cursor-pointer shadow-md"
               style={{ background: t.yellow, color: '#1C1C1C' }}

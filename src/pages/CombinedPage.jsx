@@ -1,5 +1,6 @@
 // CombinedPage.jsx — merges Compass.jsx and Library.jsx into a single unified page.
 // Renders the radar chart with compare panel at top and the full topic library below.
+import { usePostHog } from "posthog-js/react";
 import { useCompass } from "../components/CompassContext";
 import { apiFetch, API_BASE } from "../lib/auth";
 import { useEvContextPromotion } from "@empoweredvote/ev-ui";
@@ -365,6 +366,8 @@ function CombinedPage() {
     topicsError,
     retryLoadTopics,
   } = useCompass();
+
+  const posthog = usePostHog();
 
   // 260426-mw6 — promotion banner for users who calibrated as a guest before
   // signing up. Fires only when API has zero answers AND ev-context has a
@@ -735,6 +738,10 @@ function CombinedPage() {
 
   // -------- Compare switching callbacks --------
   const handleSwitchPolitician = (newPol) => {
+    if (newPol) {
+      const name = newPol.full_name || [newPol.first_name, newPol.last_name].filter(Boolean).join(' ');
+      posthog?.capture('politician_compared', { politician_id: newPol.id, politician_name: name });
+    }
     setComparePol(newPol);
   };
 

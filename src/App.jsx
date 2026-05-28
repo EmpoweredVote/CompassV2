@@ -51,7 +51,15 @@ function PostHogPageview() {
 }
 
 function App() {
-  const { compassVersion } = useCompass();
+  const { compassVersion, userId, isLoggedIn } = useCompass();
+  const posthog = usePostHog();
+
+  // Identify logged-in users so PostHog can stitch cross-app journeys
+  useEffect(() => {
+    if (isLoggedIn && userId) {
+      posthog?.identify(userId);
+    }
+  }, [isLoggedIn, userId]);
   return (
     <>
       <PostHogPageview />
