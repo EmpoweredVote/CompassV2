@@ -1,4 +1,6 @@
+import { useEffect } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router";
+import { usePostHog } from "posthog-js/react";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Home from "./pages/Home";
@@ -39,10 +41,20 @@ function HelpGuard({ children }) {
   return children;
 }
 
+function PostHogPageview() {
+  const location = useLocation();
+  const posthog = usePostHog();
+  useEffect(() => {
+    posthog?.capture('$pageview');
+  }, [location.pathname]);
+  return null;
+}
+
 function App() {
   const { compassVersion } = useCompass();
   return (
     <>
+      <PostHogPageview />
       <Routes>
         {/* Public routes that bypass the help guard */}
         <Route path="/login" element={<Login />} />

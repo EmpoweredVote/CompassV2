@@ -153,7 +153,6 @@ export function CompassProvider({ children }) {
     evContext.set(next).catch(() => {});
   }, [authChecking, isLoggedIn, userId, answers, selectedTopics, invertedSpokes, writeIns, topics]);
 
-
   // Authed SWR hydrate (260426-mc5): when we learn the userId, read the
   // authed slice and seed local state. The /compass/answers fetch elsewhere
   // will still run and replace this silently. Idempotent React state updates
