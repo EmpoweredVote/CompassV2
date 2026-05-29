@@ -46,6 +46,7 @@ function PostHogPageview() {
   const posthog = usePostHog();
   useEffect(() => {
     posthog?.capture('$pageview');
+    return () => posthog?.capture('$pageleave');
   }, [location.pathname]);
   return null;
 }
