@@ -1653,7 +1653,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
         </DndContext>
 
         {/* Main content: compass + stances */}
-        <div className="flex-1 flex flex-col md:flex-row md:overflow-hidden">
+        <div className="flex-1 flex flex-col md:flex-row md:overflow-hidden md:min-h-0">
           {/* Compass — left side, sized to viewport height so it grows big on larger screens */}
           <div className="md:basis-1/2 flex items-center justify-center px-2 md:pt-4">
             <div className="relative w-full max-w-[440px] md:max-w-[min(calc(50vw-2rem),calc(100vh-220px))] mx-auto">
@@ -1698,10 +1698,17 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
             </div>
           </div>
 
-          {/* Question + Stance buttons — right 50% */}
-          <div ref={stancesPanelRef} className="md:basis-1/2 flex flex-col md:justify-center gap-1.5 px-3 pb-4 md:pb-0 md:pr-6 max-w-md mx-auto md:mx-0">
-            <div className="mb-2">
-              <p className="text-base md:text-lg font-semibold leading-snug" style={{ color: t.textHead }}>
+          {/* Question + Stance buttons — right 50%.
+              On md+ the gaps / card padding / font sizes scale fluidly with viewport
+              height (clamp + vh), so on shorter desktops everything compresses to fit
+              instead of scrolling — the compass scales the same way via its 100vh cap.
+              Around ~615px tall the clamps bottom out at their readable minimums; below
+              that the panel falls back to safe-centered scroll (justify-center-safe +
+              overflow-y-auto), which keeps the question pinned visible at the top rather
+              than clipping it off-screen the way plain justify-center did. */}
+          <div ref={stancesPanelRef} className="md:basis-1/2 flex flex-col md:justify-center-safe md:overflow-y-auto md:min-h-0 gap-1.5 md:gap-[clamp(0.25rem,0.7vh,0.375rem)] px-3 pb-4 md:pb-0 md:pr-6 max-w-md mx-auto md:mx-0">
+            <div className="mb-2 md:mb-[clamp(0.25rem,0.9vh,0.5rem)]">
+              <p className="text-base md:text-[clamp(1rem,1.95vh,1.125rem)] font-semibold leading-snug" style={{ color: t.textHead }}>
                 {getQuestionText(currentTopic) || parseTensionTitle(currentTopic).name}
               </p>
               {getQuestionText(currentTopic) && (
@@ -1724,7 +1731,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
                         setWriteInText("");
                         handleSelectStance(stanceValue);
                       }}
-                      className="text-left px-3 py-2.5 rounded-lg transition-all duration-200 text-sm leading-snug font-medium cursor-pointer"
+                      className="text-left px-3 py-2.5 md:py-[clamp(0.375rem,1.05vh,0.625rem)] rounded-lg transition-all duration-200 text-sm md:text-[clamp(0.8125rem,1.5vh,0.875rem)] leading-snug font-medium cursor-pointer"
                       style={
                         isSelected
                           ? {
@@ -1754,7 +1761,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
                       setWriteInHintShown(true);
                     }
                   }}
-                  className="text-left px-3 py-2.5 rounded-lg transition-all duration-200 text-sm leading-snug font-medium cursor-pointer"
+                  className="text-left px-3 py-2.5 md:py-[clamp(0.375rem,1.05vh,0.625rem)] rounded-lg transition-all duration-200 text-sm md:text-[clamp(0.8125rem,1.5vh,0.875rem)] leading-snug font-medium cursor-pointer"
                   style={{
                     border: `2px dashed ${t.writeOwnColor}`,
                     color: t.writeOwnColor,
