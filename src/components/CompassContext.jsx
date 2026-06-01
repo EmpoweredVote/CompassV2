@@ -175,6 +175,54 @@ export function CompassProvider({ children }) {
     }).catch(() => {});
   }, [isLoggedIn, userId]);
 
+  // API answer hydration: fetch /compass/answers from the server once we know
+  // both the user is logged in AND topics have loaded (needed to map topic_id
+  // back to short_title). Only runs once per session. Only overwrites local
+  // state when localStorage is empty — if the user has answers in localStorage
+  // (same device, not cleared), those are already correct and we don't want to
+  // flash-replace them with a network round-trip.
+  //
+  // This fixes the case where a logged-in user opens the app on a fresh device
+  // or in private browsing — localStorage is empty but the API has their answers.
+  const apiAnswersHydratedRef = useRef(false);
+  useEffect(() => {
+    if (!isLoggedIn || !userId) return;
+    if (topics.length === 0) return;
+    if (apiAnswersHydratedRef.current) return;
+    // If localStorage already has answers, skip — don't overwrite live session data.
+    if (Object.keys(answersRef.current).length > 0) {
+      apiAnswersHydratedRef.current = true;
+      return;
+    }
+    apiAnswersHydratedRef.current = true;
+
+    apiFetch('/compass/answers').then(async (res) => {
+      if (!res || !res.ok) return;
+      const data = await res.json();
+      if (!Array.isArray(data) || data.length === 0) return;
+
+      const topicById = new Map(topics.map((t) => [t.id, t]));
+      const hydratedAnswers = {};
+      const hydratedWriteIns = {};
+
+      for (const row of data) {
+        const topic = topicById.get(row.topic_id);
+        if (!topic) continue;
+        if (row.value != null) hydratedAnswers[topic.short_title] = row.value;
+        if (row.write_in_text) hydratedWriteIns[topic.short_title] = row.write_in_text;
+      }
+
+      // Final guard: only apply if local state is still empty (another effect
+      // may have populated it in the time the fetch was in flight).
+      if (Object.keys(answersRef.current).length === 0 && Object.keys(hydratedAnswers).length > 0) {
+        setAnswers(hydratedAnswers);
+      }
+      if (Object.keys(writeInsRef.current).length === 0 && Object.keys(hydratedWriteIns).length > 0) {
+        setWriteIns(hydratedWriteIns);
+      }
+    }).catch(() => {});
+  }, [isLoggedIn, userId, topics]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Cross-subdomain live receive: when another tab/subdomain updates the
   // shared compass (e.g. user calibrated on essentials), apply it locally
   // so this tab stays in sync without a refresh. Guest only.
