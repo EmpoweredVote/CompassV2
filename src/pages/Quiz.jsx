@@ -341,6 +341,14 @@ export function Quiz() {
     const topic = topics.find((t) => t.id === currentTopicId);
     if (!topic) return;
 
+    posthog?.capture('quiz_question_answered', {
+      quiz_type: mode,
+      question_index: currentIndex,
+      questions_total: quizTopicIds.length,
+      topic_slug: topic.short_title,
+      answer_type: isWriteIn ? 'write_in' : 'stance',
+    });
+
     setAnswers((prev) => ({
       ...prev,
       [topic.short_title]: value,
@@ -569,7 +577,15 @@ export function Quiz() {
         <div className="flex justify-between items-center px-4 pt-3 md:px-6 md:pt-4">
           <div />
           <button
-            onClick={() => navigate("/library")}
+            onClick={() => {
+              posthog?.capture('quiz_abandoned', {
+                quiz_type: mode,
+                question_index: currentIndex,
+                questions_total: quizTopicIds.length,
+                topic_slug: currentTopic?.short_title,
+              });
+              navigate("/library");
+            }}
             className="p-2 rounded-full text-[#9CA3AF] hover:text-[#2F3237] dark:hover:text-[#EBEDEF] hover:bg-[#EBEDEF] dark:hover:bg-[#2F3237] transition-colors duration-200 cursor-pointer"
             aria-label="Exit calibration"
           >
@@ -686,7 +702,15 @@ export function Quiz() {
       {/* Header */}
       <div className="flex justify-end px-4 pt-3 md:px-6 md:pt-4">
         <button
-          onClick={() => navigate("/library")}
+          onClick={() => {
+            posthog?.capture('quiz_abandoned', {
+              quiz_type: mode,
+              question_index: currentIndex,
+              questions_total: quizTopicIds.length,
+              topic_slug: currentTopic?.short_title,
+            });
+            navigate("/library");
+          }}
           className="p-2 rounded-full text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors duration-200 cursor-pointer"
           aria-label="Exit calibration"
         >

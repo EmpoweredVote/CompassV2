@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useNavigate } from "react-router";
+import { usePostHog } from "posthog-js/react";
 import { useCompass } from "../components/CompassContext";
 import { useTheme } from "../ThemeProvider";
 import { apiFetch } from "../lib/auth";
@@ -75,6 +76,7 @@ export default function FullCalibration() {
   const { isDark, toggle: toggleDark } = useTheme();
   const th = isDark ? DARK : LIGHT;
   const navigate = useNavigate();
+  const posthog = usePostHog();
 
   const [activeTopic, setActiveTopic] = useState(null);
   const [selectedValue, setSelectedValue] = useState(null);
@@ -127,6 +129,7 @@ export default function FullCalibration() {
       setDone(true);
     } else {
       setActiveTopic(firstUnanswered);
+      posthog?.capture('calibration_started', { total_topics: allTopics.length });
     }
 
     const inv = {};
@@ -145,6 +148,14 @@ export default function FullCalibration() {
   const handleAnswer = useCallback(async (value) => {
     if (!activeTopic || selectedValue !== null) return;
     const updatedAnswers = { ...answers, [activeTopic.short_title]: value };
+    const newAnsweredCount = allTopics.filter(tp => updatedAnswers[tp.short_title] > 0).length;
+
+    posthog?.capture('calibration_question_answered', {
+      topic_slug: activeTopic.short_title,
+      answered_count: newAnsweredCount,
+      total_topics: allTopics.length,
+    });
+
     setSelectedValue(value);
     setAnswers(prev => ({ ...prev, [activeTopic.short_title]: value }));
 
@@ -166,18 +177,27 @@ export default function FullCalibration() {
       } else {
         setDone(true);
         localStorage.setItem("calibration_completed", "true");
+        posthog?.capture('calibration_completed', {
+          answered_count: newAnsweredCount,
+          total_topics: allTopics.length,
+        });
       }
     }, 420);
-  }, [activeTopic, allTopics, answers, isLoggedIn, selectedValue]);
+  }, [activeTopic, allTopics, answers, isLoggedIn, posthog, selectedValue]);
 
   const handleSkip = useCallback(() => {
     if (!activeTopic) return;
+    posthog?.capture('calibration_question_skipped', {
+      topic_slug: activeTopic.short_title,
+      answered_count: answeredCount,
+      total_topics: allTopics.length,
+    });
     const curIdx = allTopics.findIndex(tp => tp.id === activeTopic.id);
     const next =
       allTopics.slice(curIdx + 1).find(tp => !(answers[tp.short_title] > 0)) ||
       allTopics.find(tp => tp.id !== activeTopic.id && !(answers[tp.short_title] > 0));
     if (next) setActiveTopic(next);
-  }, [activeTopic, allTopics, answers]);
+  }, [activeTopic, allTopics, answeredCount, answers, posthog]);
 
   const handleFlip = useCallback(() => {
     if (!activeTopic) return;
@@ -273,7 +293,14 @@ export default function FullCalibration() {
                 onClick={() => navigate('/library')}
               />
               <button
-                onClick={() => navigate('/library')}
+                onClick={() => {
+                  posthog?.capture('calibration_abandoned', {
+                    answered_count: answeredCount,
+                    total_topics: allTopics.length,
+                    progress_pct: progressPct,
+                  });
+                  navigate('/library');
+                }}
                 className="flex items-center gap-1 text-sm font-medium transition-opacity hover:opacity-70 cursor-pointer"
                 style={{ color: isDark ? '#9CA3AF' : '#535964', fontFamily: "'Manrope', sans-serif" }}
               >
