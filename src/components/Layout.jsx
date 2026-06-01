@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router";
-import { Header, evContext } from "@empoweredvote/ev-ui";
+import { Header, evContext, evAppLinks } from "@empoweredvote/ev-ui";
 import { useCompass } from "../components/CompassContext";
 import { useTheme } from "../ThemeProvider";
 import ReturnBanner from "./ReturnBanner";
@@ -276,7 +276,7 @@ function Layout({ children }) {
       <ReturnBanner />
       <Header
         logoSrc="/EVLogo.svg"
-        navItems={[]}
+        navItems={evAppLinks}
         currentPath={location.pathname}
         onNavigate={handleNavigate}
         darkMode={isDark}
