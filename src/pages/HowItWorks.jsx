@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useLocation } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import Layout from "../components/Layout";
 
 /**
@@ -9,6 +9,7 @@ import Layout from "../components/Layout";
  */
 export default function HowItWorks() {
   const location = useLocation();
+  const navigate = useNavigate();
 
   // When navigated to with a hash (e.g. /how-it-works#compass-positions),
   // scroll the target section into view after the page mounts.
@@ -27,6 +28,16 @@ export default function HowItWorks() {
   return (
     <Layout>
       <article className="max-w-[720px] mx-auto px-6 py-10 text-gray-800 dark:text-gray-200 leading-relaxed">
+        <button
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-[#00657c] dark:hover:text-ev-teal-light transition-colors mb-6 cursor-pointer -ml-1"
+          aria-label="Go back"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+            <path fillRule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clipRule="evenodd" />
+          </svg>
+          Back
+        </button>
         <header className="mb-10">
           <h1 className="text-3xl md:text-4xl font-semibold text-[#00657c] dark:text-ev-teal-light mb-3">
             How the Compass Works
