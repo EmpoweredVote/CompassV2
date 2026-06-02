@@ -2,6 +2,7 @@
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
 import { extractHashToken, getToken, setToken, apiFetch, publicFetch, clearToken, API_BASE } from '../lib/auth';
 import { evContext } from '@empoweredvote/ev-ui';
+import { isLensTopicSet } from '../lib/lenses';
 
 function safeParse(str, fallback) {
   try {
@@ -406,6 +407,13 @@ export function CompassProvider({ children }) {
 
     // Don't sync to server for guests
     if (!isLoggedIn) return;
+
+    // A lens (Local/Judicial) is a VIEW overlay, not the user's chosen compass.
+    // Never persist a lens set as selected_topic_ids — doing so clobbers the user's
+    // real compass on the server and makes consumers (e.g. essentials) unable to
+    // distinguish "my compass" from "the lens". The lens still renders locally; we
+    // just leave the server's saved compass untouched while it's active.
+    if (isLensTopicSet(selectedTopics)) return;
 
     // Debounce server sync to avoid rapid calls during topic toggling
     clearTimeout(syncTimer.current);
