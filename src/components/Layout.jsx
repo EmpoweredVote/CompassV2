@@ -4,6 +4,7 @@ import { useCompass } from "../components/CompassContext";
 import { useTheme } from "../ThemeProvider";
 import ReturnBanner from "./ReturnBanner";
 import { apiFetch, getToken, clearToken, API_BASE } from "../lib/auth";
+import { isLensTopicSet } from "../lib/lenses";
 
 function Layout({ children }) {
   const navigate = useNavigate();
@@ -111,10 +112,15 @@ function Layout({ children }) {
       const res = await apiFetch('/compass/answers', { method: 'POST', body: JSON.stringify(body) }).catch(() => null);
       if (!res || !res.ok) serverSaveOk = false;
     }
-    await apiFetch('/compass/selected-topics', {
-      method: 'PUT',
-      body: JSON.stringify({ topic_ids: selectedTopics }),
-    }).catch(() => { serverSaveOk = false; });
+    // Only persist selected topics when they represent the user's own chosen compass.
+    // A lens (Local/Judicial) is a view overlay — saving it would overwrite the user's
+    // real compass on the server. Answers above always save; the lens view does not.
+    if (!isLensTopicSet(selectedTopics)) {
+      await apiFetch('/compass/selected-topics', {
+        method: 'PUT',
+        body: JSON.stringify({ topic_ids: selectedTopics }),
+      }).catch(() => { serverSaveOk = false; });
+    }
 
     alert(`Stances saved (${count} topic${count === 1 ? "" : "s"})${serverSaveOk ? " — backed up to server." : " — localStorage only (server sync failed)."}`);
   };

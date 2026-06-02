@@ -40,3 +40,14 @@ export function getTopicsForLens(lens, allTopics) {
     .map(id => allTopics.find(t => t.id === id))
     .filter(Boolean);
 }
+
+// True when a selected-topics array is just a lens overlay (every id belongs to a
+// single lens), not the user's own chosen compass. Used to avoid persisting a lens
+// view as the user's saved selected_topic_ids on the server — the lens is a view,
+// not the user's compass. Mirrors the localLensActive/judicialLensActive heuristic
+// in CombinedPage.
+export function isLensTopicSet(topicIds) {
+  if (!Array.isArray(topicIds) || topicIds.length === 0) return false;
+  const everyIn = (lens) => topicIds.every((id) => lens.topicIds.includes(id));
+  return everyIn(LOCAL_LENS) || everyIn(JUDICIAL_LENS);
+}
