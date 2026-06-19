@@ -740,7 +740,7 @@ function CombinedPage() {
   const handleSwitchPolitician = (newPol) => {
     if (newPol) {
       const name = newPol.full_name || [newPol.first_name, newPol.last_name].filter(Boolean).join(' ');
-      posthog?.capture('politician_compared', { politician_id: newPol.id, politician_name: name });
+      posthog?.capture('compass_politician_compared', { politician_id: newPol.id, politician_name: name });
     }
     setComparePol(newPol);
   };

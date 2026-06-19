@@ -370,7 +370,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
 
   // Fire quiz_started once on mount
   useEffect(() => {
-    posthog?.capture('quiz_started', {
+    posthog?.capture('compass_quiz_started', {
       quiz_type: 'calibration',
       lens: lensType,
       topic_count: startWithLocalLens || startWithJudicialLens ? 8 : undefined,
@@ -379,7 +379,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
 
   // Wrap onComplete to fire analytics before handing off
   const handleComplete = () => {
-    posthog?.capture('calibration_completed', { lens: lensType });
+    posthog?.capture('compass_calibration_completed', { lens: lensType });
     onComplete();
   };
 

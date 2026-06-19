@@ -162,7 +162,7 @@ export function Quiz() {
   // Fire quiz_started once topics are ready
   useEffect(() => {
     if (!quizTopicIds.length) return;
-    posthog?.capture('quiz_started', { quiz_type: mode, topic_count: quizTopicIds.length });
+    posthog?.capture('compass_quiz_started', { quiz_type: mode, topic_count: quizTopicIds.length });
   }, [quizTopicIds.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // In full mode, fetch ALL user answers so previous responses show up
@@ -341,7 +341,7 @@ export function Quiz() {
     const topic = topics.find((t) => t.id === currentTopicId);
     if (!topic) return;
 
-    posthog?.capture('quiz_question_answered', {
+    posthog?.capture('compass_quiz_question_answered', {
       quiz_type: mode,
       question_index: currentIndex,
       questions_total: quizTopicIds.length,
@@ -370,7 +370,7 @@ export function Quiz() {
     const advanceOrFinish = () => {
       setSelectedAnswer(null);
       if (isLastQuestion) {
-        posthog?.capture('quiz_completed', { quiz_type: mode, topics_answered: quizTopicIds.length });
+        posthog?.capture('compass_quiz_completed', { quiz_type: mode, topics_answered: quizTopicIds.length });
         localStorage.removeItem(QUIZ_STORAGE_KEY);
         if (mode === "full") {
           // Keep the user's existing preferred 8 if they have a valid selection;
@@ -578,7 +578,7 @@ export function Quiz() {
           <div />
           <button
             onClick={() => {
-              posthog?.capture('quiz_abandoned', {
+              posthog?.capture('compass_quiz_abandoned', {
                 quiz_type: mode,
                 question_index: currentIndex,
                 questions_total: quizTopicIds.length,
@@ -703,7 +703,7 @@ export function Quiz() {
       <div className="flex justify-end px-4 pt-3 md:px-6 md:pt-4">
         <button
           onClick={() => {
-            posthog?.capture('quiz_abandoned', {
+            posthog?.capture('compass_quiz_abandoned', {
               quiz_type: mode,
               question_index: currentIndex,
               questions_total: quizTopicIds.length,
