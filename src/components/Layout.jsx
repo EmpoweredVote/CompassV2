@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router";
-import { Header, evContext } from "@empoweredvote/ev-ui";
+import { Header, evContext, getFeedbackUrl } from "@empoweredvote/ev-ui";
 import { useCompass } from "../components/CompassContext";
 import { useTheme } from "../ThemeProvider";
 import ReturnBanner from "./ReturnBanner";
@@ -255,7 +255,7 @@ function Layout({ children }) {
     ] : []),
     { label: "Profile", onClick: () => { window.location.href = 'https://login.empowered.vote/profile'; } },
     { label: "EV Financials", onClick: () => { window.location.href = 'https://financials.empowered.vote'; } },
-    { label: "Feedback", href: "https://feedback.empowered.vote" },
+    { label: "Feedback", href: getFeedbackUrl() },
     { label: "Logout", onClick: logout },
   ];
 
@@ -294,6 +294,7 @@ function Layout({ children }) {
               ? { label: username, items: profileItems }
               : { label: null, items: [
                   { label: "Sign in", onClick: () => navigate("/login") },
+                  { label: "Feedback", href: getFeedbackUrl() },
                   { label: "EV Financials", onClick: () => { window.location.href = 'https://financials.empowered.vote'; } },
                 ] }
         }
