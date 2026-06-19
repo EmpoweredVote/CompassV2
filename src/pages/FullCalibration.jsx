@@ -129,7 +129,7 @@ export default function FullCalibration() {
       setDone(true);
     } else {
       setActiveTopic(firstUnanswered);
-      posthog?.capture('calibration_started', { total_topics: allTopics.length });
+      posthog?.capture('compass_calibration_started', { total_topics: allTopics.length });
     }
 
     const inv = {};
@@ -150,7 +150,7 @@ export default function FullCalibration() {
     const updatedAnswers = { ...answers, [activeTopic.short_title]: value };
     const newAnsweredCount = allTopics.filter(tp => updatedAnswers[tp.short_title] > 0).length;
 
-    posthog?.capture('calibration_question_answered', {
+    posthog?.capture('compass_calibration_question_answered', {
       topic_slug: activeTopic.short_title,
       answered_count: newAnsweredCount,
       total_topics: allTopics.length,
@@ -177,7 +177,7 @@ export default function FullCalibration() {
       } else {
         setDone(true);
         localStorage.setItem("calibration_completed", "true");
-        posthog?.capture('calibration_completed', {
+        posthog?.capture('compass_calibration_completed', {
           answered_count: newAnsweredCount,
           total_topics: allTopics.length,
         });
@@ -187,7 +187,7 @@ export default function FullCalibration() {
 
   const handleSkip = useCallback(() => {
     if (!activeTopic) return;
-    posthog?.capture('calibration_question_skipped', {
+    posthog?.capture('compass_calibration_question_skipped', {
       topic_slug: activeTopic.short_title,
       answered_count: answeredCount,
       total_topics: allTopics.length,
@@ -294,7 +294,7 @@ export default function FullCalibration() {
               />
               <button
                 onClick={() => {
-                  posthog?.capture('calibration_abandoned', {
+                  posthog?.capture('compass_calibration_abandoned', {
                     answered_count: answeredCount,
                     total_topics: allTopics.length,
                     progress_pct: progressPct,
