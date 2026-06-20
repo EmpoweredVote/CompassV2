@@ -13,6 +13,7 @@ posthog.init('phc_kpUWTjEcRRwSn7zdNstbDVYqAMQvEFZ5EgrWFeaAh5mu', {
   defaults: '2026-01-30',
   person_profiles: 'identified_only',
   capture_pageview: false,
+  capture_dead_clicks: true,
 });
 
 createRoot(document.getElementById("root")).render(
