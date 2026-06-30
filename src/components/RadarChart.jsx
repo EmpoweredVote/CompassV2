@@ -9,6 +9,7 @@ export default function RadarChart({ highlightedSpoke = null, ...props }) {
     <RadarChartCore
       topics={topics}
       padding={90}
+      maxLabelLines={3}
       lineColor={isDark ? "#9ca3af" : "black"}
       ringColor={isDark ? "#4b5563" : "#ccc"}
       highlightedSpoke={highlightedSpoke}

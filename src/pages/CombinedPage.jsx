@@ -977,6 +977,17 @@ function CombinedPage() {
       return;
     }
 
+    // Topics must be loaded before we can map the politician's answer topic_ids
+    // onto spokes. `topics` is read via topicsRef (deliberately excluded from
+    // deps so admin metadata edits don't re-fire this fetch), so without this
+    // guard the effect can run while topics is still empty — the answer fetch
+    // wins the race against /compass/topics (+/categories) when a comparison is
+    // restored from localStorage on load. That makes currentTopics.find() return
+    // undefined for every spoke, yielding an empty compareDisplayTopics that
+    // shows "Not enough shared topics" and never recomputes. Gating on
+    // topicsLoaded (which flips exactly once) re-runs this effect when ready.
+    if (!topicsLoaded) return;
+
     const polFetch = comparePol.is_candidate
       ? apiFetch(`/compass/candidates/${comparePol.id}/answers`).then((r) => r.json())
       : apiFetch(`/compass/politicians/${comparePol.id}/answers`).then((r) => r.json());
@@ -1044,7 +1055,7 @@ function CombinedPage() {
         setCompareDisplayTopics(null);
         setCompareReplacedSpokes({});
       });
-  }, [comparePol, selectedTopics, isLoggedIn, setCompareAnswers]);
+  }, [comparePol, selectedTopics, isLoggedIn, setCompareAnswers, topicsLoaded]);
 
   // -------- Library State --------
   const [answeredTopicIDs, setAnsweredTopicIDs] = useState([]);
