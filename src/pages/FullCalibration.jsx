@@ -286,8 +286,8 @@ export default function FullCalibration() {
           <div className="flex items-center justify-between" style={{ paddingTop: '12px', paddingBottom: '8px' }}>
             <div className="flex items-center gap-3">
               <img
-                src="/EVLogo.svg"
-                alt="Empowered Vote"
+                src={isDark ? "/compass-logo-dark.png" : "/compass-logo-light.svg"}
+                alt="Empowered Compass"
                 className="cursor-pointer flex-none"
                 style={{ height: '32px' }}
                 onClick={() => navigate('/library')}

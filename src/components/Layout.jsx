@@ -281,7 +281,8 @@ function Layout({ children }) {
     <div className="min-h-screen flex flex-col bg-white dark:bg-[#131416] text-gray-900 dark:text-[#D3D7DE]">
       <ReturnBanner />
       <Header
-        logoSrc="/EVLogo.svg"
+        logoSrc={isDark ? "/compass-logo-dark.png" : "/compass-logo-light.svg"}
+        logoAlt="Empowered Compass"
         navItems={[]}
         currentPath={location.pathname}
         onNavigate={handleNavigate}
