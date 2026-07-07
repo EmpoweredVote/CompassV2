@@ -32,3 +32,7 @@ public/*.JPG
 public/*.jpg
 public/*.PNG
 public/*.png
+
+# Brand assets — keep tracked despite the public/*.png rule above
+!public/compass-logo-dark.png
+!public/compass-favicon-*.png
