@@ -281,7 +281,7 @@ function Layout({ children }) {
     <div className="min-h-screen flex flex-col bg-white dark:bg-[#131416] text-gray-900 dark:text-[#D3D7DE]">
       <ReturnBanner />
       <Header
-        logoSrc="/EVLogo.svg"
+        logoSrc={isDark ? "/EVLogo-dark.svg" : "/EVLogo.svg"}
         logoAlt="Empowered Vote"
         centerLogoSrc={isDark ? "/compass-logo-dark.png" : "/compass-logo-light.svg"}
         centerLogoAlt="Empowered Compass"
