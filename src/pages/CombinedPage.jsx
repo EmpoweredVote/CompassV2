@@ -13,7 +13,7 @@ import CoachMark from "../components/CoachMark";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router";
 import { useTheme } from "../ThemeProvider";
-import { LOCAL_LENS, JUDICIAL_LENS, FEDERAL_LENS, isLensTopicSet } from "../lib/lenses";
+import { LOCAL_LENS as LOCAL_LENS_DEFAULT, JUDICIAL_LENS as JUDICIAL_LENS_DEFAULT, FEDERAL_LENS as FEDERAL_LENS_DEFAULT, isLensTopicSet } from "../lib/lenses";
 import { tierFromDistrictType } from "../hooks/useFilteredPoliticians";
 import { getQuestionText, parseTensionTitle } from "../util/topic";
 import { TopicTierBadge } from "@empoweredvote/ev-ui";
@@ -352,6 +352,7 @@ function CombinedPage() {
     topics,
     selectedTopics,
     setSelectedTopics,
+    lenses,
     categories,
     answers,
     setAnswers,
@@ -367,6 +368,13 @@ function CombinedPage() {
     topicsError,
     retryLoadTopics,
   } = useCompass();
+
+  // Lens objects resolve from the live API (via context) with the bundled
+  // constants as fallback until the fetch lands.
+  const lensByKey = (k, d) => (lenses || []).find((l) => l.key === k) || d;
+  const LOCAL_LENS = lensByKey('local', LOCAL_LENS_DEFAULT);
+  const JUDICIAL_LENS = lensByKey('judicial', JUDICIAL_LENS_DEFAULT);
+  const FEDERAL_LENS = lensByKey('federal', FEDERAL_LENS_DEFAULT);
 
   const posthog = usePostHog();
 
@@ -1280,7 +1288,7 @@ function CombinedPage() {
     }
     // Save current topics as pre-lens — but never stash one lens over another
     // (that would lose the user's real compass behind two lens layers).
-    if (selectedTopics.length > 0 && !isLensTopicSet(selectedTopics)) {
+    if (selectedTopics.length > 0 && !isLensTopicSet(selectedTopics, lenses)) {
       localStorage.setItem("preLensTopics", JSON.stringify(selectedTopics));
     }
     // Restore this lens's saved order (validated to its IDs) or fall back to default
@@ -1349,7 +1357,7 @@ function CombinedPage() {
       !localLensActive && !judicialLensActive && !federalLensActive
     ) {
       // Overlay the Federal lens over the user's compass (restorable on exit).
-      if (selectedTopics.length > 0 && !isLensTopicSet(selectedTopics)) {
+      if (selectedTopics.length > 0 && !isLensTopicSet(selectedTopics, lenses)) {
         localStorage.setItem("preLensTopics", JSON.stringify(selectedTopics));
       }
       const lensTopics = FEDERAL_LENS.topicIds.filter(id => topics.some(t => t.id === id)).slice(0, MAX_TOPICS);

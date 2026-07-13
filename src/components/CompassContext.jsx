@@ -2,7 +2,7 @@
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
 import { extractHashToken, getToken, setToken, apiFetch, publicFetch, clearToken, API_BASE } from '../lib/auth';
 import { evContext } from '@empoweredvote/ev-ui';
-import { isLensTopicSet } from '../lib/lenses';
+import { isLensTopicSet, LENSES, normalizeApiLens } from '../lib/lenses';
 
 function safeParse(str, fallback) {
   try {
@@ -42,6 +42,9 @@ export function CompassProvider({ children }) {
   const [selectedTopics, setSelected] = useState(
     () => safeParse(localStorage.getItem("selectedTopics"), [])
   );
+  // Compass lenses — live source of truth is GET /compass/lenses; constants are
+  // the offline fallback until the fetch resolves.
+  const [lenses, setLenses] = useState(LENSES);
   const [answers, setAnswers] = useState(
     () => safeParse(localStorage.getItem("answers"), {})
   );
@@ -335,6 +338,13 @@ export function CompassProvider({ children }) {
       setTopics(topicsRes);
       setCategories(catsRes);
       setTopicsLoaded(true);
+      // Lenses are non-critical — hydrate from the API but never block topics on them.
+      publicFetch('/compass/lenses')
+        .then((r) => r.json())
+        .then((rows) => {
+          if (Array.isArray(rows) && rows.length > 0) setLenses(rows.map(normalizeApiLens));
+        })
+        .catch(() => { /* keep fallback constants */ });
     } catch {
       // Server unreachable — signal error to consumers
       setTopicsError(true);
@@ -413,7 +423,7 @@ export function CompassProvider({ children }) {
     // real compass on the server and makes consumers (e.g. essentials) unable to
     // distinguish "my compass" from "the lens". The lens still renders locally; we
     // just leave the server's saved compass untouched while it's active.
-    if (isLensTopicSet(selectedTopics)) return;
+    if (isLensTopicSet(selectedTopics, lenses)) return;
 
     // Debounce server sync to avoid rapid calls during topic toggling
     clearTimeout(syncTimer.current);
@@ -423,7 +433,7 @@ export function CompassProvider({ children }) {
         body: JSON.stringify({ topic_ids: selectedTopics }),
       }).catch(() => {});
     }, 500);
-  }, [selectedTopics, isLoggedIn]);
+  }, [selectedTopics, isLoggedIn, lenses]);
 
   // Cross-app logout sync — detect ev_session cookie cleared by another app
   useEffect(() => {
@@ -458,6 +468,7 @@ export function CompassProvider({ children }) {
         setCategories,
         selectedTopics,
         setSelectedTopics: setSelected,
+        lenses,
         answers,
         setAnswers,
         writeIns,

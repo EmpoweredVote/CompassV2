@@ -55,7 +55,23 @@ export const FEDERAL_LENS = {
 };
 
 // All lenses, for generic iteration (badges, calibration offers, order storage).
+// These constants are the OFFLINE FALLBACK. The live source of truth is the
+// GET /compass/lenses API (inform.compass_lenses); CompassContext fetches it on
+// mount and passes the result down. Keep these in sync as a safety net.
 export const LENSES = [LOCAL_LENS, JUDICIAL_LENS, FEDERAL_LENS];
+
+// Normalize an API lens row (GET /compass/lenses) into the constant shape.
+export function normalizeApiLens(l) {
+  return {
+    key: l.key,
+    name: l.name,
+    description: l.description,
+    color: l.color,
+    icon: l.icon,
+    topicIds: Array.isArray(l.topicIds) ? l.topicIds : [],
+    autoDistrictTypes: Array.isArray(l.autoDistrictTypes) ? l.autoDistrictTypes : [],
+  };
+}
 
 // Returns the subset of a topics array that belongs to this lens, in lens order.
 export function getTopicsForLens(lens, allTopics) {
@@ -69,8 +85,9 @@ export function getTopicsForLens(lens, allTopics) {
 // view as the user's saved selected_topic_ids on the server — the lens is a view,
 // not the user's compass. Mirrors the localLensActive/judicialLensActive heuristic
 // in CombinedPage.
-export function isLensTopicSet(topicIds) {
+export function isLensTopicSet(topicIds, lenses = LENSES) {
   if (!Array.isArray(topicIds) || topicIds.length === 0) return false;
+  const list = Array.isArray(lenses) && lenses.length > 0 ? lenses : LENSES;
   const everyIn = (lens) => topicIds.every((id) => lens.topicIds.includes(id));
-  return LENSES.some(everyIn);
+  return list.some(everyIn);
 }
