@@ -80,7 +80,7 @@ const STATE_NAMES = {
  * @param {string|undefined} dt - district_type value from politician object
  * @returns {"Federal"|"State"|"Local"|null}
  */
-function tierFromDistrictType(dt) {
+export function tierFromDistrictType(dt) {
   if (!dt) return null;
   if (dt === "NATIONAL_EXEC" || dt === "NATIONAL_UPPER" || dt === "NATIONAL_LOWER") {
     return "Federal";

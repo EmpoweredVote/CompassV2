@@ -4,7 +4,7 @@ import { usePostHog } from "posthog-js/react";
 import { useTheme } from "../ThemeProvider";
 import { useCompass } from "./CompassContext";
 import { apiFetch } from "../lib/auth";
-import { LOCAL_LENS, JUDICIAL_LENS } from "../lib/lenses";
+import { LOCAL_LENS, JUDICIAL_LENS, FEDERAL_LENS } from "../lib/lenses";
 import RadarChart from "./RadarChart";
 import { getQuestionText, parseTensionTitle } from "../util/topic";
 import { TopicTierBadge } from "@empoweredvote/ev-ui";
@@ -343,7 +343,7 @@ function BackArrow() {
 // Main component
 // ────────────────────────────────────────────────
 
-export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = false, startAtPick = false, startWithLocalLens = false, startWithJudicialLens = false, startWithAllTopics = false }) {
+export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = false, startAtPick = false, startWithLocalLens = false, startWithJudicialLens = false, startWithFederalLens = false, startWithAllTopics = false }) {
   const {
     topics,
     categories,
@@ -364,6 +364,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
   // Determine quiz lens type for analytics
   const lensType = startWithLocalLens ? 'local_lens'
     : startWithJudicialLens ? 'judicial_lens'
+    : startWithFederalLens ? 'federal_lens'
     : startWithAllTopics ? 'full'
     : resumeMode ? 'resume'
     : 'default';
@@ -373,7 +374,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     posthog?.capture('compass_quiz_started', {
       quiz_type: 'calibration',
       lens: lensType,
-      topic_count: startWithLocalLens || startWithJudicialLens ? 8 : undefined,
+      topic_count: startWithLocalLens || startWithJudicialLens || startWithFederalLens ? 8 : undefined,
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -400,6 +401,10 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
       const lensIds = JUDICIAL_LENS.topicIds.filter(id => topics.some(t => t.id === id));
       return { step: "lens_intro", pickedTopics: lensIds, currentIndex: 0, lensApplied: true, lens: JUDICIAL_LENS };
     }
+    if (startWithFederalLens) {
+      const lensIds = FEDERAL_LENS.topicIds.filter(id => topics.some(t => t.id === id));
+      return { step: "lens_intro", pickedTopics: lensIds, currentIndex: 0, lensApplied: true, lens: FEDERAL_LENS };
+    }
 
     if (startWithAllTopics) {
       return { step: "answer", pickedTopics: topics.map(t => t.id), currentIndex: 0 };
@@ -420,6 +425,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
           if (parsed.lensKey) {
             lens = parsed.lensKey === 'local' ? LOCAL_LENS
                  : parsed.lensKey === 'judicial' ? JUDICIAL_LENS
+                 : parsed.lensKey === 'federal' ? FEDERAL_LENS
                  : null;
             if (lens) {
               pickedTopics = lens.topicIds.filter(id => topics.some(t => t.id === id));
@@ -498,7 +504,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     if (initial.lensApplied) setPrevPickedTopics(selectedTopics.slice(0, 8));
     initializedRef.current = true;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [topics, resumeMode, startAtPick, startWithLocalLens, startWithJudicialLens]);
+  }, [topics, resumeMode, startAtPick, startWithLocalLens, startWithJudicialLens, startWithFederalLens]);
 
   useEffect(() => {
     if (step === "welcome" || step === "lens_intro" || step === "complete" || startWithAllTopics) return;
@@ -1183,6 +1189,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     const lens = activeLens || LOCAL_LENS;
     const lensColor = lens.color;
     const isJudicial = lens.key === 'judicial';
+    const isFederal = lens.key === 'federal';
 
     return (
       <div
@@ -1205,6 +1212,10 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
                 {isJudicial ? (
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="white" className="w-4 h-4">
                     <path fillRule="evenodd" d="M10 1a.75.75 0 01.75.75v1.5h2.75A2.75 2.75 0 0116.25 6v.75H18a.75.75 0 010 1.5h-1.75v5H18a.75.75 0 010 1.5h-1.75V15a2.75 2.75 0 01-2.75 2.75H6.5A2.75 2.75 0 013.75 15v-.25H2a.75.75 0 010-1.5h1.75v-5H2a.75.75 0 010-1.5h1.75V6A2.75 2.75 0 016.5 3.25h2.75v-1.5A.75.75 0 0110 1zm0 4.25H6.5A1.25 1.25 0 005.25 6.5v7A1.25 1.25 0 006.5 14.75h7A1.25 1.25 0 0014.75 13.5v-7A1.25 1.25 0 0013.5 5.25H10z" clipRule="evenodd" />
+                  </svg>
+                ) : isFederal ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="white" className="w-4 h-4">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0 0 12 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75Z" />
                   </svg>
                 ) : (
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="white" className="w-4 h-4">
@@ -1237,6 +1248,25 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
                   These races rarely get the attention they deserve — yet a single DA or judge can
                   affect more lives than most legislators. Calibrate your judicial compass and
                   know exactly who shares your values on the bench.
+                </p>
+              </>
+            ) : isFederal ? (
+              <>
+                <h1
+                  className="text-4xl md:text-5xl font-extrabold leading-tight mb-6"
+                  style={{ color: t.textHead, letterSpacing: '-0.03em' }}
+                >
+                  Congress. Your seat<br />
+                  <span style={{ color: lensColor }}>at the table.</span>
+                </h1>
+                <p className="text-base leading-relaxed mb-4" style={{ color: t.textBody }}>
+                  Your U.S. House and Senate members vote on healthcare, taxes, immigration, and the
+                  climate — the issues that dominate national debate.
+                </p>
+                <p className="text-base leading-relaxed mb-10" style={{ color: t.textBody }}>
+                  These are the 8 topics the most House and Senate members and candidates have taken a
+                  clear position on. Calibrate your Federal compass and see exactly where they line up
+                  with you.
                 </p>
               </>
             ) : (

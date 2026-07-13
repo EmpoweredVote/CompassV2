@@ -13,7 +13,8 @@ import CoachMark from "../components/CoachMark";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router";
 import { useTheme } from "../ThemeProvider";
-import { LOCAL_LENS, JUDICIAL_LENS } from "../lib/lenses";
+import { LOCAL_LENS, JUDICIAL_LENS, FEDERAL_LENS, isLensTopicSet } from "../lib/lenses";
+import { tierFromDistrictType } from "../hooks/useFilteredPoliticians";
 import { getQuestionText, parseTensionTitle } from "../util/topic";
 import { TopicTierBadge } from "@empoweredvote/ev-ui";
 import {
@@ -467,6 +468,16 @@ function CombinedPage() {
     if (flag) sessionStorage.removeItem("start_judicial_lens");
     return flag;
   });
+  const [startWithFederalLens, setStartWithFederalLens] = useState(() => {
+    const flag = sessionStorage.getItem("start_federal_lens") === "1";
+    if (flag) sessionStorage.removeItem("start_federal_lens");
+    return flag;
+  });
+  // Post-calibration "Set up the Federal Lens →" offer — dismissible, shown until
+  // the user either calibrates the Federal lens or dismisses it.
+  const [federalOfferDismissed, setFederalOfferDismissed] = useState(
+    () => localStorage.getItem("federal_offer_dismissed") === "1"
+  );
   const [startResumeCalibration, setStartResumeCalibration] = useState(() => {
     const flag = sessionStorage.getItem("start_resume_calibration") === "1";
     if (flag) sessionStorage.removeItem("start_resume_calibration");
@@ -480,7 +491,7 @@ function CombinedPage() {
 
   // calibrationActive: overlay is currently in progress — stays true even if answeredCompassCount changes mid-flow
   const [calibrationActive, setCalibrationActive] = useState(
-    () => !!localStorage.getItem("calibration_progress") || startWithLocalLens || startWithJudicialLens || startResumeCalibration || startAllTopics
+    () => !!localStorage.getItem("calibration_progress") || startWithLocalLens || startWithJudicialLens || startWithFederalLens || startResumeCalibration || startAllTopics
   );
 
   // Celebration screen edge case: if calibration_progress exists but all pickedTopics are already
@@ -1177,10 +1188,31 @@ function CombinedPage() {
     [localLensTopicIds, topics, answers]
   );
   const localLensNotStarted = localLensRemaining === localLensTopicIds.length && localLensTopicIds.length > 0;
-  const localLensActive = selectedTopics.length > 0 && selectedTopics.every(id => LOCAL_LENS.topicIds.includes(id));
-  const judicialLensActive = selectedTopics.length > 0 && selectedTopics.every(id => JUDICIAL_LENS.topicIds.includes(id));
-  const activeLens = localLensActive ? LOCAL_LENS : (judicialLensActive ? JUDICIAL_LENS : null);
+  const lensIsActive = (lens) => selectedTopics.length > 0 && selectedTopics.every(id => lens.topicIds.includes(id));
+  const localLensActive = lensIsActive(LOCAL_LENS);
+  const judicialLensActive = lensIsActive(JUDICIAL_LENS);
+  const federalLensActive = lensIsActive(FEDERAL_LENS);
+  const activeLens = localLensActive ? LOCAL_LENS : (judicialLensActive ? JUDICIAL_LENS : (federalLensActive ? FEDERAL_LENS : null));
   const pillBg = activeLens ? activeLens.color : (isDark ? '#52525b' : '#6B7280');
+
+  // "Federal lens calibrated" = the user has a real stance on all 8 federal topics.
+  // Gates the auto-default: we only surface the Federal lens for federal leaders
+  // once the user has actually answered it.
+  const federalLensCalibrated = useMemo(
+    () => FEDERAL_LENS.topicIds.every(id => {
+      const t = topics.find(tt => tt.id === id);
+      return t && answers[t.short_title] != null && answers[t.short_title] > 0;
+    }),
+    [topics, answers]
+  );
+
+  // Set true when the user makes an explicit compass/lens choice this session.
+  // While false, the compass may auto-default to the Federal lens for a federal
+  // leader; once the user picks anything, we never override them.
+  const userEditedRef = useRef(false);
+  // Tracks whether the Federal lens currently showing was applied automatically
+  // (vs. pressed by the user), so we can revert it when leaving a federal leader.
+  const autoFederalRef = useRef(false);
 
   const localLensTopics = useMemo(
     () => LOCAL_LENS.topicIds.map(id => topics.find(t => t.id === id)).filter(Boolean),
@@ -1218,8 +1250,12 @@ function CombinedPage() {
   // Toggle: if local lens already active, restore answered topics instead of clearing.
   // If the user only has local lens answers, restoring = no-op (same topics shown).
   // Exit lens mode helper — saves current lens order, returns base topics to resume from.
+  // Per-lens order key so each lens remembers its own spoke ordering independently.
+  const lensOrderKey = (lens) => `lensTopicsOrder:${lens.key}`;
+
   const exitLensMode = () => {
-    localStorage.setItem("lensTopicsOrder", JSON.stringify(selectedTopics));
+    // Persist the current lens's spoke order under its own key before leaving.
+    if (activeLens) localStorage.setItem(lensOrderKey(activeLens), JSON.stringify(selectedTopics));
     try {
       const preLens = JSON.parse(localStorage.getItem("preLensTopics") || "null");
       if (Array.isArray(preLens) && preLens.length > 0) {
@@ -1230,56 +1266,124 @@ function CombinedPage() {
     return selectedTopics;
   };
 
-  const doStartLocalLens = () => {
-    if (localLensActive) {
+  // Toggle any lens on/off. Pressing the active lens restores the user's pre-lens
+  // compass; pressing an inactive one overlays that lens (mirrors the Local button).
+  const doStartLens = (lens) => {
+    userEditedRef.current = true; // explicit lens choice — suppress auto-Federal default
+    autoFederalRef.current = false;
+    if (lensIsActive(lens)) {
       // Save lens order; restore pre-lens topics if they exist
       const base = exitLensMode();
       if (base !== selectedTopics) setSelectedTopics(base);
       // else no pre-lens to restore — stay on current topics
-    } else {
-      // Save current topics as pre-lens
-      if (selectedTopics.length > 0) {
-        localStorage.setItem("preLensTopics", JSON.stringify(selectedTopics));
+      return;
+    }
+    // Save current topics as pre-lens — but never stash one lens over another
+    // (that would lose the user's real compass behind two lens layers).
+    if (selectedTopics.length > 0 && !isLensTopicSet(selectedTopics)) {
+      localStorage.setItem("preLensTopics", JSON.stringify(selectedTopics));
+    }
+    // Restore this lens's saved order (validated to its IDs) or fall back to default
+    const lensTopicIds = lens.topicIds.filter(id => topics.some(t => t.id === id));
+    let lensTopics = lensTopicIds.slice(0, MAX_TOPICS);
+    try {
+      const saved = JSON.parse(localStorage.getItem(lensOrderKey(lens)) || "null");
+      if (Array.isArray(saved) && saved.length > 0) {
+        const validated = saved.filter(id => lens.topicIds.includes(id));
+        if (validated.length > 0) lensTopics = validated;
       }
-      // Restore saved lens order (validated to LOCAL_LENS IDs) or fall back to default
-      let lensTopics = localLensTopicIds.slice(0, MAX_TOPICS);
-      try {
-        const saved = JSON.parse(localStorage.getItem("lensTopicsOrder") || "null");
-        if (Array.isArray(saved) && saved.length > 0) {
-          const validated = saved.filter(id => LOCAL_LENS.topicIds.includes(id));
-          if (validated.length > 0) lensTopics = validated;
-        }
-      } catch {}
-      setSelectedTopics(lensTopics);
-      // If all lens topics already answered, mark calibration complete to block the overlay
-      if (!calibrationCompleted) {
-        const allAnswered = lensTopics.every(id => {
-          const t = topics.find(tt => tt.id === id);
-          return t && answers[t.short_title] != null && answers[t.short_title] > 0;
-        });
-        if (allAnswered) {
-          setCalibrationCompleted(true);
-          localStorage.setItem("calibration_completed", "true");
-        }
+    } catch {}
+    setSelectedTopics(lensTopics);
+    // If all lens topics already answered, mark calibration complete to block the overlay
+    if (!calibrationCompleted) {
+      const allAnswered = lensTopics.every(id => {
+        const t = topics.find(tt => tt.id === id);
+        return t && answers[t.short_title] != null && answers[t.short_title] > 0;
+      });
+      if (allAnswered) {
+        setCalibrationCompleted(true);
+        localStorage.setItem("calibration_completed", "true");
       }
     }
   };
 
-  // Full calibration overlay entry points (used by the empty-state "Start Local Lens →" CTA)
-  const doCalibrateLens = (isLocal) => {
+  // Back-compat alias for the Local Lens callers.
+  const doStartLocalLens = () => doStartLens(LOCAL_LENS);
+
+  // Exit any active lens back to the user's own compass.
+  const exitToCompass = () => { if (activeLens) doStartLens(activeLens); };
+
+  // Icon for each lens chip: house (local), Capitol dome (federal), gavel (judicial).
+  const renderLensIcon = (key) => {
+    if (key === 'federal') {
+      return (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0 0 12 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75Z" />
+        </svg>
+      );
+    }
+    if (key === 'judicial') {
+      return (
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
+          <path fillRule="evenodd" d="M10 1a.75.75 0 01.75.75v1.5h2.75A2.75 2.75 0 0116.25 6v.75H18a.75.75 0 010 1.5h-1.75v5H18a.75.75 0 010 1.5h-1.75V15a2.75 2.75 0 01-2.75 2.75H6.5A2.75 2.75 0 013.75 15v-.25H2a.75.75 0 010-1.5h1.75v-5H2a.75.75 0 010-1.5h1.75V6A2.75 2.75 0 016.5 3.25h2.75v-1.5A.75.75 0 0110 1zm0 4.25H6.5A1.25 1.25 0 005.25 6.5v7A1.25 1.25 0 006.5 14.75h7A1.25 1.25 0 0014.75 13.5v-7A1.25 1.25 0 0013.5 5.25H10z" clipRule="evenodd" />
+        </svg>
+      );
+    }
+    return (
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
+        <path fillRule="evenodd" d="M9.293 2.293a1 1 0 011.414 0l7 7A1 1 0 0117 11h-1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-3a1 1 0 00-1-1H9a1 1 0 00-1 1v3a1 1 0 01-1 1H5a1 1 0 01-1-1v-6H3a1 1 0 01-.707-1.707l7-7z" clipRule="evenodd" />
+      </svg>
+    );
+  };
+
+  // Auto-default: when the user views a U.S. House/Senate leader and has the
+  // Federal lens calibrated, show the Federal lens automatically — but only if
+  // they haven't made an explicit lens/compass choice this session. Any manual
+  // choice wins, and we revert to their compass when they leave the federal leader.
+  useEffect(() => {
+    if (!topicsLoaded) return;
+    const polIsFederal = !!comparePol && tierFromDistrictType(comparePol.district_type) === "Federal";
+
+    if (
+      polIsFederal && federalLensCalibrated && !userEditedRef.current &&
+      !localLensActive && !judicialLensActive && !federalLensActive
+    ) {
+      // Overlay the Federal lens over the user's compass (restorable on exit).
+      if (selectedTopics.length > 0 && !isLensTopicSet(selectedTopics)) {
+        localStorage.setItem("preLensTopics", JSON.stringify(selectedTopics));
+      }
+      const lensTopics = FEDERAL_LENS.topicIds.filter(id => topics.some(t => t.id === id)).slice(0, MAX_TOPICS);
+      setSelectedTopics(lensTopics);
+      autoFederalRef.current = true;
+    } else if (!polIsFederal && autoFederalRef.current && federalLensActive) {
+      // Left the federal leader — restore the pre-lens compass.
+      const base = exitLensMode();
+      if (base !== selectedTopics) setSelectedTopics(base);
+      autoFederalRef.current = false;
+    }
+    // selectedTopics intentionally omitted: the lens-active booleans already
+    // capture the relevant transitions, and including it would re-fire on every edit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [comparePol, federalLensCalibrated, localLensActive, judicialLensActive, federalLensActive, topicsLoaded, topics]);
+
+  // Full calibration overlay entry points (used by the empty-state "Start Local Lens →"
+  // CTA and the post-calibration "Set up the Federal Lens →" offer).
+  const doCalibrateLens = (lens = LOCAL_LENS) => {
     setSelectedTopics([]);
     localStorage.removeItem("calibration_skipped");
     localStorage.removeItem("calibration_completed");
     setCalibrationSkipped(false);
     setCalibrationCompleted(false);
     setStartAtPick(false);
-    setStartWithLocalLens(isLocal);
-    setStartWithJudicialLens(!isLocal);
+    setStartWithLocalLens(lens.key === 'local');
+    setStartWithJudicialLens(lens.key === 'judicial');
+    setStartWithFederalLens(lens.key === 'federal');
     setCalibrationActive(true);
   };
 
   // -------- Library Handlers --------
   const handleTileClick = (topicId) => {
+    userEditedRef.current = true;
     if (selectedTopics.includes(topicId)) {
       setSelectedTopics(selectedTopics.filter(id => id !== topicId));
     } else if (selectedTopics.length < MAX_TOPICS) {
@@ -1290,10 +1394,11 @@ function CombinedPage() {
   // handleCalibrateClick: exit lens if active, add topic if room, open drawer
   const handleCalibrateClick = (e, topic) => {
     e.stopPropagation();
-    const base = localLensActive ? exitLensMode() : selectedTopics;
+    userEditedRef.current = true;
+    const base = activeLens ? exitLensMode() : selectedTopics;
     if (!base.includes(topic.id) && base.length < MAX_TOPICS) {
       setSelectedTopics([...base, topic.id]);
-    } else if (localLensActive) {
+    } else if (activeLens) {
       setSelectedTopics(base); // Exit lens even if topic already present or at cap
     }
     setDrawerTopic(topic);
@@ -1303,6 +1408,7 @@ function CombinedPage() {
   const handlePillDragEnd = (event) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
+    userEditedRef.current = true;
     setSelectedTopics(prev => {
       const oldIdx = prev.indexOf(active.id);
       const newIdx = prev.indexOf(over.id);
@@ -1341,6 +1447,7 @@ function CombinedPage() {
           startAtPick={startAtPick}
           startWithLocalLens={startWithLocalLens}
           startWithJudicialLens={startWithJudicialLens}
+          startWithFederalLens={startWithFederalLens}
           startWithAllTopics={startAllTopics}
           onComplete={() => {
             localStorage.removeItem("calibration_skipped");
@@ -1352,6 +1459,7 @@ function CombinedPage() {
             setStartAtPick(false);
             setStartWithLocalLens(false);
             setStartWithJudicialLens(false);
+            setStartWithFederalLens(false);
             setStartResumeCalibration(false);
             setStartAllTopics(false);
             // Start post-cal tour if not already dismissed
@@ -1367,6 +1475,7 @@ function CombinedPage() {
             setStartAtPick(false);
             setStartWithLocalLens(false);
             setStartWithJudicialLens(false);
+            setStartWithFederalLens(false);
             setStartResumeCalibration(false);
             setStartAllTopics(false);
             // No navigate("/library") — we are already on the combined page
@@ -1388,8 +1497,85 @@ function CombinedPage() {
             </div>
           )}
 
+          {/* -------- post-calibration Federal Lens offer -------- */}
+          {calibrationCompleted && !federalLensCalibrated && !federalOfferDismissed && !activeLens && (
+            <div className="w-full max-w-6xl mx-auto lg:px-4 mb-3">
+              <div
+                className="flex items-center gap-3 rounded-xl px-4 py-3 border"
+                style={{ background: isDark ? '#1b2637' : '#eef2f8', borderColor: FEDERAL_LENS.color }}
+              >
+                <div
+                  className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+                  style={{ background: FEDERAL_LENS.color, color: '#fff' }}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0 0 12 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75Z" />
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">Set up the Federal Lens</p>
+                  <p className="text-xs text-gray-600 dark:text-gray-300">
+                    The 8 issues most U.S. House &amp; Senate members have answered — compare your positions with Congress.
+                  </p>
+                </div>
+                <button
+                  onClick={() => doCalibrateLens(FEDERAL_LENS)}
+                  className="shrink-0 px-4 py-2 rounded-full text-sm font-bold text-white transition-opacity hover:opacity-90 active:scale-95 cursor-pointer"
+                  style={{ background: FEDERAL_LENS.color }}
+                >
+                  Calibrate →
+                </button>
+                <button
+                  onClick={() => { setFederalOfferDismissed(true); localStorage.setItem("federal_offer_dismissed", "1"); }}
+                  className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors cursor-pointer"
+                  aria-label="Dismiss"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                    <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* -------- mobile nav bar -------- */}
           <TabBar />
+
+          {/* -------- lens switcher — always visible -------- */}
+          <div
+            ref={localLensRef}
+            className="w-full max-w-6xl mx-auto lg:px-4 mb-3 flex items-center gap-2 flex-wrap justify-center lg:justify-start"
+          >
+            <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 mr-0.5">Lens:</span>
+            {[FEDERAL_LENS, LOCAL_LENS, JUDICIAL_LENS].map((lens) => {
+              const active = activeLens?.key === lens.key;
+              const label = lens.key === 'federal' ? 'Federal' : lens.key === 'local' ? 'Local' : 'Judicial';
+              return (
+                <button
+                  key={lens.key}
+                  onClick={() => doStartLens(lens)}
+                  title={active ? `${lens.name} active — click to restore your compass` : lens.name}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all cursor-pointer hover:opacity-90 active:scale-95"
+                  style={active
+                    ? { background: lens.color, color: '#fff', borderColor: lens.color }
+                    : { background: 'transparent', color: lens.color, borderColor: lens.color }}
+                >
+                  {renderLensIcon(lens.key)}
+                  {label}
+                </button>
+              );
+            })}
+            <button
+              onClick={exitToCompass}
+              title="Show my full compass"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all cursor-pointer hover:opacity-90 active:scale-95"
+              style={!activeLens
+                ? { background: isDark ? '#52525b' : '#6B7280', color: '#fff', borderColor: isDark ? '#52525b' : '#6B7280' }
+                : { background: 'transparent', color: isDark ? '#a1a1aa' : '#6B7280', borderColor: isDark ? '#52525b' : '#d1d5db' }}
+            >
+              My compass
+            </button>
+          </div>
 
           {/* -------- desktop 3-column layout: pills | chart | compare -------- */}
           <div className="hidden lg:block w-full relative">
@@ -1428,7 +1614,7 @@ function CombinedPage() {
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">8 local election questions — fastest way to build your compass</p>
                       </div>
                       <button
-                        onClick={() => doCalibrateLens(true)}
+                        onClick={() => doCalibrateLens(LOCAL_LENS)}
                         style={{ background: LOCAL_LENS.color }}
                         className="px-3 py-1.5 rounded-full text-xs font-bold text-white hover:opacity-90 cursor-pointer w-full"
                       >
@@ -1490,22 +1676,6 @@ function CombinedPage() {
                 ref={(el) => { chartContainerRef.current = el; spokeRef.current = el; }}
                 className="w-full max-w-[min(900px,calc(100dvh-160px))] mx-auto relative"
               >
-                {/* Local Lens toggle badge — top-left, always visible */}
-                <div className="absolute top-2 left-2 z-10">
-                  <button
-                    onClick={doStartLocalLens}
-                    title={localLensActive ? "Local Lens active — click to restore full compass" : `Local Lens — ${LOCAL_LENS.name}`}
-                    className="w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer"
-                    style={localLensActive
-                      ? { background: "#9ca3af", color: "#fff" }
-                      : { background: LOCAL_LENS.color, color: "#fff", opacity: 1 }
-                    }
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
-                    </svg>
-                  </button>
-                </div>
                 {showChart && (
                   <>
                     {/* ? help link — top-right */}
@@ -1599,7 +1769,7 @@ function CombinedPage() {
                       setDropdownValue={setDropdownValue}
                       onSwitchPolitician={handleSwitchPolitician}
                       onClearComparison={handleClearComparison}
-                      defaultLevel={localLensActive ? "Local" : "All"}
+                      defaultLevel={localLensActive ? "Local" : (federalLensActive ? "Federal" : "All")}
                     />
                     <div className="sticky bottom-0 flex justify-center pb-2 pt-6 bg-gradient-to-t from-white dark:from-zinc-800 to-transparent pointer-events-none">
                       <button
@@ -1671,22 +1841,6 @@ function CombinedPage() {
             <div className="w-full max-w-md md:max-w-lg flex flex-col items-center mx-auto lg:hidden">
               {showChart && <Legend />}
               <div className="w-full max-h-[calc(100dvh-240px)] mx-auto relative">
-                {/* Local Lens toggle badge (mobile) — top-left, always visible */}
-                <div className="absolute top-2 left-2 z-10">
-                  <button
-                    onClick={doStartLocalLens}
-                    title={localLensActive ? "Local Lens active — click to restore full compass" : `Local Lens — ${LOCAL_LENS.name}`}
-                    className="w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer"
-                    style={localLensActive
-                      ? { background: "#9ca3af", color: "#fff" }
-                      : { background: LOCAL_LENS.color, color: "#fff" }
-                    }
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
-                    </svg>
-                  </button>
-                </div>
                 {showChart ? (
                   comparePol && !compareHasEnoughSpokes ? (
                     <div className="flex items-center justify-center py-12">
