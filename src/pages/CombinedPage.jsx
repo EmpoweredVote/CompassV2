@@ -1389,6 +1389,24 @@ function CombinedPage() {
     setCalibrationActive(true);
   };
 
+  // Cross-app calibration handoff (from essentials): when arriving via
+  // ?calibrate=<lensKey> (stashed to sessionStorage in App.jsx), open that
+  // lens's calibration. Consumed once, after lenses + topics have loaded so
+  // lensByKey can resolve. Reuses doCalibrateLens, so any active lens key works.
+  const calibrateHandoffRef = useRef(false);
+  useEffect(() => {
+    if (calibrateHandoffRef.current) return;
+    const key = sessionStorage.getItem("start_calibrate_lens");
+    if (!key) return;
+    if (!topicsLoaded || !(lenses && lenses.length)) return; // wait for data
+    const lens = lensByKey(key);
+    calibrateHandoffRef.current = true;
+    sessionStorage.removeItem("start_calibrate_lens");
+    if (!lens) return; // unknown lens key — ignore gracefully
+    userEditedRef.current = true; // deliberate intent; suppress auto-federal default
+    doCalibrateLens(lens);
+  }, [topicsLoaded, lenses]);
+
   // -------- Library Handlers --------
   const handleTileClick = (topicId) => {
     userEditedRef.current = true;

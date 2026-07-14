@@ -61,6 +61,17 @@ function App() {
       posthog?.identify(userId);
     }
   }, [isLoggedIn, userId]);
+
+  // Cross-app calibration handoff: essentials links here as
+  // compass.empowered.vote/?calibrate=<lensKey>&return=<url> to open a specific
+  // lens's calibration. Stash the lens key before any guard redirect can strip
+  // it; CombinedPage consumes it once on mount. (?return= is handled separately
+  // by ReturnBanner for the round-trip back.)
+  useEffect(() => {
+    const cal = new URLSearchParams(window.location.search).get("calibrate");
+    if (cal) sessionStorage.setItem("start_calibrate_lens", cal);
+  }, []);
+
   return (
     <>
       <PostHogPageview />
