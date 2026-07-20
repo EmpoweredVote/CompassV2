@@ -1,6 +1,6 @@
 // CalibrationOverlay.jsx
 import { useState, useEffect, useMemo, useRef } from "react";
-import { usePostHog } from "posthog-js/react";
+import { track } from "@empoweredvote/analytics";
 import { useTheme } from "../ThemeProvider";
 import { useCompass } from "./CompassContext";
 import { apiFetch } from "../lib/auth";
@@ -359,8 +359,6 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     isLoggedIn,
   } = useCompass();
 
-  const posthog = usePostHog();
-
   // Determine quiz lens type for analytics
   const lensType = startWithLocalLens ? 'local_lens'
     : startWithJudicialLens ? 'judicial_lens'
@@ -371,7 +369,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
 
   // Fire quiz_started once on mount
   useEffect(() => {
-    posthog?.capture('compass_quiz_started', {
+    track('compass_quiz_started', {
       quiz_type: 'calibration',
       lens: lensType,
       topic_count: startWithLocalLens || startWithJudicialLens || startWithFederalLens ? 8 : undefined,
@@ -380,7 +378,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
 
   // Wrap onComplete to fire analytics before handing off
   const handleComplete = () => {
-    posthog?.capture('compass_calibration_completed', { lens: lensType });
+    track('compass_calibration_completed', { lens: lensType });
     onComplete();
   };
 
