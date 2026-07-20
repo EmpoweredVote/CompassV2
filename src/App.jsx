@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router";
-import { usePostHog } from "posthog-js/react";
+import { pageview, pageleave, identify } from "@empoweredvote/analytics";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Home from "./pages/Home";
@@ -43,22 +43,20 @@ function HelpGuard({ children }) {
 
 function PostHogPageview() {
   const location = useLocation();
-  const posthog = usePostHog();
   useEffect(() => {
-    posthog?.capture('$pageview');
-    return () => posthog?.capture('$pageleave');
+    pageview();
+    return () => pageleave();
   }, [location.pathname]);
   return null;
 }
 
 function App() {
   const { compassVersion, userId, isLoggedIn } = useCompass();
-  const posthog = usePostHog();
 
   // Identify logged-in users so PostHog can stitch cross-app journeys
   useEffect(() => {
     if (isLoggedIn && userId) {
-      posthog?.identify(userId);
+      identify(userId);
     }
   }, [isLoggedIn, userId]);
   return (

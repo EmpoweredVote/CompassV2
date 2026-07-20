@@ -1,5 +1,6 @@
 import { useNavigate, useLocation } from "react-router";
 import { Header, evContext, getFeedbackUrl } from "@empoweredvote/ev-ui";
+import { reset } from "@empoweredvote/analytics";
 import { useCompass } from "../components/CompassContext";
 import { useTheme } from "../ThemeProvider";
 import ReturnBanner from "./ReturnBanner";
@@ -35,6 +36,8 @@ function Layout({ children }) {
     setAnswers({});
     setWriteIns({});
     setIsLoggedIn(false);
+    // Clear PostHog identity so a shared device doesn't blend two people.
+    reset();
     // Clear ev-context authed slice so other subdomains (Essentials, etc.)
     // don't show stale compass data after logout.
     if (userId) {

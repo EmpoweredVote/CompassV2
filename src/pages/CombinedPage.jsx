@@ -1,6 +1,6 @@
 // CombinedPage.jsx — merges Compass.jsx and Library.jsx into a single unified page.
 // Renders the radar chart with compare panel at top and the full topic library below.
-import { usePostHog } from "posthog-js/react";
+import { track } from "@empoweredvote/analytics";
 import { useCompass } from "../components/CompassContext";
 import { apiFetch, API_BASE } from "../lib/auth";
 import { useEvContextPromotion } from "@empoweredvote/ev-ui";
@@ -375,8 +375,6 @@ function CombinedPage() {
   const LOCAL_LENS = lensByKey('local', LOCAL_LENS_DEFAULT);
   const JUDICIAL_LENS = lensByKey('judicial', JUDICIAL_LENS_DEFAULT);
   const FEDERAL_LENS = lensByKey('federal', FEDERAL_LENS_DEFAULT);
-
-  const posthog = usePostHog();
 
   // 260426-mw6 — promotion banner for users who calibrated as a guest before
   // signing up. Fires only when API has zero answers AND ev-context has a
@@ -759,7 +757,7 @@ function CombinedPage() {
   const handleSwitchPolitician = (newPol) => {
     if (newPol) {
       const name = newPol.full_name || [newPol.first_name, newPol.last_name].filter(Boolean).join(' ');
-      posthog?.capture('compass_politician_compared', { politician_id: newPol.id, politician_name: name });
+      track('compass_politician_compared', { politician_id: newPol.id, politician_name: name });
     }
     setComparePol(newPol);
   };
