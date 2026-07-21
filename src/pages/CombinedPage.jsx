@@ -1081,6 +1081,10 @@ function CombinedPage() {
   const [answeredLoaded, setAnsweredLoaded] = useState(false);
   const [search, setSearch] = useState("");
   const [hoveredPillShortTitle, setHoveredPillShortTitle] = useState(null);
+  // Track which category sections are collapsed (by category id).
+  const [collapsedCategories, setCollapsedCategories] = useState({});
+  const toggleCategoryCollapsed = (categoryId) =>
+    setCollapsedCategories((prev) => ({ ...prev, [categoryId]: !prev[categoryId] }));
 
   // -------- Library coach mark tour --------
   const [libTourStep, setLibTourStep] = useState(-1);
@@ -2016,14 +2020,30 @@ function CombinedPage() {
                     if (visible.length === 0) return null;
 
                     const color = getCategoryColor(catIdx);
+                    const isCollapsed = !!collapsedCategories[category.id];
 
                     return (
                       <div key={category.id} className="mb-8">
                         <h3 className="text-lg font-semibold mb-3 flex items-center gap-2 dark:text-white">
-                          <span className={`inline-block w-3 h-3 rounded-full ${color.accent}`} />
-                          {category.title}
+                          <button
+                            type="button"
+                            onClick={() => toggleCategoryCollapsed(category.id)}
+                            className="inline-flex items-center gap-2 text-left cursor-pointer hover:opacity-80 transition-opacity"
+                            aria-expanded={!isCollapsed}
+                            title={isCollapsed ? "Expand section" : "Collapse section"}
+                          >
+                            <span
+                              className={`inline-flex items-center justify-center w-4 h-4 rounded-full ${color.accent} transition-transform duration-200 ${isCollapsed ? "" : "rotate-90"}`}
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-2.5 h-2.5 text-white">
+                                <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                              </svg>
+                            </span>
+                            {category.title}
+                            <span className="text-sm font-normal text-gray-400 dark:text-gray-500">({visible.length})</span>
+                          </button>
                         </h3>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                        <div className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 ${isCollapsed ? "hidden" : ""}`}>
                           {visible.map((topic) => {
                             const isOnCompass = selectedTopics.includes(topic.id);
                             const isAnswered = answeredTopicIDs.includes(topic.id);
