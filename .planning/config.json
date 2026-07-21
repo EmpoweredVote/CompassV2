@@ -1,0 +1,7 @@
+{
+  "model_profile": "balanced",
+  "workflow": {
+    "research": true,
+    "plan_check": true
+  }
+}
