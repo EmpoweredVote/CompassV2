@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router";
-import { Header, evContext, getFeedbackUrl } from "@empoweredvote/ev-ui";
+import { Header, SiteFooter, evContext, getFeedbackUrl } from "@empoweredvote/ev-ui";
 import { reset } from "@empoweredvote/analytics";
 import { useCompass } from "../components/CompassContext";
 import { useTheme } from "../ThemeProvider";
@@ -307,6 +307,7 @@ function Layout({ children }) {
         }
       />
       <main className="flex-1">{children}</main>
+      <SiteFooter darkMode={isDark} />
       {/* How It Works button — always visible */}
       <button
         onClick={() => navigate("/how-it-works")}
