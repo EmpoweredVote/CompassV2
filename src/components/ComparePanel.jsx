@@ -18,7 +18,7 @@ function ComparePanel({
   onOpenFullModal,
   defaultLevel = "All",
 }) {
-  const { topics, selectedTopics, answers, setAnswers, compareAnswers, writeIns } =
+  const { topics, selectedTopics, answers, setAnswers, compareAnswers, writeIns, invertedSpokes } =
     useCompass();
 
   const topicNames = selectedTopics
@@ -87,21 +87,21 @@ function ComparePanel({
   const hasPrev = currentTopicIndex > 0;
   const hasNext = currentTopicIndex >= 0 && currentTopicIndex < topicNames.length - 1;
 
-  const updateStance = (stanceIndex) => {
+  const updateStance = (stanceValue) => {
     if (saving || !selectedTopic) return;
     setSaving(true);
     apiFetch('/compass/answers', {
       method: "POST",
       body: JSON.stringify({
         topic_id: selectedTopic.id,
-        value: stanceIndex,
+        value: stanceValue,
       }),
     })
       .then((response) => {
         if (response.status === 200) {
           setAnswers((prev) => ({
             ...prev,
-            [dropdownValue]: stanceIndex + 1,
+            [dropdownValue]: stanceValue,
           }));
         }
       })
@@ -112,6 +112,10 @@ function ComparePanel({
   };
 
   const stances = selectedTopic?.stances || [];
+  // Match the stance order LibraryDrawer/CalibrationOverlay show for this spoke —
+  // inversion is display-only; stored values stay on the canonical stance.value scale.
+  const isInverted = !!(selectedTopic && invertedSpokes[selectedTopic.short_title]);
+  const displayStances = isInverted ? [...stances].reverse() : stances;
   const polHasAnswered = polValue && polValue > 0;
   const hasContent =
     reasoning || (Array.isArray(sources) && sources.length > 0);
@@ -203,16 +207,15 @@ function ComparePanel({
 
               {/* Stances */}
               <div className="px-3 pb-3 flex flex-col gap-1.5">
-                {stances.map((stance, i) => {
-                  const stanceNum = i + 1;
-                  const isUser = !isWriteIn && userValue === stanceNum;
-                  const isPol = polValue === stanceNum;
+                {displayStances.map((stance) => {
+                  const isUser = !isWriteIn && userValue === stance.value;
+                  const isPol = polValue === stance.value;
                   const isActive = isUser || isPol;
 
                   return (
                     <button
-                      key={i}
-                      onClick={() => !isWriteIn && updateStance(i)}
+                      key={stance.id}
+                      onClick={() => !isWriteIn && updateStance(stance.value)}
                       disabled={isWriteIn || saving}
                       className={`
                         relative text-left px-3 py-3 rounded-xl transition-all text-sm leading-snug
