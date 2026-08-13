@@ -800,7 +800,7 @@ function CombinedPage() {
 
   const compareTourMessages = [
     "Pick a topic from the dropdown to see your stances side by side. No party labels — just the ideas.",
-    "The blue overlay shows the politician's positions. Closer points on a spoke = more aligned on that issue.",
+    "The green overlay shows the politician's positions. Closer points on a spoke = more aligned on that issue.",
   ];
 
   const advanceCompareTour = () => {
