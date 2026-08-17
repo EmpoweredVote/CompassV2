@@ -4,9 +4,11 @@ services:
     env: static
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
+    # NOTE: the API origin is deliberately NOT configurable here. Vite does not
+    # inject envVars into import.meta.env during the Render build (see f2fc6b6),
+    # so src/lib/auth.js hardcodes API_BASE. That file is the only source of
+    # truth for the API host — do not re-add a VITE_API_URL key.
     envVars:
-      - key: VITE_API_URL
-        value: https://api.empowered.vote
       - key: NODE_VERSION
         value: "20"
       - key: NPM_TOKEN
