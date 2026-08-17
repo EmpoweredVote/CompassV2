@@ -72,14 +72,16 @@ function CircleIcon({ color }) {
 }
 
 export default function FullCalibration() {
-  const { topics, categories, answers, setAnswers, isLoggedIn, topicsLoaded } = useCompass();
+  const {
+    topics, categories, answers, setAnswers, isLoggedIn, topicsLoaded,
+    invertedSpokes, setInvertedSpokes, initRandomInversions,
+  } = useCompass();
   const { isDark, toggle: toggleDark } = useTheme();
   const th = isDark ? DARK : LIGHT;
   const navigate = useNavigate();
 
   const [activeTopic, setActiveTopic] = useState(null);
   const [selectedValue, setSelectedValue] = useState(null);
-  const [inversions, setInversions] = useState({});
   const [done, setDone] = useState(false);
   const itemRefs = useRef({});
 
@@ -119,7 +121,7 @@ export default function FullCalibration() {
   const totalCount = allTopics.length;
   const progressPct = totalCount > 0 ? Math.round((answeredCount / totalCount) * 100) : 0;
 
-  // ── Init active topic + random inversions once topics load ───────────────
+  // ── Init active topic + shared spoke inversions once topics load ─────────
   useEffect(() => {
     if (!topicsLoaded || allTopics.length === 0) return;
 
@@ -131,9 +133,9 @@ export default function FullCalibration() {
       track('compass_calibration_started', { total_topics: allTopics.length });
     }
 
-    const inv = {};
-    allTopics.forEach(tp => { inv[tp.id] = Math.random() < 0.5; });
-    setInversions(inv);
+    // Shared, deterministic (guestId + topicId hash) so the order a topic is
+    // shown in here is stable across reloads and matches the rest of the app.
+    initRandomInversions(allTopics);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [topicsLoaded, allTopics.length]);
 
@@ -200,8 +202,11 @@ export default function FullCalibration() {
 
   const handleFlip = useCallback(() => {
     if (!activeTopic) return;
-    setInversions(prev => ({ ...prev, [activeTopic.id]: !prev[activeTopic.id] }));
-  }, [activeTopic]);
+    setInvertedSpokes(prev => ({
+      ...prev,
+      [activeTopic.short_title]: !prev[activeTopic.short_title],
+    }));
+  }, [activeTopic, setInvertedSpokes]);
 
   // ── Loading ──────────────────────────────────────────────────────────────
   if (!topicsLoaded) {
@@ -253,7 +258,7 @@ export default function FullCalibration() {
   // categories API returns lightweight topic objects (no stances); look up the
   // full topic from the topics array which includes the stances array.
   const fullActiveTopic = activeTopic ? (topics.find(t => t.id === activeTopic.id) ?? activeTopic) : null;
-  const isFlipped = fullActiveTopic ? (inversions[fullActiveTopic.id] ?? false) : false;
+  const isFlipped = fullActiveTopic ? !!invertedSpokes[fullActiveTopic.short_title] : false;
   const orderedStances = fullActiveTopic?.stances
     ? isFlipped
       ? [...fullActiveTopic.stances].sort((a, b) => a.value - b.value)
