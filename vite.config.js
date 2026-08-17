@@ -41,13 +41,19 @@ export default defineConfig(async ({ mode }) => {
     // -----------------------------------------------------------------
     // Local dev API proxy
     // -----------------------------------------------------------------
-    // The production CompassV2 frontend talks to https://api.empowered.vote
-    // directly, but that origin's CORS policy only allows the production
-    // domain — so requests from http://localhost:5173 get blocked.
+    // The production CompassV2 frontend talks to
+    // https://accounts-api.empowered.vote directly, but that origin's CORS
+    // policy only allows the production domain — so requests from
+    // http://localhost:5173 get blocked.
     //
     // To unblock local development, we proxy `/api/*` requests through Vite
     // to the production API. The browser only sees same-origin requests,
     // so CORS never applies.
+    //
+    // The target MUST match the prod host in `src/lib/auth.js`, otherwise dev
+    // exercises a different backend than production. It drifted once already:
+    // 388356f cut prod from the Go backend (api.empowered.vote) to the Node.js
+    // backend (accounts-api.empowered.vote) and updated auth.js only.
     //
     // This pairs with `src/lib/auth.js`, which uses a relative `/api` base
     // in dev (`import.meta.env.DEV`) and the absolute prod URL in builds.
@@ -56,7 +62,7 @@ export default defineConfig(async ({ mode }) => {
     server: {
       proxy: {
         "/api": {
-          target: "https://api.empowered.vote",
+          target: "https://accounts-api.empowered.vote",
           changeOrigin: true,
           secure: true,
         },
