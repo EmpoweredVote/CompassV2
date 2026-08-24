@@ -7,7 +7,6 @@ const PoliticianAdminPanel = lazy(() => import("./PoliticianAdminPanel"));
 const AttachAnswers = lazy(() => import("./AttachAnswers"));
 const TopicAdminPanel = lazy(() => import("./TopicAdminPanel"));
 const TopicRewriteWorkflow = lazy(() => import("./TopicRewriteWorkflow"));
-const TopicRevisionReview = lazy(() => import("./TopicRevisionReview"));
 
 function AdminDashboard() {
   const { topics } = useCompass();
@@ -75,10 +74,6 @@ function AdminDashboard() {
     case "Rewrite Workflow":
       page = <TopicRewriteWorkflow />;
       break;
-
-    case "Review Queue":
-      page = <TopicRevisionReview />;
-      break;
   }
 
   const changeTab = (tabName) => {
@@ -92,7 +87,7 @@ function AdminDashboard() {
 
       <div className="w-3/4 m-auto">
         <div className="flex flex-row justify-center gap-8 my-4">
-          {["Topics", "Context", "Answers", "Green Lens", "Review Queue", "Rewrite Workflow"].map((tab) => (
+          {["Topics", "Context", "Answers", "Green Lens", "Rewrite Workflow"].map((tab) => (
             <button
               key={tab}
               className={`py-2 px-8 border rounded-md cursor-pointer font-semibold hover:bg-gray-200 ${
