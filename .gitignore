@@ -19,6 +19,7 @@ dist-ssr
 .env
 .env.*
 !.env.example
+!.env.*.example
 
 # Editor directories and files
 .vscode/*
@@ -43,3 +44,15 @@ public/*.png
 # Brand assets — keep tracked despite the public/*.png rule above
 !public/compass-logo-dark.png
 !public/compass-favicon-*.png
+
+# Editor/tooling backups. A `.env.bak` holding live credentials sat
+# untracked in ev-accounts on 2026-07-26 and a single `git add -A`
+# would have published it.
+*.bak
+*.backup
+*.orig
+*~
+
+# Playwright MCP page captures. 556 of these were committed to
+# ev-accounts and held live credentials.
+.playwright-mcp/
