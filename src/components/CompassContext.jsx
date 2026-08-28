@@ -217,23 +217,23 @@ export function CompassProvider({ children }) {
 
   // API answer hydration: fetch /compass/answers from the server once we know
   // both the user is logged in AND topics have loaded (needed to map topic_id
-  // back to short_title). Only runs once per session. Only overwrites local
-  // state when localStorage is empty — if the user has answers in localStorage
-  // (same device, not cleared), those are already correct and we don't want to
-  // flash-replace them with a network round-trip.
+  // back to short_title). Runs once per session.
   //
-  // This fixes the case where a logged-in user opens the app on a fresh device
-  // or in private browsing — localStorage is empty but the API has their answers.
+  // Server answers FILL GAPS: a topic already answered locally keeps its local
+  // value (it is either already synced or a newer edit, and replacing it would
+  // flash), while every topic the local state does not have is taken from the
+  // server. This is strictly additive, so it cannot lose an answer.
+  //
+  // It used to skip the fetch entirely whenever localStorage held any answer at
+  // all. That broke the main onboarding path: calibrate as a guest, then sign
+  // in. A returning user on a new device or browser who answered even one
+  // question before signing in never loaded their real compass and was shown a
+  // plausible but wrong one, with nothing to indicate anything was missing.
   const apiAnswersHydratedRef = useRef(false);
   useEffect(() => {
     if (!isLoggedIn || !userId) return;
     if (topics.length === 0) return;
     if (apiAnswersHydratedRef.current) return;
-    // If localStorage already has answers, skip — don't overwrite live session data.
-    if (Object.keys(answersRef.current).length > 0) {
-      apiAnswersHydratedRef.current = true;
-      return;
-    }
     apiAnswersHydratedRef.current = true;
 
     apiFetch('/compass/answers').then(async (res) => {
@@ -252,13 +252,18 @@ export function CompassProvider({ children }) {
         if (row.write_in_text) hydratedWriteIns[topic.short_title] = row.write_in_text;
       }
 
-      // Final guard: only apply if local state is still empty (another effect
-      // may have populated it in the time the fetch was in flight).
-      if (Object.keys(answersRef.current).length === 0 && Object.keys(hydratedAnswers).length > 0) {
-        setAnswers(hydratedAnswers);
+      // Apply as a gap-fill against whatever local state holds right now —
+      // including anything another effect populated while the fetch was in
+      // flight. Local values win; the server supplies the rest.
+      const fillGaps = (prev, incoming) => {
+        const next = { ...incoming, ...prev };
+        return sameObject(prev, next) ? prev : next;
+      };
+      if (Object.keys(hydratedAnswers).length > 0) {
+        setAnswers((prev) => fillGaps(prev, hydratedAnswers));
       }
-      if (Object.keys(writeInsRef.current).length === 0 && Object.keys(hydratedWriteIns).length > 0) {
-        setWriteIns(hydratedWriteIns);
+      if (Object.keys(hydratedWriteIns).length > 0) {
+        setWriteIns((prev) => fillGaps(prev, hydratedWriteIns));
       }
     }).catch(() => {});
   }, [isLoggedIn, userId, topics]);

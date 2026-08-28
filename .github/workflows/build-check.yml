@@ -52,3 +52,9 @@ jobs:
       - name: Locate Chrome
         run: echo "CHROME_PATH=$(which google-chrome || which chromium-browser)" >> "$GITHUB_ENV"
       - run: npm run smoke
+        env:
+          # Optional: set these as repository secrets to run the authed
+          # scenarios in CI. Without them those two scenarios skip and the
+          # guest scenarios still run.
+          SMOKE_EMAIL: ${{ secrets.SMOKE_EMAIL }}
+          SMOKE_PASSWORD: ${{ secrets.SMOKE_PASSWORD }}
