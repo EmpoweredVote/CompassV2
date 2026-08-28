@@ -11,6 +11,13 @@
 
 import { launch } from "./cdp.mjs";
 import { startDevServer } from "./server.mjs";
+import {
+  loadCredentials, login, resetServerAnswers, putServerAnswer,
+  getServerAnswers, setServerSelectedTopics,
+} from "./auth.mjs";
+
+/** Thrown by a scenario that cannot run here; reported as SKIP, not failure. */
+class Skip extends Error {}
 
 const API = "/api/compass";
 const BROKER_ORIGIN = "https://ev-context.empowered.vote";
@@ -277,6 +284,92 @@ const scenarios = [
       return "remote inversion update persisted";
     },
   },
+
+  {
+    name: "authed-hydrates-server-answers",
+    // Every other scenario runs as a guest, but signed-in users take a wholly
+    // different path: the server, not localStorage, is their source of truth.
+    //
+    // Deliberately on /calibrate, not /results. CombinedPage runs its own
+    // /compass/answers fetch, which masks a hydration failure on the results
+    // page; /calibrate does not mount CombinedPage, so CompassContext's
+    // hydration is the only path and a regression there is visible.
+    //
+    // The guard used to skip the fetch entirely whenever localStorage held ANY
+    // answer, so a signed-in user who arrived with one stray local answer saw
+    // "1 / 44" instead of "12 / 44" and was re-asked everything.
+    async run(b, baseUrl) {
+      const creds = loadCredentials();
+      if (!creds) throw new Skip("no SMOKE_EMAIL / SMOKE_PASSWORD available");
+      const token = await login(creds);
+
+      // Fetched through the dev server's /api proxy, same as the browser.
+      const topics = await (await fetch(`${baseUrl}${API}/topics`)).json();
+      const server = topics.slice(0, 12);
+      const strayTopic = topics[30]; // deliberately outside the server set
+
+      await resetServerAnswers(token);
+      for (const [i, t] of server.entries()) await putServerAnswer(token, t.id, (i % 5) + 1);
+      await setServerSelectedTopics(token, server.slice(0, 8).map((t) => t.id));
+
+      // A signed-in user who answered one question, then landed on /calibrate.
+      await b.navigate(`${baseUrl}/calibrate`, { settleMs: 4000 });
+      await b.evaluate(`(() => {
+        localStorage.clear();
+        localStorage.setItem('ev_token', ${JSON.stringify(token)});
+        localStorage.setItem('answers', JSON.stringify({ ${JSON.stringify(strayTopic.short_title)}: 4 }));
+      })()`);
+      await b.navigate(`${baseUrl}/calibrate`, { settleMs: 12000 });
+
+      const local = await b.evaluate(`JSON.parse(localStorage.getItem('answers') || '{}')`);
+      const count = Object.keys(local).length;
+      assert(
+        count >= server.length,
+        `signed in with 1 local answer and ${server.length} on the server, but ended up with ` +
+          `${count}. Server answers must fill the gaps, not be skipped because local was non-empty ` +
+          `— the user gets re-asked everything they already answered.`
+      );
+      assert(
+        local[strayTopic.short_title] === 4,
+        "the answer given before signing in was lost; hydration must not clobber local values"
+      );
+      return `${count} answers after sign-in (${server.length} server + 1 local, none lost)`;
+    },
+  },
+
+  {
+    name: "authed-answer-reaches-server",
+    // The other half of the authed contract: an answer given while logged in
+    // must actually persist server-side, or it is lost on the next device.
+    async run(b, baseUrl) {
+      const creds = loadCredentials();
+      if (!creds) throw new Skip("no SMOKE_EMAIL / SMOKE_PASSWORD available");
+      const token = await login(creds);
+      await resetServerAnswers(token);
+
+      await b.navigate(`${baseUrl}/calibrate`, { settleMs: 4000 });
+      await b.evaluate(`(() => {
+        localStorage.clear();
+        localStorage.setItem('ev_token', ${JSON.stringify(token)});
+      })()`);
+      await b.navigate(`${baseUrl}/calibrate`, { settleMs: 10000 });
+      await b.waitFor(`${STANCE_BUTTONS}.length > 0`, { label: "stance buttons" });
+
+      for (let i = 0; i < 3; i++) {
+        await b.evaluate(`(() => { const s = ${STANCE_BUTTONS}; s[${i} % s.length].click(); })()`);
+        await b.sleep(1200);
+      }
+      await b.sleep(2500); // let the fire-and-forget POSTs land
+
+      const rows = await getServerAnswers(token);
+      assert(
+        Array.isArray(rows) && rows.length >= 3,
+        `answered 3 questions while signed in but the server has ${Array.isArray(rows) ? rows.length : "?"}. ` +
+          `Authed answers are POSTed fire-and-forget, so a failure here is silent.`
+      );
+      return `${rows.length} answers persisted server-side`;
+    },
+  },
 ];
 
 // --------------------------------------------------------------------- runner
@@ -315,10 +408,15 @@ for (const scenario of selected) {
       console.log(`      note: ${browser.consoleErrors.length} console error(s), e.g. ${browser.consoleErrors[0].slice(0, 120)}`);
     }
   } catch (err) {
-    results.push({ name: scenario.name, ok: false, err });
-    console.log(`FAIL  ${scenario.name} — ${err.message}`);
-    if (browser.pageErrors.length) {
-      console.log(`      page errors: ${browser.pageErrors.slice(0, 3).join(" | ")}`);
+    if (err instanceof Skip) {
+      results.push({ name: scenario.name, skipped: true });
+      console.log(`SKIP  ${scenario.name} — ${err.message}`);
+    } else {
+      results.push({ name: scenario.name, ok: false, err });
+      console.log(`FAIL  ${scenario.name} — ${err.message}`);
+      if (browser.pageErrors.length) {
+        console.log(`      page errors: ${browser.pageErrors.slice(0, 3).join(" | ")}`);
+      }
     }
   } finally {
     await browser.close();
@@ -327,6 +425,11 @@ for (const scenario of selected) {
 
 await server.stop();
 
-const failed = results.filter((r) => !r.ok);
-console.log(`\n${results.length - failed.length}/${results.length} scenarios passed`);
+const skipped = results.filter((r) => r.skipped);
+const failed = results.filter((r) => !r.ok && !r.skipped);
+const ran = results.length - skipped.length;
+console.log(
+  `\n${ran - failed.length}/${ran} scenarios passed` +
+    (skipped.length ? ` (${skipped.length} skipped)` : "")
+);
 process.exit(failed.length ? 1 : 0);
