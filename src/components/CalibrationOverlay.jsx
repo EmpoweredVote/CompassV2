@@ -1754,6 +1754,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
                   return (
                     <button
                       key={stance.id}
+                      data-testid="stance-option"
                       onClick={() => {
                         setShowWriteIn(false);
                         setWriteInText("");

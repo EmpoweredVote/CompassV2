@@ -15,3 +15,25 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: npm run build
+
+  smoke:
+    # Drives the real app in headless Chrome and asserts the critical guest
+    # paths still work. `build` only proves the app compiles — the #65 bug
+    # compiled fine and silently deleted every answer on /calibrate.
+    #
+    # Hits the live API and the ev-context broker on purpose: the answer-loss
+    # regression only reproduces when the broker actually echoes writes back.
+    # The `preflight` scenario fails loudly if either is unreachable, so an
+    # outage reads as "broker unreachable" rather than a silent pass.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22' # smoke/cdp.mjs uses the built-in WebSocket client
+          cache: 'npm'
+      - run: npm ci
+      - name: Locate Chrome
+        run: echo "CHROME_PATH=$(which google-chrome || which chromium-browser)" >> "$GITHUB_ENV"
+      - run: npm run smoke
