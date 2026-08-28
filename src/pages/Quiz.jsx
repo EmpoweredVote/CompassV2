@@ -204,7 +204,7 @@ export function Quiz() {
           return parsed.currentIndex || 0;
         }
       }
-    } catch {}
+    } catch { /* corrupt or unreadable localStorage — fall back to the default */ }
     return 0;
   });
   const [selectedAnswer, setSelectedAnswer] = useState(null);
@@ -324,15 +324,6 @@ export function Quiz() {
   const currentCategory = mode === "full"
     ? categories.find((cat) => cat.topics.some((t) => t.id === currentTopicId))
     : null;
-
-  // Check if this is the first topic of a new category (for showing category headers)
-  const isNewCategory = mode === "full" && currentIndex > 0
-    ? (() => {
-        const prevTopicId = quizTopicIds[currentIndex - 1];
-        const prevCat = categories.find((cat) => cat.topics.some((t) => t.id === prevTopicId));
-        return prevCat?.id !== currentCategory?.id;
-      })()
-    : mode === "full";
 
   const selectAnswer = (value, isWriteIn = false) => {
     setSelectedAnswer(value);

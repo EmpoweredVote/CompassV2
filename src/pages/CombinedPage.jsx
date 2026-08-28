@@ -11,7 +11,7 @@ import ComparePanel from "../components/ComparePanel";
 import SavePromptModal from "../components/SavePromptModal";
 import CoachMark from "../components/CoachMark";
 import { useState, useEffect, useRef, useMemo } from "react";
-import { useNavigate, useLocation } from "react-router";
+import { useLocation } from "react-router";
 import { useTheme } from "../ThemeProvider";
 import { LOCAL_LENS as LOCAL_LENS_DEFAULT, JUDICIAL_LENS as JUDICIAL_LENS_DEFAULT, FEDERAL_LENS as FEDERAL_LENS_DEFAULT, isLensTopicSet } from "../lib/lenses";
 import { tierFromDistrictType } from "../hooks/useFilteredPoliticians";
@@ -522,7 +522,7 @@ function CombinedPage() {
         localStorage.removeItem("calibration_progress");
         setCalibrationActive(false);
       }
-    } catch {}
+    } catch { /* corrupt or unreadable localStorage — fall back to the default */ }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [topicsLoaded]);
 
@@ -702,7 +702,6 @@ function CombinedPage() {
   const spokeRef = useRef(null);      // Chart container div (step 0 — "tap any spoke label")
   const minMaxRef = useRef(null);     // Min/Max buttons (step 1 — explain Max/Min)
   const compareRef = useRef(null);    // Compare button (step 2)
-  const backToLibRef = useRef(null);  // Step 3 ref — kept for CoachMark positioning (may be null)
 
   // Tour messages indexed by step (2 steps total)
   const tourMessages = [
@@ -848,7 +847,7 @@ function CombinedPage() {
     if (savedPol) {
       try {
         setComparePol(JSON.parse(savedPol));
-      } catch {}
+      } catch { /* corrupt or unreadable localStorage — fall back to the default */ }
     }
   }, []);
 
@@ -921,21 +920,6 @@ function CombinedPage() {
       });
   }, [selectedTopics, setAnswers, setWriteIns, isLoggedIn]);
 
-  // -------- Remove inversion if a topic is deleted --------
-  const handleRemoveTopic = (idToRemove) => {
-    setSelectedTopics((prev) => prev.filter((id) => id !== idToRemove));
-
-    const topic = topics.find((t) => t.id === idToRemove);
-    if (topic) {
-      const short_title = topic.short_title;
-      setInvertedSpokes((prev) => {
-        const updated = { ...prev };
-        delete updated[short_title];
-        return updated;
-      });
-    }
-  };
-
   // -------- Drawer handlers --------
   const getAnswer = (topic) => {
     if (!topic) return undefined;
@@ -960,7 +944,7 @@ function CombinedPage() {
           method: "POST",
           body: JSON.stringify({ topic_id: topic.id, value: stanceValue }),
         });
-      } catch {}
+      } catch { /* best-effort server sync; the answer is already stored locally. A failed save is currently silent. */ }
     }
   };
 
@@ -976,7 +960,7 @@ function CombinedPage() {
           method: "POST",
           body: JSON.stringify({ topic_id: topic.id, value: writeInValue, write_in_text: writeInText }),
         });
-      } catch {}
+      } catch { /* best-effort server sync; the answer is already stored locally. A failed save is currently silent. */ }
     }
   };
 
@@ -1078,7 +1062,7 @@ function CombinedPage() {
   const [answeredTopicIDs, setAnsweredTopicIDs] = useState([]);
   const [answeredLoaded, setAnsweredLoaded] = useState(false);
   const [search, setSearch] = useState("");
-  const [hoveredPillShortTitle, setHoveredPillShortTitle] = useState(null);
+  const [, setHoveredPillShortTitle] = useState(null);
 
   // -------- Library coach mark tour --------
   const [libTourStep, setLibTourStep] = useState(-1);
@@ -1173,12 +1157,6 @@ function CombinedPage() {
   };
 
   // -------- Library Derived State --------
-  const activeTopicIDs = useMemo(() => new Set(topics.map((t) => t.id)), [topics]);
-  const totalTopics = topics.length;
-  const answeredCount = answeredTopicIDs.filter((id) => activeTopicIDs.has(id)).length;
-  const unansweredCount = totalTopics - answeredCount;
-
-  const answeredSet = useMemo(() => new Set(answeredTopicIDs), [answeredTopicIDs]);
 
   const localLensTopicIds = useMemo(
     () => LOCAL_LENS.topicIds.filter(id => topics.some(t => t.id === id)),
@@ -1219,11 +1197,6 @@ function CombinedPage() {
   // Tracks whether the Federal lens currently showing was applied automatically
   // (vs. pressed by the user), so we can revert it when leaving a federal leader.
   const autoFederalRef = useRef(false);
-
-  const localLensTopics = useMemo(
-    () => LOCAL_LENS.topicIds.map(id => topics.find(t => t.id === id)).filter(Boolean),
-    [topics]
-  );
 
   const MAX_TOPICS = 8;
   const uncalibratedCount = selectedTopics.filter(id => {
@@ -1268,7 +1241,7 @@ function CombinedPage() {
         localStorage.removeItem("preLensTopics");
         return preLens;
       }
-    } catch {}
+    } catch { /* corrupt or unreadable localStorage — fall back to the default */ }
     return selectedTopics;
   };
 
@@ -1298,7 +1271,7 @@ function CombinedPage() {
         const validated = saved.filter(id => lens.topicIds.includes(id));
         if (validated.length > 0) lensTopics = validated;
       }
-    } catch {}
+    } catch { /* corrupt or unreadable localStorage — fall back to the default */ }
     setSelectedTopics(lensTopics);
     // If all lens topics already answered, mark calibration complete to block the overlay
     if (!calibrationCompleted) {
@@ -1423,7 +1396,6 @@ function CombinedPage() {
     });
   };
 
-  const navigate = useNavigate();
 
   // -------- Loading gate --------
   if (!topicsLoaded && !topicsError) {

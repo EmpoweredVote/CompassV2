@@ -11,7 +11,7 @@
 // Pre-selects state filter only if user has not already chosen one (stateFilter empty).
 // CompassV2 cannot import from essentials/ — inlines the localStorage read with the literal key string.
 import { useEffect, useMemo, useRef, useState } from "react";
-import { getPolName, normalizeOfficeTitle, getOfficeSubtitle } from "../util/name";
+import { getPolName, getOfficeSubtitle } from "../util/name";
 import placeholder from "../assets/placeholder.png";
 import usePoliticianList from "../hooks/usePoliticianList";
 import { useFilteredPoliticians } from "../hooks/useFilteredPoliticians";

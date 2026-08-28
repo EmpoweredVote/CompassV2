@@ -1,6 +1,6 @@
 // CompareModal.jsx
 import { useEffect, useMemo, useRef, useState } from "react";
-import { normalizeOfficeTitle, getPolName, getOfficeSubtitle } from "../util/name";
+import { getPolName, getOfficeSubtitle } from "../util/name";
 import placeholder from "../assets/placeholder.png";
 import usePoliticianList from "../hooks/usePoliticianList";
 import { useFilteredPoliticians } from "../hooks/useFilteredPoliticians";

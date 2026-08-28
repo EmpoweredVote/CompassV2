@@ -15,7 +15,6 @@ function ComparePanel({
   setDropdownValue,
   onSwitchPolitician,
   onClearComparison,
-  onOpenFullModal,
   defaultLevel = "All",
 }) {
   const { topics, selectedTopics, answers, setAnswers, compareAnswers, writeIns, invertedSpokes } =

@@ -5,6 +5,21 @@ on:
     branches: [main]
 
 jobs:
+  lint:
+    # Errors block; warnings do not. The 17 remaining react-hooks/exhaustive-deps
+    # warnings need individual judgment (mechanically adding deps to those effects
+    # is a reliable way to create a render loop), so they are deliberately not
+    # gated yet. Keep errors at zero — that is what makes this gate meaningful.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run lint
+
   build:
     runs-on: ubuntu-latest
     steps:
