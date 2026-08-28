@@ -60,6 +60,7 @@ Two properties of that bug shaped this suite:
 | `full-calibration-persists` | Regression for #65. A returning guest answering on `/calibrate` has answers stick: `8 / 44` → `14 / 44`. |
 | `answers-survive-navigation` | The other half of #65: 20 answers are not truncated back to the selected 8 on the next compass load. |
 | `remote-update-persists` | A spoke inversion arriving from another tab or subdomain survives a reload — every slice the subscribe callback writes needs a persistence path behind it. |
+| `remote-clear-propagates` | Reset Compass in one tab clears the others — and, the harder half, an unhydrated tab publishing empty content does NOT wipe a populated one. |
 | `authed-hydrates-server-answers` | A signed-in user with one stray local answer still loads their server answers, and does not lose the local one. Runs on `/calibrate` on purpose (see below). |
 | `authed-answer-reaches-server` | An answer given while signed in actually persists server-side. Those POSTs are fire-and-forget, so a failure is otherwise silent. |
 
