@@ -359,6 +359,7 @@ export default function FullCalibration() {
                 Full Calibration
               </span>
               <span
+                data-testid="calibration-progress"
                 className="text-sm font-semibold tabular-nums"
                 style={{ color: isDark ? '#59B0C4' : '#00657C', fontFamily: "'Manrope', sans-serif" }}
               >
@@ -523,6 +524,7 @@ export default function FullCalibration() {
                   return (
                     <button
                       key={stance.id}
+                      data-testid="stance-option"
                       onClick={() => handleAnswer(stance.value)}
                       disabled={selectedValue !== null}
                       className="w-full text-left px-4 py-3.5 rounded-xl text-sm font-medium leading-snug transition-all duration-150 cursor-pointer"

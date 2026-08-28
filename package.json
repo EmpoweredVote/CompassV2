@@ -8,7 +8,8 @@
     "build": "vite build",
     "postbuild": "cp dist/index.html dist/404.html",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "smoke": "node smoke/run.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
