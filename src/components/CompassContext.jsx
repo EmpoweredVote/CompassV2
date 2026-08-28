@@ -105,6 +105,11 @@ export function CompassProvider({ children }) {
   // the user may navigate away before a two-step async chain completes.
   const evContextCacheRef = useRef({});
 
+  // Serialized copy of the last `compass` payload this tab published to the
+  // broker. The broker echoes our own writes back to us, so the subscribe
+  // callback uses this to tell "our echo" from "a real remote change".
+  const publishedRef = useRef(null);
+
   // Preload the broker iframe immediately so it's ready before any write.
   useEffect(() => {
     evContext.preload();
@@ -150,9 +155,14 @@ export function CompassProvider({ children }) {
       }).catch(() => {});
       return;
     }
-    const next = { ...evContextCacheRef.current, compass: {
-      a: evAnswers, s: selectedTopics, i: invertedSpokes, w: writeIns,
-    }};
+    const compass = { a: evAnswers, s: selectedTopics, i: invertedSpokes, w: writeIns };
+    // Remember the exact payload we published so the subscribe callback can
+    // recognise our own echo. Comparing the echo against local state instead
+    // would fail whenever `a` is capped (i.e. the user has answers outside the
+    // 8 selected topics — every answer given on /calibrate), and the capped
+    // copy would then overwrite the fuller local answers.
+    publishedRef.current = JSON.stringify(compass);
+    const next = { ...evContextCacheRef.current, compass };
     evContextCacheRef.current = next;
     evContext.set(next).catch(() => {});
   }, [authChecking, isLoggedIn, userId, answers, selectedTopics, invertedSpokes, writeIns, topics]);
@@ -240,12 +250,20 @@ export function CompassProvider({ children }) {
       if (shared && typeof shared === 'object') evContextCacheRef.current = shared;
       const c = shared && shared.compass;
       if (!c || typeof c !== 'object') return;
-      // Skip echo of our own writes by comparing serialized state.
-      // Use refs so this always reflects current values without re-registering.
+      // Skip echo of our own writes. The broker re-broadcasts every set() back
+      // to the tab that made it, so compare against the payload we published —
+      // NOT against local state. `a` is capped to the 8 selected topics, so a
+      // local comparison never matches once the user has answers beyond those
+      // 8, and we'd treat our own echo as a remote change.
       const incoming = JSON.stringify({ a: c.a, s: c.s, i: c.i, w: c.w });
+      if (incoming === publishedRef.current) return;
+      // Use refs so this always reflects current values without re-registering.
       const local = JSON.stringify({ a: answersRef.current, s: selectedTopicsRef.current, i: invertedSpokesRef.current, w: writeInsRef.current });
       if (incoming === local) return;
-      if (c.a && typeof c.a === 'object') setAnswers(c.a);
+      // `a` only ever carries the ≤8 selected topics, so it is a partial view of
+      // the user's answers — merge it in rather than replacing, or a remote
+      // write would delete every answer outside the sender's selected topics.
+      if (c.a && typeof c.a === 'object') setAnswers((prev) => ({ ...prev, ...c.a }));
       if (Array.isArray(c.s)) setSelected(c.s);
       if (c.i && typeof c.i === 'object') setInvertedSpokesRaw(c.i);
       if (c.w && typeof c.w === 'object') setWriteIns(c.w);
