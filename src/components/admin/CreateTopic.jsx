@@ -25,7 +25,7 @@ import { DndContext } from "@dnd-kit/core";
 import { SortableContext } from "@dnd-kit/sortable";
 import SortableStance from "./SortableStance";
 import { arrayMove } from "@dnd-kit/sortable";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useCompass } from "../CompassContext";
 import { v4 as uuid } from "uuid";
 import { apiFetch } from "../../lib/auth";
@@ -39,7 +39,7 @@ function CreateTopic({
 }) {
   const { refreshData } = useCompass();
   const [topicSaved, setTopicSaved] = useState();
-  const [initialStances, setInitialStances] = useState([
+  const [initialStances] = useState([
     { text: "" },
     { text: "" },
     { text: "" },

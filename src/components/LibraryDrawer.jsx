@@ -140,7 +140,6 @@ function LibraryDrawer({
   onRemoveFromCompass,
   compassTopicCount,
 }) {
-  const question = getQuestionText(topic);
 
   // Apply stance flip if this topic is inverted
   const isInverted = topic && invertedSpokes[topic.short_title];

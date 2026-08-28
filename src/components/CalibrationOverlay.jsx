@@ -439,7 +439,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
           };
         }
       }
-    } catch {}
+    } catch { /* corrupt or unreadable localStorage — fall back to the default */ }
 
     if (startAtPick) {
       const validSelected = selectedTopics.filter(id => topics.some(t => t.id === id));
@@ -619,15 +619,6 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     }).length;
   }, [pickedTopics, topics, answers]);
 
-  const unansweredCount = useMemo(() => {
-    return pickedTopics.filter((id) => {
-      const topic = topics.find((t) => t.id === id);
-      if (!topic) return true;
-      const val = answers[topic.short_title];
-      return !(val != null && val > 0);
-    }).length;
-  }, [pickedTopics, topics, answers]);
-
   // --- Handlers ---
 
   const handleGetStarted = () => {
@@ -695,7 +686,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
           method: "POST",
           body: JSON.stringify({ topic_id: currentTopic.id, value }),
         });
-      } catch {}
+      } catch { /* best-effort server sync; the answer is already stored locally. A failed save is currently silent. */ }
     }
   };
 

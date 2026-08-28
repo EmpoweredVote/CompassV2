@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { getPolName, normalizeOfficeTitle, getOfficeSubtitle } from "../../util/name";
+import { getPolName, getOfficeSubtitle } from "../../util/name";
 import { apiFetch } from "../../lib/auth";
 
 // --- Small utilities ---
