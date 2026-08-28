@@ -48,6 +48,12 @@ function shouldFlip(guestId, topicId) {
   return (hash & 1) === 1;
 }
 
+// Upper bound on answers published to the shared broker slice: the user's 8
+// compass topics plus, when a lens overlay is active, that lens's 8. The cap
+// exists because payload size was blamed for a TDZ crash in ev-ui; see
+// smoke/README.md for what is and is not established about that.
+const MAX_SHARED_ANSWERS = 16;
+
 const CompassContext = createContext();
 
 export function CompassProvider({ children }) {
@@ -187,9 +193,30 @@ export function CompassProvider({ children }) {
   //   `s` (selectedTopics) per D-01 — only answers/writeIns/invertedSpokes.
   useEffect(() => {
     if (authChecking) return;
-    // Cap answers to selectedTopics (max 8) — prevents ev-ui TDZ crash when
-    // answers has 36 entries after a full calibration or restore.
-    const activeIds = new Set(selectedTopics.slice(0, 8));
+    // A lens is a local VIEW overlay, not the user's compass. While one is
+    // active, `selectedTopics` holds the lens's topics — and publishing those as
+    // `s` tells every other app that the lens IS the user's compass. Essentials
+    // then draws the lens in its "custom" mode, the mode that means "my compass".
+    //
+    // Compass already refuses to persist a lens as selected_topic_ids on the
+    // server (see the sync effect below); this applies the same rule one layer
+    // out. Other apps keep their own lens selection and do not want ours.
+    const lensActive = isLensTopicSet(selectedTopics, lenses);
+    const preLensTopics = lensActive
+      ? safeParse(localStorage.getItem("preLensTopics"), null)
+      : null;
+    const ownCompass = Array.isArray(preLensTopics) && preLensTopics.length > 0
+      ? preLensTopics
+      : selectedTopics;
+
+    // Answers cover the user's compass AND any active lens, so a lens the user
+    // just calibrated here still renders in another app that chose that lens
+    // independently. Still capped — this is a projection, not the full answer
+    // set — but the scope is now "what a consumer could plausibly draw".
+    const answerScope = lensActive
+      ? [...new Set([...ownCompass, ...selectedTopics])]
+      : selectedTopics;
+    const activeIds = new Set(answerScope.slice(0, MAX_SHARED_ANSWERS));
     const topicById = new Map(topics.map((t) => [t.id, t]));
     const evAnswers = activeIds.size > 0 && topics.length > 0
       ? Object.fromEntries(
@@ -211,7 +238,7 @@ export function CompassProvider({ children }) {
       return;
     }
     const compass = {
-      a: evAnswers, s: selectedTopics, i: invertedSpokes, w: writeIns,
+      a: evAnswers, s: ownCompass, i: invertedSpokes, w: writeIns,
       ...(clearedAt > 0 ? { clearedAt } : {}),
     };
     // Remember the exact payload we published so the subscribe callback can
@@ -223,7 +250,7 @@ export function CompassProvider({ children }) {
     const next = { ...evContextCacheRef.current, compass };
     evContextCacheRef.current = next;
     evContext.set(next).catch(() => {});
-  }, [authChecking, isLoggedIn, userId, answers, selectedTopics, invertedSpokes, writeIns, topics, clearedAt]);
+  }, [authChecking, isLoggedIn, userId, answers, selectedTopics, invertedSpokes, writeIns, topics, clearedAt, lenses]);
 
   // Authed SWR hydrate (260426-mc5): when we learn the userId, read the
   // authed slice and seed local state. The /compass/answers fetch elsewhere
