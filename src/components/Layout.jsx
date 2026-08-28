@@ -11,7 +11,7 @@ function Layout({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { isDark, toggle: toggleDark } = useTheme();
-  const { topics, selectedTopics, setSelectedTopics, answers, setAnswers, writeIns, setWriteIns, invertedSpokes, setInvertedSpokes, isLoggedIn, isAdmin, username, userId, setIsLoggedIn, authChecking, setCompassVersion } = useCompass();
+  const { topics, selectedTopics, setSelectedTopics, answers, setAnswers, writeIns, setWriteIns, invertedSpokes, setInvertedSpokes, clearCompassEverywhere, isLoggedIn, isAdmin, username, userId, setIsLoggedIn, authChecking, setCompassVersion } = useCompass();
 
   const logout = async () => {
     try {
@@ -70,11 +70,10 @@ function Layout({ children }) {
     localStorage.removeItem("onboarding_compareTour");
     localStorage.removeItem("onboarding_topicPickHint");
     localStorage.removeItem("onboarding_answerTour");
-    // Clear context state
-    setAnswers({});
-    setWriteIns({});
-    setSelectedTopics([]);
-    setInvertedSpokes({});
+    // Clear context state everywhere. Clearing the slices individually leaves
+    // the reset local: other open tabs never learn about it and push their copy
+    // straight back through the ev-context broker.
+    clearCompassEverywhere();
     // Clear active topics and all stored answers on server so batch fetch on
     // remount finds nothing and cannot repopulate the freshly-reset compass.
     apiFetch('/compass/selected-topics', {

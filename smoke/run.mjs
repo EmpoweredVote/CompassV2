@@ -286,6 +286,49 @@ const scenarios = [
   },
 
   {
+    name: "remote-clear-propagates",
+    // Reset Compass in one tab must clear the others, and — the harder half —
+    // a tab that simply has not hydrated yet must NOT be able to wipe a
+    // populated one. The payload cannot distinguish those two on content alone
+    // (`a` only ever carries the <=8 compass topics), so an explicit clearedAt
+    // timestamp does it: only a real reset sets one.
+    async run(b, baseUrl) {
+      await b.navigate(`${baseUrl}/results`, { settleMs: 5000 });
+      await seedBuiltCompass(b, 8);
+      await b.navigate(`${baseUrl}/results`, { settleMs: 9000 });
+      assert(await answeredCount(b) === 8, "seeding failed");
+
+      const post = (payload) => b.evaluate(`(() => {
+        const f = document.querySelector('iframe[src*="ev-context"]');
+        if (!f) return false;
+        f.contentWindow.postMessage(
+          { type: 'ev-context:set', value: { compass: ${payload} } },
+          '${BROKER_ORIGIN}'
+        );
+        return true;
+      })()`);
+
+      // 1. An unhydrated tab publishes empty content and no clearedAt. It must
+      //    not be mistaken for a reset.
+      assert(await post(`{ a: {}, s: [], i: {}, w: {} }`), "broker iframe missing");
+      await b.sleep(3500);
+      assert(
+        await answeredCount(b) === 8,
+        "an empty payload with no clearedAt wiped the compass — a tab that has " +
+          "not hydrated yet must never be able to clear a populated one"
+      );
+
+      // 2. A real reset carries a timestamp and must take effect.
+      assert(await post(`{ a: {}, s: [], i: {}, w: {}, clearedAt: ` + Date.now() + ` }`), "broker iframe missing");
+      await b.sleep(3500);
+      const after = await answeredCount(b);
+      assert(after === 0, `an explicit remote reset did not clear this tab (${after} answers remain)`);
+
+      return "empty payload ignored, explicit reset applied";
+    },
+  },
+
+  {
     name: "authed-hydrates-server-answers",
     // Every other scenario runs as a guest, but signed-in users take a wholly
     // different path: the server, not localStorage, is their source of truth.

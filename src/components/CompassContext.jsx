@@ -83,12 +83,41 @@ export function CompassProvider({ children }) {
   // remount and re-initialize its local calibration state from localStorage.
   const [compassVersion, setCompassVersion] = useState(0);
 
+  // Timestamp of the last explicit "clear my compass" this browser performed.
+  //
+  // The published payload cannot express a reset on its own: `a` only carries
+  // the topics on the compass (8 max, deliberately — a radar chart with 44 axes
+  // is unreadable), so an empty payload is indistinguishable from a tab that
+  // simply has not hydrated yet. Special-casing `s: []` + `a: {}` as "clear"
+  // would let a freshly-loaded tab wipe a populated one.
+  //
+  // An explicit timestamp removes the ambiguity. Only a real reset sets it, so
+  // a tab that has never cleared can never wipe another. Consumers that do not
+  // know the field simply ignore it.
+  const [clearedAt, setClearedAt] = useState(
+    () => Number(localStorage.getItem("compassClearedAt")) || 0
+  );
+  useEffect(() => {
+    if (clearedAt > 0) localStorage.setItem("compassClearedAt", String(clearedAt));
+  }, [clearedAt]);
+
   // Persistence lives in the effect below, not here — see the note on that
   // effect for why writing inside the updater was a bug.
   const setInvertedSpokes = useCallback((updater) => {
     setInvertedSpokesRaw((prev) =>
       typeof updater === "function" ? updater(prev) : updater
     );
+  }, []);
+
+  // Clear this compass and tell every other tab/subdomain to do the same.
+  // Use this instead of clearing the slices by hand: without the timestamp the
+  // reset stays local and other tabs push their copy straight back.
+  const clearCompassEverywhere = useCallback(() => {
+    setAnswers({});
+    setWriteIns({});
+    setInvertedSpokesRaw({});
+    setSelected([]);
+    setClearedAt(Date.now());
   }, []);
 
   // Deterministically invert ~50% of given topics using guestId + topicId hash.
@@ -181,7 +210,10 @@ export function CompassProvider({ children }) {
       }).catch(() => {});
       return;
     }
-    const compass = { a: evAnswers, s: selectedTopics, i: invertedSpokes, w: writeIns };
+    const compass = {
+      a: evAnswers, s: selectedTopics, i: invertedSpokes, w: writeIns,
+      ...(clearedAt > 0 ? { clearedAt } : {}),
+    };
     // Remember the exact payload we published so the subscribe callback can
     // recognise our own echo. Comparing the echo against local state instead
     // would fail whenever `a` is capped (i.e. the user has answers outside the
@@ -191,7 +223,7 @@ export function CompassProvider({ children }) {
     const next = { ...evContextCacheRef.current, compass };
     evContextCacheRef.current = next;
     evContext.set(next).catch(() => {});
-  }, [authChecking, isLoggedIn, userId, answers, selectedTopics, invertedSpokes, writeIns, topics]);
+  }, [authChecking, isLoggedIn, userId, answers, selectedTopics, invertedSpokes, writeIns, topics, clearedAt]);
 
   // Authed SWR hydrate (260426-mc5): when we learn the userId, read the
   // authed slice and seed local state. The /compass/answers fetch elsewhere
@@ -286,6 +318,20 @@ export function CompassProvider({ children }) {
       // NOT against local state. `a` is capped to the 8 selected topics, so a
       // local comparison never matches once the user has answers beyond those
       // 8, and we'd treat our own echo as a remote change.
+      // An explicit reset elsewhere wins outright, and only a real reset can
+      // send this — an unhydrated tab publishes no clearedAt at all, so it can
+      // never wipe a populated one. Handled before the echo checks because a
+      // clear is not a content diff.
+      const incomingCleared = Number(c.clearedAt) || 0;
+      if (incomingCleared > clearedAtRef.current) {
+        setClearedAt(incomingCleared);
+        setAnswers({});
+        setWriteIns({});
+        setInvertedSpokesRaw({});
+        setSelected([]);
+        return;
+      }
+
       const incoming = JSON.stringify({ a: c.a, s: c.s, i: c.i, w: c.w });
       if (incoming === publishedRef.current) return;
       // Use refs so this always reflects current values without re-registering.
@@ -400,6 +446,8 @@ export function CompassProvider({ children }) {
   // sender's topic ids to short_titles against the current topic list.
   const topicsRef = useRef(topics);
   topicsRef.current = topics;
+  const clearedAtRef = useRef(clearedAt);
+  clearedAtRef.current = clearedAt;
 
   // Track whether we've loaded server-side selectedTopics
   const serverLoaded = useRef(false);
@@ -563,6 +611,7 @@ export function CompassProvider({ children }) {
         invertedSpokes,
         setInvertedSpokes,
         initRandomInversions,
+        clearCompassEverywhere,
         showPrevAnswers,
         setShowPrevAnswers,
         refreshData,
