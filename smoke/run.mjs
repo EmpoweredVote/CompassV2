@@ -286,6 +286,68 @@ const scenarios = [
   },
 
   {
+    name: "lens-overlay-not-published-as-compass",
+    // A lens is a local view. While one is active `selectedTopics` holds the
+    // lens's topics, and publishing those as `s` tells Essentials the lens IS
+    // the user's compass — so it draws the lens in its "custom" mode, which is
+    // supposed to mean "my compass". Compass already refuses to persist a lens
+    // as selected_topic_ids server-side; this asserts the same rule on the wire.
+    async run(b, baseUrl) {
+      const topics = await (await fetch(`${baseUrl}${API}/topics`)).json();
+      const lenses = await (await fetch(`${baseUrl}${API}/lenses`)).json();
+      const lens = (Array.isArray(lenses) ? lenses : []).find(
+        (l) => Array.isArray(l.topicIds) && l.topicIds.length >= 3
+      );
+      assert(lens, "no lens with topics returned by /compass/lenses");
+      // The user's own compass: topics deliberately not in the lens.
+      const own = topics.filter((t) => !lens.topicIds.includes(t.id)).slice(0, 8);
+      assert(own.length === 8, "could not find 8 non-lens topics");
+
+      await b.navigate(`${baseUrl}/results`, { settleMs: 5000 });
+      await b.evaluate(`(() => {
+        const own = ${JSON.stringify(own.map((t) => t.id))};
+        const lensIds = ${JSON.stringify(lens.topicIds)};
+        const answers = {};
+        ${JSON.stringify(own.map((t) => t.short_title))}.forEach((s, i) => { answers[s] = (i % 5) + 1; });
+        localStorage.setItem('answers', JSON.stringify(answers));
+        // A lens overlay is active; preLensTopics holds the real compass.
+        localStorage.setItem('selectedTopics', JSON.stringify(lensIds));
+        localStorage.setItem('preLensTopics', JSON.stringify(own));
+        localStorage.setItem('calibration_completed', 'true');
+      })()`);
+
+      // Installed before the document loads: the app publishes on mount, so a
+      // listener added after navigation misses the very write under test.
+      await b.send('Page.addScriptToEvaluateOnNewDocument', {
+        source: `
+          window.__published = [];
+          window.addEventListener('message', (e) => {
+            if (e.data && e.data.type === 'ev-context:update') {
+              const c = e.data.value && e.data.value.compass;
+              if (c && Array.isArray(c.s)) window.__published.push(c.s);
+            }
+          });
+        `,
+      });
+      await b.navigate(`${baseUrl}/results`, { settleMs: 10000 });
+
+      const published = await b.evaluate(`window.__published`);
+      assert(published.length > 0, "compass never published to the broker");
+      const latest = published[published.length - 1];
+      const isLens = latest.every((id) => lens.topicIds.includes(id));
+      assert(
+        !isLens,
+        `published the "${lens.key}" lens as the user's compass. A lens is a view ` +
+          `overlay — Essentials reads s as "my compass" and would draw the lens instead.`
+      );
+      const isOwn = latest.every((id) => own.map((t) => t.id).includes(id));
+      assert(isOwn, `expected the user's own compass on the wire, got ${JSON.stringify(latest)}`);
+
+      return `lens "${lens.key}" active, published the underlying compass`;
+    },
+  },
+
+  {
     name: "remote-clear-propagates",
     // Reset Compass in one tab must clear the others, and — the harder half —
     // a tab that simply has not hydrated yet must NOT be able to wipe a
