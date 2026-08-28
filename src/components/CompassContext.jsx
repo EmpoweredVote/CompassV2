@@ -21,6 +21,24 @@ function getOrCreateGuestId() {
   return id;
 }
 
+// Identity-preserving comparisons. The subscribe callback uses these to skip
+// state updates that would change nothing: a fresh object from the broker still
+// has a new identity, which re-runs the write effect and re-publishes — so a
+// no-op update bounces back and forth between tabs and can resurrect state
+// another tab just cleared.
+function sameObject(a, b) {
+  if (a === b) return true;
+  const ak = Object.keys(a);
+  if (ak.length !== Object.keys(b).length) return false;
+  return ak.every((k) => a[k] === b[k]);
+}
+
+function sameArray(a, b) {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  return a.every((v, i) => v === b[i]);
+}
+
 function shouldFlip(guestId, topicId) {
   let hash = 0;
   const str = guestId + String(topicId);
@@ -65,12 +83,12 @@ export function CompassProvider({ children }) {
   // remount and re-initialize its local calibration state from localStorage.
   const [compassVersion, setCompassVersion] = useState(0);
 
+  // Persistence lives in the effect below, not here — see the note on that
+  // effect for why writing inside the updater was a bug.
   const setInvertedSpokes = useCallback((updater) => {
-    setInvertedSpokesRaw((prev) => {
-      const next = typeof updater === "function" ? updater(prev) : updater;
-      localStorage.setItem("invertedSpokes", JSON.stringify(next));
-      return next;
-    });
+    setInvertedSpokesRaw((prev) =>
+      typeof updater === "function" ? updater(prev) : updater
+    );
   }, []);
 
   // Deterministically invert ~50% of given topics using guestId + topicId hash.
@@ -88,7 +106,6 @@ export function CompassProvider({ children }) {
           delete next[topic.short_title];
         }
       }
-      localStorage.setItem("invertedSpokes", JSON.stringify(next));
       return next;
     });
   }, []);
@@ -97,6 +114,15 @@ export function CompassProvider({ children }) {
   useEffect(() => {
     localStorage.setItem("answers", JSON.stringify(answers));
   }, [answers]);
+
+  // Persist invertedSpokes the same way. This used to live inside the two
+  // setter wrappers, which meant the two paths that call setInvertedSpokesRaw
+  // directly — the cross-tab subscribe and the authed SWR hydrate — updated
+  // React state but never localStorage. A spoke orientation arriving from
+  // another tab or subdomain silently reverted on the next reload.
+  useEffect(() => {
+    localStorage.setItem("invertedSpokes", JSON.stringify(invertedSpokes));
+  }, [invertedSpokes]);
 
   // Cache of the full ev-context object so writes don't need a prior get().
   // Seeded on mount, kept fresh by the subscribe callback below.
@@ -235,7 +261,7 @@ export function CompassProvider({ children }) {
         setWriteIns(hydratedWriteIns);
       }
     }).catch(() => {});
-  }, [isLoggedIn, userId, topics]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isLoggedIn, userId, topics]);
 
   // Cross-subdomain live receive: when another tab/subdomain updates the
   // shared compass (e.g. user calibrated on essentials), apply it locally
@@ -260,16 +286,38 @@ export function CompassProvider({ children }) {
       // Use refs so this always reflects current values without re-registering.
       const local = JSON.stringify({ a: answersRef.current, s: selectedTopicsRef.current, i: invertedSpokesRef.current, w: writeInsRef.current });
       if (incoming === local) return;
-      // `a` only ever carries the ≤8 selected topics, so it is a partial view of
-      // the user's answers — merge it in rather than replacing, or a remote
-      // write would delete every answer outside the sender's selected topics.
-      if (c.a && typeof c.a === 'object') setAnswers((prev) => ({ ...prev, ...c.a }));
-      if (Array.isArray(c.s)) setSelected(c.s);
-      if (c.i && typeof c.i === 'object') setInvertedSpokesRaw(c.i);
-      if (c.w && typeof c.w === 'object') setWriteIns(c.w);
+      // `a` carries only the topics in the sender's compass (`s`, capped at 8),
+      // so it is a partial view. Treat it as authoritative for the topics it
+      // declares and leave every other answer untouched: a plain replace deletes
+      // answers the sender never had (#65), while a plain merge can never remove
+      // one, so a stance cleared on another subdomain would come straight back.
+      if (c.a && typeof c.a === 'object') {
+        const scope = new Set(
+          (Array.isArray(c.s) ? c.s : [])
+            .map((id) => topicsRef.current.find((t) => t.id === id)?.short_title)
+            .filter(Boolean)
+        );
+        setAnswers((prev) => {
+          const next = {};
+          for (const [key, value] of Object.entries(prev)) {
+            if (!scope.has(key)) next[key] = value;
+          }
+          Object.assign(next, c.a);
+          return sameObject(prev, next) ? prev : next;
+        });
+      }
+      // Each of these keeps the previous value when nothing actually changed —
+      // a new-but-equal object would re-run the write effect and re-publish.
+      if (Array.isArray(c.s)) setSelected((prev) => (sameArray(prev, c.s) ? prev : c.s));
+      if (c.i && typeof c.i === 'object') {
+        setInvertedSpokesRaw((prev) => (sameObject(prev, c.i) ? prev : c.i));
+      }
+      if (c.w && typeof c.w === 'object') {
+        setWriteIns((prev) => (sameObject(prev, c.w) ? prev : c.w));
+      }
     });
     return unsub;
-  }, [isLoggedIn, authChecking]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isLoggedIn, authChecking]);
 
   // Persist writeIns to localStorage on every change
   useEffect(() => {
@@ -343,15 +391,29 @@ export function CompassProvider({ children }) {
   invertedSpokesRef.current = invertedSpokes;
   const writeInsRef = useRef(writeIns);
   writeInsRef.current = writeIns;
+  // The subscribe callback is registered once, so it needs a ref to map the
+  // sender's topic ids to short_titles against the current topic list.
+  const topicsRef = useRef(topics);
+  topicsRef.current = topics;
 
   // Track whether we've loaded server-side selectedTopics
   const serverLoaded = useRef(false);
 
   const refreshData = async () => {
     try {
+      const okJson = async (path) => {
+        const r = await publicFetch(path);
+        // Without the status check a JSON error body (`{"error": ...}`) parses
+        // fine and lands in state as a non-array, so `topics.map` throws later
+        // with no hint of where the bad value came from.
+        if (!r.ok) throw new Error(`${path} responded ${r.status}`);
+        const body = await r.json();
+        if (!Array.isArray(body)) throw new Error(`${path} did not return an array`);
+        return body;
+      };
       const [topicsRes, catsRes] = await Promise.all([
-        publicFetch('/compass/topics').then((r) => r.json()),
-        publicFetch('/compass/categories').then((r) => r.json()),
+        okJson('/compass/topics'),
+        okJson('/compass/categories'),
       ]);
       setTopics(topicsRes);
       setCategories(catsRes);

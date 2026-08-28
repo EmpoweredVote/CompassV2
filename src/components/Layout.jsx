@@ -35,6 +35,10 @@ function Layout({ children }) {
     setSelectedTopics([]);
     setAnswers({});
     setWriteIns({});
+    // Also clear in memory, not just localStorage: the ev-context write effect
+    // runs on the isLoggedIn change and would republish the previous user's
+    // spoke orientations into the guest slice.
+    setInvertedSpokes({});
     setIsLoggedIn(false);
     // Clear PostHog identity so a shared device doesn't blend two people.
     reset();

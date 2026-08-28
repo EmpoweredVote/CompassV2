@@ -228,6 +228,55 @@ const scenarios = [
       return `20 answers preserved across navigation, compass renders`;
     },
   },
+  {
+    name: "remote-update-persists",
+    // A remote write from another tab or subdomain must survive a reload. The
+    // subscribe callback writes React state; every slice needs a persistence
+    // path behind it. invertedSpokes had none — it was persisted inside the
+    // setter wrappers, which the subscribe path bypasses, so a spoke
+    // orientation arriving from elsewhere silently reverted on next load.
+    async run(b, baseUrl) {
+      await b.navigate(`${baseUrl}/results`, { settleMs: 5000 });
+      await seedBuiltCompass(b, 8);
+      await b.evaluate(
+        `localStorage.setItem('invertedSpokes', JSON.stringify({ __seed__: true }))`
+      );
+      await b.navigate(`${baseUrl}/results`, { settleMs: 9000 });
+
+      // Post straight to the broker iframe, exactly as evContext.set() does, so
+      // the app sees a genuine remote change rather than its own echo.
+      const posted = await b.evaluate(`(async () => {
+        const topics = await (await fetch('${API}/topics')).json();
+        const eight = topics.slice(0, 8);
+        const answers = {};
+        eight.forEach((t, i) => { answers[t.short_title] = ((i + 2) % 5) + 1; });
+        const inverted = { [eight[1].short_title]: true, [eight[2].short_title]: true };
+        const frame = document.querySelector('iframe[src*="ev-context"]');
+        if (!frame) return null;
+        frame.contentWindow.postMessage(
+          { type: 'ev-context:set',
+            value: { compass: { a: answers, s: eight.map(t => t.id), i: inverted, w: {} } } },
+          '${BROKER_ORIGIN}'
+        );
+        return JSON.stringify(inverted);
+      })()`);
+      assert(posted, "ev-context broker iframe not present — cannot test remote updates");
+
+      await b.sleep(4000);
+      const stored = await b.evaluate(`localStorage.getItem('invertedSpokes')`);
+      assert(
+        stored !== JSON.stringify({ __seed__: true }),
+        "a remote spoke-inversion update never reached localStorage, so it reverts on reload. " +
+          "Every slice the subscribe callback writes needs a persistence effect behind it."
+      );
+      assert(
+        stored === posted,
+        `persisted inversions do not match the remote write: ${stored} vs ${posted}`
+      );
+
+      return "remote inversion update persisted";
+    },
+  },
 ];
 
 // --------------------------------------------------------------------- runner
