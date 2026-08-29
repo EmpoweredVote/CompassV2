@@ -3,6 +3,7 @@ import { createContext, useContext, useState, useEffect, useRef, useCallback } f
 import { extractHashToken, getToken, setToken, apiFetch, publicFetch, clearToken, API_BASE } from '../lib/auth';
 import { evContext } from '@empoweredvote/ev-ui';
 import { LENSES, normalizeApiLens } from '../lib/lenses';
+import { shouldSyncCompass, compassToPublish } from '../lib/compassSync';
 
 function safeParse(str, fallback) {
   try {
@@ -228,13 +229,14 @@ export function CompassProvider({ children }) {
     //
     // `activeLensKey` is the FACT. This used to be inferred from the topic set,
     // which cannot survive user lenses — see the state declaration above.
-    const lensActive = activeLensKey !== null;
-    const preLensTopics = lensActive
-      ? safeParse(localStorage.getItem("preLensTopics"), null)
-      : null;
-    const ownCompass = Array.isArray(preLensTopics) && preLensTopics.length > 0
-      ? preLensTopics
-      : selectedTopics;
+    const lensActive = !!activeLensKey;
+    const ownCompass = compassToPublish({
+      activeLensKey,
+      selectedTopics,
+      preLensTopics: lensActive
+        ? safeParse(localStorage.getItem("preLensTopics"), null)
+        : null,
+    });
 
     // Answers cover the user's compass AND any active lens, so a lens the user
     // just calibrated here still renders in another app that chose that lens
@@ -599,12 +601,6 @@ export function CompassProvider({ children }) {
   useEffect(() => {
     localStorage.setItem("selectedTopics", JSON.stringify(selectedTopics));
 
-    // Don't sync back to server until we've loaded from it first
-    if (!serverLoaded.current) return;
-
-    // Don't sync to server for guests
-    if (!isLoggedIn) return;
-
     // A lens is a VIEW overlay, not the user's chosen compass. Never persist a
     // lens set as selected_topic_ids — doing so clobbers the user's real compass
     // on the server and makes consumers (e.g. essentials) unable to distinguish
@@ -613,8 +609,13 @@ export function CompassProvider({ children }) {
     //
     // Reads the explicit key rather than inferring from the topic set. Under the
     // old inference, a user whose compass happened to match a lens stopped having
-    // their compass saved at all — silently, and permanently.
-    if (activeLensKey !== null) return;
+    // their compass saved at all — silently, and permanently. The rule is a pure
+    // function so it can be tested directly; see lib/compassSync.test.js.
+    if (!shouldSyncCompass({
+      serverLoaded: serverLoaded.current,
+      isLoggedIn,
+      activeLensKey,
+    })) return;
 
     // Debounce server sync to avoid rapid calls during topic toggling
     clearTimeout(syncTimer.current);
