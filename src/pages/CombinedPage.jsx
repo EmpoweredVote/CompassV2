@@ -1257,6 +1257,42 @@ function CombinedPage() {
   // Exit lens mode helper — saves current lens order, returns base topics to resume from.
   // Per-lens order key so each lens remembers its own spoke ordering independently.
   const [saveLensOpen, setSaveLensOpen] = useState(false);
+  const [renameLensOpen, setRenameLensOpen] = useState(false);
+
+  // The user lens currently being viewed, if any. Curated keys never start `u_`.
+  const activeUserLens = activeLensKey && activeLensKey.startsWith("u_")
+    ? (userLenses.find((l) => l.key === activeLensKey) ?? null)
+    : null;
+
+  // Dirty = the spokes on screen differ from what the lens stores. Order counts:
+  // a lens remembers its own spoke arrangement, so reordering is a real edit.
+  const activeLensDirty = !!activeUserLens &&
+    JSON.stringify(selectedTopics) !== JSON.stringify(activeUserLens.topicIds);
+
+  const updateActiveLens = async () => {
+    if (!activeUserLens) return;
+    await saveUserLenses(
+      userLenses.map((l) => (l.key === activeUserLens.key ? { ...l, topicIds: selectedTopics } : l))
+    );
+  };
+
+  const renameActiveLens = async (name) => {
+    if (!activeUserLens) return;
+    await saveUserLenses(
+      userLenses.map((l) => (l.key === activeUserLens.key ? { ...l, name } : l))
+    );
+  };
+
+  const deleteActiveLens = async () => {
+    if (!activeUserLens) return;
+    if (!window.confirm(`Delete the lens "${activeUserLens.name}"? Your answers are not affected.`)) return;
+    const key = activeUserLens.key;
+    // Leave the lens BEFORE removing it, so the compass is restored from
+    // preLensTopics rather than stranding the user on an orphaned topic set.
+    exitToCompass();
+    await saveUserLenses(userLenses.filter((l) => l.key !== key));
+  };
+
   const lensOrderKey = (lens) => `lensTopicsOrder:${lens.key}`;
 
   const exitLensMode = () => {
@@ -1541,6 +1577,39 @@ function CombinedPage() {
               isDark={isDark}
               onSelect={doStartLens}
               onExit={exitToCompass}
+              renderChipExtra={(lens, active) => {
+                if (!active || !lens.key.startsWith("u_")) return null;
+                return (
+                  <span className="ml-1 inline-flex items-center gap-1">
+                    {activeLensDirty && (
+                      <button
+                        onClick={updateActiveLens}
+                        title="Save these spokes to this lens"
+                        data-testid="lens-update"
+                        className="px-2 py-1 text-[11px] font-bold rounded-full bg-violet-600 text-white cursor-pointer"
+                      >
+                        Update
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setRenameLensOpen(true)}
+                      title="Rename this lens"
+                      data-testid="lens-rename"
+                      className="px-1.5 py-1 text-[11px] text-gray-500 dark:text-zinc-400 hover:underline cursor-pointer"
+                    >
+                      Rename
+                    </button>
+                    <button
+                      onClick={deleteActiveLens}
+                      title="Delete this lens"
+                      data-testid="lens-delete"
+                      className="px-1.5 py-1 text-[11px] text-red-600 dark:text-red-400 hover:underline cursor-pointer"
+                    >
+                      Delete
+                    </button>
+                  </span>
+                );
+              }}
             />
             {activeLensKey === null && selectedTopics.length > 0 && (
               <button
@@ -1552,6 +1621,15 @@ function CombinedPage() {
               </button>
             )}
           </div>
+
+          {renameLensOpen && activeUserLens && (
+            <SaveLensModal
+              topicCount={activeUserLens.topicIds.length}
+              initialName={activeUserLens.name}
+              onClose={() => setRenameLensOpen(false)}
+              onSave={renameActiveLens}
+            />
+          )}
 
           {saveLensOpen && (
             <SaveLensModal

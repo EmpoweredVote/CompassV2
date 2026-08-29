@@ -684,6 +684,69 @@ const scenarios = [
       return `promoted 1 lens for ${creds.email}`;
     },
   },
+
+  {
+    name: "guest-can-edit-and-delete-a-lens",
+    // Editing is "activate, rearrange, Update" — there is no separate editor. The
+    // thing worth pinning is that browsing a lens does NOT rewrite it: leaving
+    // with unsaved spoke changes must discard them, or every visit silently
+    // redefines the lens the user made.
+    async run(b, baseUrl) {
+      const topics = await (await fetch(`${baseUrl}${API}/topics`)).json();
+      const eight = topics.slice(0, 8).map((t) => t.id);
+      const seven = eight.slice(0, 7);
+
+      await b.navigate(`${baseUrl}/results`, { settleMs: 4000 });
+      await b.evaluate(`(() => {
+        localStorage.clear();
+        sessionStorage.clear();
+        const answers = {};
+        ${JSON.stringify(topics.slice(0, 8).map((t) => t.short_title))}
+          .forEach((s, i) => { answers[s] = (i % 5) + 1; });
+        localStorage.setItem('answers', JSON.stringify(answers));
+        localStorage.setItem('selectedTopics', ${JSON.stringify(JSON.stringify(eight))});
+        localStorage.setItem('calibration_completed', 'true');
+        localStorage.setItem('customLenses', JSON.stringify([{
+          key: 'u_edit01', name: 'Editable', visibility: 'private',
+          topicIds: JSON.parse(${JSON.stringify(JSON.stringify(eight))}),
+        }]));
+      })()`);
+      await b.navigate(`${baseUrl}/results`, { settleMs: 8000 });
+
+      // Activate it, then shrink the on-screen spokes WITHOUT pressing Update.
+      await b.evaluate(`document.querySelector('[data-testid="lens-chip-u_edit01"]').click()`);
+      await b.sleep(1000);
+      await b.evaluate(`localStorage.setItem('selectedTopics', ${JSON.stringify(JSON.stringify(seven))})`);
+      await b.evaluate(`document.querySelector('[data-testid="lens-chip-my-compass"]').click()`);
+      await b.sleep(1000);
+
+      const untouched = await b.evaluate(`JSON.parse(localStorage.getItem('customLenses'))[0]`);
+      assert(
+        untouched.topicIds.length === 8,
+        `browsing a lens rewrote it: now holds ${untouched.topicIds.length} topics, expected 8`
+      );
+
+      // Delete it. window.confirm has to be answered before the click.
+      await b.evaluate(`window.confirm = () => true`);
+      await b.evaluate(`document.querySelector('[data-testid="lens-chip-u_edit01"]').click()`);
+      await b.sleep(900);
+      const del = await b.evaluate(`(() => {
+        const el = document.querySelector('[data-testid="lens-delete"]');
+        if (!el) return 'NOT_FOUND';
+        el.click();
+        return 'OK';
+      })()`);
+      assert(del === "OK", "no Delete action on the active user lens chip");
+      await b.sleep(1200);
+
+      const after = await b.evaluate(`JSON.parse(localStorage.getItem('customLenses') || '[]')`);
+      assert(after.length === 0, `lens survived deletion: ${JSON.stringify(after)}`);
+      const key = await b.evaluate(`sessionStorage.getItem('activeLensKey')`);
+      assert(key === null, `deleting the active lens left activeLensKey=${key}`);
+
+      return "unsaved edits discarded, lens deleted, compass restored";
+    },
+  },
 ];
 
 // --------------------------------------------------------------------- runner
