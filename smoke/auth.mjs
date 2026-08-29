@@ -86,3 +86,20 @@ export async function getServerSelectedTopics(token) {
   // The route returns a flat array (Go-parity); tolerate the object form too.
   return Array.isArray(body) ? body : (body.topic_ids || []);
 }
+
+/** A user's custom lenses, as GET /compass/my-lenses returns them. */
+export async function getServerLenses(token) {
+  const res = await fetch(`${API}/compass/my-lenses`, { headers: authed(token) });
+  if (!res.ok) throw new Error(`GET /compass/my-lenses failed (${res.status})`);
+  return res.json();
+}
+
+/** Whole-set replace with the empty set — the throwaway account's reset. */
+export async function clearServerLenses(token) {
+  const res = await fetch(`${API}/compass/my-lenses`, {
+    method: "PUT",
+    headers: authed(token),
+    body: JSON.stringify({ lenses: [] }),
+  });
+  if (!res.ok) throw new Error(`PUT /compass/my-lenses failed (${res.status})`);
+}

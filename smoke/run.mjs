@@ -14,6 +14,7 @@ import { startDevServer } from "./server.mjs";
 import {
   loadCredentials, login, resetServerAnswers, putServerAnswer,
   getServerAnswers, setServerSelectedTopics,
+  getServerLenses, clearServerLenses,
 } from "./auth.mjs";
 
 /** Thrown by a scenario that cannot run here; reported as SKIP, not failure. */
@@ -21,6 +22,8 @@ class Skip extends Error {}
 
 const API = "/api/compass";
 const BROKER_ORIGIN = "https://ev-context.empowered.vote";
+// Absolute API base, for calls that must bypass the dev-server proxy.
+const AUTH_API = "https://accounts-api.empowered.vote/api";
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -68,6 +71,24 @@ const seedBuiltCompass = async (b, count = 8) =>
     localStorage.setItem('calibration_completed', 'true');
     return Object.keys(answers).length;
   })()`);
+
+/**
+ * Skip unless the custom-lens API is live.
+ *
+ * /compass/my-lenses ships in EV-Accounts #224. Until that deploys, the path does
+ * not match compassRouter and falls through to the admin router, which answers
+ * 403 "Admin access required" — a confusing failure that has nothing to do with
+ * the frontend under test. Skip loudly instead, so the reason is in the output
+ * rather than inferred from a stack trace.
+ */
+async function requireMyLensesApi(token) {
+  const res = await fetch(`${AUTH_API}/compass/my-lenses`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    throw new Skip(`/compass/my-lenses not deployed yet (HTTP ${res.status}) — EV-Accounts #224`);
+  }
+}
 
 // ------------------------------------------------------------------ scenarios
 
@@ -557,6 +578,110 @@ const scenarios = [
         `compass was not restored; got ${JSON.stringify(restored)}`
       );
       return "entered a lens, switched lens, and came back to the same compass";
+    },
+  },
+
+  {
+    name: "guest-can-save-a-lens",
+    // A guest's lenses live in localStorage and must NOT reach the shared
+    // ev-context payload — that is what keeps the broker payload-size question
+    // off this feature's critical path, so it is asserted, not assumed.
+    async run(b, baseUrl) {
+      await b.navigate(`${baseUrl}/results`, { settleMs: 4000 });
+      await b.evaluate(`(() => { localStorage.clear(); sessionStorage.clear(); })()`);
+      await seedBuiltCompass(b, 8);
+      await b.navigate(`${baseUrl}/results`, { settleMs: 8000 });
+
+      const opened = await b.evaluate(`(() => {
+        const el = document.querySelector('[data-testid="save-view-as-lens"]');
+        if (!el) return 'NOT_FOUND';
+        el.click();
+        return 'OK';
+      })()`);
+      assert(opened === "OK", "no '+ Save this view' affordance on the compass");
+      await b.sleep(700);
+
+      // React tracks the input's value on the DOM node, so setting .value
+      // directly is invisible to it — go through the native setter and fire the
+      // event React actually listens for.
+      await b.evaluate(`(() => {
+        const input = document.querySelector('[data-testid="lens-name-input"]');
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+        setter.call(input, 'Smoke lens');
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      })()`);
+      await b.sleep(300);
+      await b.evaluate(`document.querySelector('[data-testid="lens-save-confirm"]').click()`);
+      await b.sleep(1500);
+
+      const stored = await b.evaluate(`JSON.parse(localStorage.getItem('customLenses') || '[]')`);
+      assert(stored.length === 1, `expected 1 saved lens, got ${stored.length}`);
+      assert(/^u_[a-z0-9]{6}$/.test(stored[0].key), `bad lens key ${stored[0].key}`);
+      assert(stored[0].name === "Smoke lens", `lens name is ${JSON.stringify(stored[0].name)}`);
+      assert(
+        stored[0].topicIds.length === 8,
+        `lens captured ${stored[0].topicIds.length} topics, expected the compass's 8`
+      );
+
+      // Saving a lens must not activate it: the user is still looking at their
+      // own compass, which merely happens to match the lens they just saved.
+      const activeKey = await b.evaluate(`sessionStorage.getItem('activeLensKey')`);
+      assert(activeKey === null, `saving a lens activated it (activeLensKey=${activeKey})`);
+
+      // And the chip is now in the row.
+      const chip = await b.evaluate(
+        `!!document.querySelector('[data-testid="lens-chip-' + ${JSON.stringify("")} + JSON.parse(localStorage.getItem('customLenses'))[0].key + '"]')`
+      );
+      assert(chip, "the new lens did not appear in the switcher row");
+
+      return `saved "${stored[0].name}" as ${stored[0].key}`;
+    },
+  },
+
+  {
+    name: "guest-lenses-promote-on-sign-in",
+    // The whole point of letting guests build lenses: the work has to survive
+    // signing in. Promotion is one whole-set PUT, and local storage is cleared
+    // only after the server confirms — clearing state that was not confirmed
+    // written is how you lose a user's work to one bad response.
+    async run(b, baseUrl) {
+      const creds = loadCredentials();
+      if (!creds) throw new Skip("no SMOKE_EMAIL / SMOKE_PASSWORD available");
+      const token = await login(creds);
+      await requireMyLensesApi(token);
+      await clearServerLenses(token);
+
+      const topics = await (await fetch(`${baseUrl}${API}/topics`)).json();
+      const chosen = topics.slice(0, 8).map((t) => t.id);
+
+      await b.navigate(`${baseUrl}/results`, { settleMs: 4000 });
+      await b.evaluate(`(() => {
+        localStorage.clear();
+        sessionStorage.clear();
+        localStorage.setItem('selectedTopics', ${JSON.stringify(JSON.stringify(chosen))});
+        localStorage.setItem('calibration_completed', 'true');
+        localStorage.setItem('customLenses', JSON.stringify([{
+          key: 'u_smoke1', name: 'Promoted lens',
+          topicIds: ${JSON.stringify(JSON.stringify(chosen))} && JSON.parse(${JSON.stringify(JSON.stringify(chosen))}),
+          visibility: 'private',
+        }]));
+      })()`);
+
+      // Sign in the way every other authed scenario does.
+      await b.evaluate(`localStorage.setItem('ev_token', ${JSON.stringify(token)})`);
+      await b.navigate(`${baseUrl}/results`, { settleMs: 14000 });
+
+      const server = await getServerLenses(token);
+      assert(
+        server.some((l) => l.name === "Promoted lens"),
+        `promoted lens missing from the server; got ${JSON.stringify(server.map((l) => l.name))}`
+      );
+
+      const local = await b.evaluate(`localStorage.getItem('customLenses')`);
+      assert(local === null, `guest lenses were not cleared after promotion (still ${local})`);
+
+      await clearServerLenses(token);
+      return `promoted 1 lens for ${creds.email}`;
     },
   },
 ];

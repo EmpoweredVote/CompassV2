@@ -4,6 +4,10 @@ import { extractHashToken, getToken, setToken, apiFetch, publicFetch, clearToken
 import { evContext } from '@empoweredvote/ev-ui';
 import { LENSES, normalizeApiLens } from '../lib/lenses';
 import { shouldSyncCompass, compassToPublish } from '../lib/compassSync';
+import {
+  readGuestLenses, writeGuestLenses, clearGuestLenses,
+  mergeLensSets, regenerateConflictingKeys, toPutPayload,
+} from '../lib/userLenses';
 
 function safeParse(str, fallback) {
   try {
@@ -94,6 +98,14 @@ export function CompassProvider({ children }) {
     if (key) sessionStorage.setItem("activeLensKey", key);
     else sessionStorage.removeItem("activeLensKey");
   }, []);
+
+  // The user's own lenses. Guests keep them in localStorage and they never enter
+  // the shared ev-context payload — that is deliberate, and it is what keeps the
+  // broker payload-size question off this feature's critical path. Signed-in
+  // users read them from the API, which also carries needsRecalibration; a guest
+  // cannot have that, because staleness is computed from the revision an answer
+  // was stamped against and only the server knows it.
+  const [userLenses, setUserLenses] = useState(() => readGuestLenses());
   const [answers, setAnswers] = useState(
     () => safeParse(localStorage.getItem("answers"), {})
   );
@@ -540,6 +552,96 @@ export function CompassProvider({ children }) {
     }
   };
 
+
+  // ------------------------------------------------------------------ user lenses
+
+  const refreshUserLenses = useCallback(async () => {
+    if (!isLoggedIn) { setUserLenses(readGuestLenses()); return; }
+    try {
+      const res = await apiFetch('/compass/my-lenses');
+      const data = res ? await res.json() : [];
+      setUserLenses(Array.isArray(data) ? data : []);
+    } catch (err) {
+      // Custom lenses are additive. Their absence must never break the compass.
+      console.error('[compass] could not load custom lenses:', err);
+    }
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    if (authChecking) return;
+    refreshUserLenses();
+  }, [authChecking, isLoggedIn, refreshUserLenses]);
+
+  /**
+   * Persist the whole lens set. Whole-set replace rather than per-lens CRUD
+   * because that is how the client holds them: a guest builds lenses with no
+   * server round-trip, and sign-in promotes the collection in one request.
+   */
+  const saveUserLenses = useCallback(async (next) => {
+    setUserLenses(next);                       // optimistic — the user just acted
+    if (!isLoggedIn) { writeGuestLenses(next); return; }
+
+    const res = await apiFetch('/compass/my-lenses', {
+      method: 'PUT',
+      body: JSON.stringify(toPutPayload(next)),
+    });
+    if (res && res.status === 422) {
+      // Should be unreachable: topic ids come from the loaded topic set. If it
+      // happens the client holds an id the server has never heard of, which is
+      // worth saying loudly rather than showing a generic failure.
+      const body = await res.json().catch(() => ({}));
+      console.error('[compass] server rejected lens topics:', body.code, body.invalid_ids);
+    }
+    if (!res || !res.ok) {
+      // Keep the local state. Never drop a lens the user just made because one
+      // request failed; the next save retries the whole set.
+      throw new Error(`saving lenses failed (${res ? res.status : 'no response'})`);
+    }
+    const saved = await res.json();
+    if (Array.isArray(saved)) setUserLenses(saved);
+  }, [isLoggedIn]);
+
+  // Guest -> signed-in: fold whatever this browser holds into the account, once.
+  const promotedRef = useRef(false);
+  useEffect(() => {
+    if (authChecking || !isLoggedIn || promotedRef.current) return;
+    const local = readGuestLenses();
+    if (local.length === 0) { promotedRef.current = true; return; }
+    promotedRef.current = true;
+
+    (async () => {
+      try {
+        const res = await apiFetch('/compass/my-lenses');
+        const server = res ? await res.json() : [];
+        let merged = mergeLensSets(Array.isArray(server) ? server : [], local);
+
+        let put = await apiFetch('/compass/my-lenses', {
+          method: 'PUT', body: JSON.stringify(toPutPayload(merged)),
+        });
+
+        if (put && put.status === 409) {
+          // Another account already holds one of these randomly generated keys.
+          // Regenerate exactly those and retry ONCE — never loop.
+          const body = await put.json().catch(() => ({}));
+          merged = regenerateConflictingKeys(merged, body.conflicting_keys);
+          put = await apiFetch('/compass/my-lenses', {
+            method: 'PUT', body: JSON.stringify(toPutPayload(merged)),
+          });
+        }
+        if (!put || !put.ok) throw new Error(`promotion failed (${put ? put.status : 'no response'})`);
+
+        const saved = await put.json();
+        if (Array.isArray(saved)) setUserLenses(saved);
+        // Only now. Clearing local state that was not confirmed written is how
+        // you lose a user's work to one bad response.
+        clearGuestLenses();
+      } catch (err) {
+        console.error('[compass] lens promotion failed; keeping the local copy:', err);
+        promotedRef.current = false;           // let a later load try again
+      }
+    })();
+  }, [authChecking, isLoggedIn]);
+
   const retryLoadTopics = () => {
     setTopicsError(false);
     refreshData();
@@ -663,6 +765,9 @@ export function CompassProvider({ children }) {
         lenses,
         activeLensKey,
         setActiveLensKey,
+        userLenses,
+        saveUserLenses,
+        refreshUserLenses,
         answers,
         setAnswers,
         writeIns,

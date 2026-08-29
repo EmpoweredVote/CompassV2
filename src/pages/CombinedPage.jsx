@@ -7,6 +7,7 @@ import { useEvContextPromotion } from "@empoweredvote/ev-ui";
 import RadarChart from "../components/RadarChart";
 import CalibrationOverlay from "../components/CalibrationOverlay";
 import LensSwitcher from "../components/LensSwitcher";
+import SaveLensModal from "../components/SaveLensModal";
 import LibraryDrawer from "../components/LibraryDrawer";
 import ComparePanel from "../components/ComparePanel";
 import SavePromptModal from "../components/SavePromptModal";
@@ -14,6 +15,7 @@ import CoachMark from "../components/CoachMark";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useLocation } from "react-router";
 import { useTheme } from "../ThemeProvider";
+import { generateLensKey } from "../lib/userLenses";
 import { LOCAL_LENS as LOCAL_LENS_DEFAULT, JUDICIAL_LENS as JUDICIAL_LENS_DEFAULT, FEDERAL_LENS as FEDERAL_LENS_DEFAULT } from "../lib/lenses";
 import { tierFromDistrictType } from "../hooks/useFilteredPoliticians";
 import { getQuestionText, parseTensionTitle } from "../util/topic";
@@ -356,6 +358,8 @@ function CombinedPage() {
     lenses,
     activeLensKey,
     setActiveLensKey,
+    userLenses,
+    saveUserLenses,
     categories,
     answers,
     setAnswers,
@@ -1181,6 +1185,13 @@ function CombinedPage() {
     { ...FEDERAL_LENS, shortLabel: "Federal" },
     { ...LOCAL_LENS, shortLabel: "Local" },
     { ...JUDICIAL_LENS, shortLabel: "Judicial" },
+    // User lenses share the row with the curated three. They are given a colour
+    // here because the API does not store one for them.
+    ...userLenses.map((l) => ({
+      ...l,
+      color: "#7C3AED",
+      flagCount: (l.needsRecalibration || []).length,
+    })),
   ];
   // Activation is the explicit key, never a property of the topic set — a user
   // lens is built from the user's own topics, so "these topics all belong to a
@@ -1245,6 +1256,7 @@ function CombinedPage() {
   // If the user only has local lens answers, restoring = no-op (same topics shown).
   // Exit lens mode helper — saves current lens order, returns base topics to resume from.
   // Per-lens order key so each lens remembers its own spoke ordering independently.
+  const [saveLensOpen, setSaveLensOpen] = useState(false);
   const lensOrderKey = (lens) => `lensTopicsOrder:${lens.key}`;
 
   const exitLensMode = () => {
@@ -1521,14 +1533,43 @@ function CombinedPage() {
           <TabBar />
 
           {/* -------- lens switcher — always visible -------- */}
-          <LensSwitcher
-            ref={localLensRef}
-            lenses={allLenses}
-            activeLensKey={activeLensKey}
-            isDark={isDark}
-            onSelect={doStartLens}
-            onExit={exitToCompass}
-          />
+          <div className="w-full flex flex-col items-center lg:items-start">
+            <LensSwitcher
+              ref={localLensRef}
+              lenses={allLenses}
+              activeLensKey={activeLensKey}
+              isDark={isDark}
+              onSelect={doStartLens}
+              onExit={exitToCompass}
+            />
+            {activeLensKey === null && selectedTopics.length > 0 && (
+              <button
+                onClick={() => setSaveLensOpen(true)}
+                data-testid="save-view-as-lens"
+                className="-mt-1 mb-3 inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border border-dashed border-gray-400 dark:border-zinc-600 text-gray-500 dark:text-zinc-400 hover:opacity-80 cursor-pointer"
+              >
+                + Save this view
+              </button>
+            )}
+          </div>
+
+          {saveLensOpen && (
+            <SaveLensModal
+              topicCount={selectedTopics.length}
+              onClose={() => setSaveLensOpen(false)}
+              onSave={async (name) => {
+                await saveUserLenses([
+                  ...userLenses,
+                  { key: generateLensKey(), name, topicIds: selectedTopics, visibility: "private" },
+                ]);
+                // 🔴 DO NOT setActiveLensKey HERE. The user is looking at their own
+                // compass; it merely happens to match the lens they just saved.
+                // Marking it active would reclassify the compass as a view, so it
+                // would stop being persisted and a preLensTopics that was never
+                // stashed would go out as `s` — the exact bug this branch removed.
+              }}
+            />
+          )}
 
           {/* -------- desktop 3-column layout: pills | chart | compare -------- */}
           <div className="hidden lg:block w-full relative">
