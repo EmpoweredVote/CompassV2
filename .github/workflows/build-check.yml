@@ -20,6 +20,26 @@ jobs:
       - run: npm ci
       - run: npm run lint
 
+  test:
+    # The unit suite (vitest + jsdom). Added with the custom lens builder (#72),
+    # which is also when the repo got its first unit tests at all — before that
+    # the only automated coverage was `smoke`, which needs a browser, a dev
+    # server, the live API and the ev-context broker.
+    #
+    # These are the rules that decide whether a user's compass gets written down
+    # (src/lib/compassSync.js). They are pure functions precisely so they can be
+    # checked in milliseconds without any of that, and an ungated test suite
+    # rots — so gate it.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm test
+
   build:
     runs-on: ubuntu-latest
     steps:
