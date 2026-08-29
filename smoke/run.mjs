@@ -474,7 +474,7 @@ const scenarios = [
       );
       return `${rows.length} answers persisted server-side`;
     },
-  },
+  }
 ];
 
 // --------------------------------------------------------------------- runner
