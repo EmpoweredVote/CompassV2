@@ -747,6 +747,85 @@ const scenarios = [
       return "unsaved edits discarded, lens deleted, compass restored";
     },
   },
+
+  {
+    name: "recalibration-prompt-renders",
+    // No topic in the OPEN season is stale today — every answer resolves to the
+    // version its season serves, so the API correctly returns no flags. Rather
+    // than wait for a season rollover to find out whether this renders, seed a
+    // lens that already carries needsRecalibration. The client does not compute
+    // staleness; it renders what the server decided, so a seeded flag exercises
+    // exactly the code that will run.
+    async run(b, baseUrl) {
+      const topics = await (await fetch(`${baseUrl}${API}/topics`)).json();
+      const eight = topics.slice(0, 8);
+      const flagged = eight[2];
+      const NOTE = "Rewrote the five options in plainer language.";
+
+      await b.navigate(`${baseUrl}/results`, { settleMs: 4000 });
+      await b.evaluate(`(() => {
+        localStorage.clear();
+        sessionStorage.clear();
+        const answers = {};
+        ${JSON.stringify(eight.map((t) => t.short_title))}.forEach((s, i) => { answers[s] = (i % 5) + 1; });
+        localStorage.setItem('answers', JSON.stringify(answers));
+        localStorage.setItem('selectedTopics', ${JSON.stringify(JSON.stringify(eight.map((t) => t.id)))});
+        localStorage.setItem('calibration_completed', 'true');
+        localStorage.setItem('customLenses', JSON.stringify([{
+          key: 'u_flag01', name: 'Flagged', visibility: 'private',
+          topicIds: JSON.parse(${JSON.stringify(JSON.stringify(eight.map((t) => t.id)))}),
+          needsRecalibration: [{
+            topicId: ${JSON.stringify(flagged.id)},
+            reason: 'question_revised',
+            currentValue: 3,
+            publicNote: ${JSON.stringify(NOTE)},
+            answeredVersion: 1,
+            effectiveVersion: 2,
+          }],
+        }]));
+      })()`);
+      await b.navigate(`${baseUrl}/results`, { settleMs: 8000 });
+
+      // The count badge rides on the chip even before the lens is opened.
+      const badge = await b.evaluate(
+        `(document.querySelector('[data-testid="lens-flags-u_flag01"]') || {}).textContent || null`
+      );
+      assert(badge === "1", `expected a "1" flag badge on the chip, got ${JSON.stringify(badge)}`);
+
+      await b.evaluate(`document.querySelector('[data-testid="lens-chip-u_flag01"]').click()`);
+      await b.sleep(1200);
+
+      const marker = await b.evaluate(`(() => {
+        const el = document.querySelector('[data-testid="recalibrate-marker-${flagged.id}"]');
+        if (!el) return 'NOT_FOUND';
+        el.click();
+        return 'OK';
+      })()`);
+      assert(marker === "OK", `no recalibration marker on the flagged topic "${flagged.short_title}"`);
+      await b.sleep(700);
+
+      const text = await b.evaluate(
+        `(document.querySelector('[data-testid="recalibration-popover"]') || {}).textContent || ''`
+      );
+      assert(text.includes("This question was updated"), `popover copy wrong: ${JSON.stringify(text.slice(0, 120))}`);
+      assert(
+        text.includes(NOTE),
+        "publicNote must be rendered verbatim — it is editorial's own wording"
+      );
+
+      // Later dismisses for the session, and only for the session.
+      await b.evaluate(`document.querySelector('[data-testid="recalibrate-later"]').click()`);
+      await b.sleep(600);
+      const gone = await b.evaluate(`!document.querySelector('[data-testid="recalibration-popover"]')`);
+      assert(gone, "popover did not close on Later");
+      const markerGone = await b.evaluate(
+        `!document.querySelector('[data-testid="recalibrate-marker-${flagged.id}"]')`
+      );
+      assert(markerGone, "marker should be dismissed for this session after Later");
+
+      return `flag rendered and dismissed for "${flagged.short_title}"`;
+    },
+  },
 ];
 
 // --------------------------------------------------------------------- runner

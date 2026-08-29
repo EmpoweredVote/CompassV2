@@ -8,6 +8,7 @@ import RadarChart from "../components/RadarChart";
 import CalibrationOverlay from "../components/CalibrationOverlay";
 import LensSwitcher from "../components/LensSwitcher";
 import SaveLensModal from "../components/SaveLensModal";
+import RecalibrationPopover from "../components/RecalibrationPopover";
 import LibraryDrawer from "../components/LibraryDrawer";
 import ComparePanel from "../components/ComparePanel";
 import SavePromptModal from "../components/SavePromptModal";
@@ -160,7 +161,7 @@ function SortableTopicPill({ id, label, isCalibrated, onRemove, onMouseEnter, on
   );
 }
 
-function SortableVerticalPill({ id, topic, isCalibrated, onRemove, onOpen, pillBg }) {
+function SortableVerticalPill({ id, topic, isCalibrated, onRemove, onOpen, pillBg, needsRecalibration, onRecalibrate }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id,
     transition: { duration: 200, easing: "ease" },
@@ -199,6 +200,20 @@ function SortableVerticalPill({ id, topic, isCalibrated, onRemove, onOpen, pillB
         )}
         <span className="truncate">{topic.short_title}</span>
       </button>
+      {/* The question changed since this answer was given. The prompt sits next
+          to the question it is about, rather than in a banner that gets
+          dismissed once and never seen again. */}
+      {needsRecalibration && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onRecalibrate(); }}
+          onPointerDown={(e) => e.stopPropagation()}
+          title="This question was updated"
+          data-testid={`recalibrate-marker-${id}`}
+          className="shrink-0 inline-flex items-center gap-0.5 px-1 rounded text-[10px] font-bold bg-amber-400 text-neutral-900 cursor-pointer"
+        >
+          ⚠
+        </button>
+      )}
       {/* Remove */}
       <button
         onClick={(e) => { e.stopPropagation(); onRemove(); }}
@@ -1258,11 +1273,25 @@ function CombinedPage() {
   // Per-lens order key so each lens remembers its own spoke ordering independently.
   const [saveLensOpen, setSaveLensOpen] = useState(false);
   const [renameLensOpen, setRenameLensOpen] = useState(false);
+  const [openFlagTopicId, setOpenFlagTopicId] = useState(null);
+  const [recalibrateTopicIds, setRecalibrateTopicIds] = useState(null);
+  // Dismissals are per session and deliberately NOT persisted: a question whose
+  // wording changed is a standing fact, and a permanently dismissible prompt is
+  // one that never gets acted on.
+  const [dismissedFlags, setDismissedFlags] = useState(() => new Set());
 
   // The user lens currently being viewed, if any. Curated keys never start `u_`.
   const activeUserLens = activeLensKey && activeLensKey.startsWith("u_")
     ? (userLenses.find((l) => l.key === activeLensKey) ?? null)
     : null;
+
+  // Flags belong to the lens being viewed: the same topic can sit in several
+  // lenses, and the prompt belongs beside each of them.
+  const flagsByTopic = new Map(
+    (activeUserLens?.needsRecalibration || [])
+      .filter((f) => !dismissedFlags.has(f.topicId))
+      .map((f) => [f.topicId, f])
+  );
 
   // Dirty = the spokes on screen differ from what the lens stores. Order counts:
   // a lens remembers its own spoke arrangement, so reordering is a real edit.
@@ -1476,6 +1505,7 @@ function CombinedPage() {
           startWithJudicialLens={startWithJudicialLens}
           startWithFederalLens={startWithFederalLens}
           startWithAllTopics={startAllTopics}
+          startWithTopicIds={recalibrateTopicIds}
           onComplete={() => {
             localStorage.removeItem("calibration_skipped");
             localStorage.removeItem("calibration_progress");
@@ -1487,6 +1517,7 @@ function CombinedPage() {
             setStartWithLocalLens(false);
             setStartWithJudicialLens(false);
             setStartWithFederalLens(false);
+            setRecalibrateTopicIds(null);
             setStartResumeCalibration(false);
             setStartAllTopics(false);
             // Start post-cal tour if not already dismissed
@@ -1622,6 +1653,22 @@ function CombinedPage() {
             )}
           </div>
 
+          {openFlagTopicId && flagsByTopic.has(openFlagTopicId) && (
+            <RecalibrationPopover
+              flag={flagsByTopic.get(openFlagTopicId)}
+              topicTitle={topics.find((t) => t.id === openFlagTopicId)?.short_title || ""}
+              onRecalibrate={() => {
+                setRecalibrateTopicIds([openFlagTopicId]);
+                setCalibrationActive(true);
+                setOpenFlagTopicId(null);
+              }}
+              onClose={() => {
+                setDismissedFlags((prev) => new Set(prev).add(openFlagTopicId));
+                setOpenFlagTopicId(null);
+              }}
+            />
+          )}
+
           {renameLensOpen && activeUserLens && (
             <SaveLensModal
               topicCount={activeUserLens.topicIds.length}
@@ -1718,6 +1765,8 @@ function CombinedPage() {
                             onRemove={() => setSelectedTopics(prev => prev.filter(tid => tid !== id))}
                             onOpen={() => setDrawerTopic(topic)}
                             pillBg={pillBg}
+                            needsRecalibration={flagsByTopic.has(id)}
+                            onRecalibrate={() => setOpenFlagTopicId(id)}
                           />
                         );
                       })}
