@@ -2,7 +2,7 @@
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
 import { extractHashToken, getToken, setToken, apiFetch, publicFetch, clearToken, API_BASE } from '../lib/auth';
 import { evContext } from '@empoweredvote/ev-ui';
-import { isLensTopicSet, LENSES, normalizeApiLens } from '../lib/lenses';
+import { LENSES, normalizeApiLens } from '../lib/lenses';
 
 function safeParse(str, fallback) {
   try {
@@ -69,6 +69,30 @@ export function CompassProvider({ children }) {
   // Compass lenses — live source of truth is GET /compass/lenses; constants are
   // the offline fallback until the fetch resolves.
   const [lenses, setLenses] = useState(LENSES);
+
+  // Which lens is currently being viewed; null means "the user's own compass".
+  //
+  // 🔴 THIS REPLACES AN INFERENCE, AND THE INFERENCE WAS THE BUG. Activation used
+  // to be derived by testing whether every selected topic belonged to some lens
+  // (isLensTopicSet / lensIsActive). That works only while lenses are curated sets
+  // of topics the user did not choose. A USER lens is built from the user's own
+  // topics, so "save my compass as a lens" makes the user's compass match a lens
+  // by definition — and the derived answer becomes "a lens is active" while they
+  // are looking at their own compass. Everything downstream then treats the real
+  // compass as a disposable view: it is not persisted, and a stale preLensTopics
+  // goes out as `s`. That is the #68/#71 silent-non-persistence bug, structural.
+  //
+  // sessionStorage, not localStorage: a lens is a per-tab view choice, and two
+  // tabs may legitimately show different lenses. It survives a reload so that a
+  // refresh inside a lens does not silently reinterpret the topic set.
+  const [activeLensKey, setActiveLensKeyState] = useState(
+    () => sessionStorage.getItem("activeLensKey") || null
+  );
+  const setActiveLensKey = useCallback((key) => {
+    setActiveLensKeyState(key);
+    if (key) sessionStorage.setItem("activeLensKey", key);
+    else sessionStorage.removeItem("activeLensKey");
+  }, []);
   const [answers, setAnswers] = useState(
     () => safeParse(localStorage.getItem("answers"), {})
   );
@@ -201,7 +225,10 @@ export function CompassProvider({ children }) {
     // Compass already refuses to persist a lens as selected_topic_ids on the
     // server (see the sync effect below); this applies the same rule one layer
     // out. Other apps keep their own lens selection and do not want ours.
-    const lensActive = isLensTopicSet(selectedTopics, lenses);
+    //
+    // `activeLensKey` is the FACT. This used to be inferred from the topic set,
+    // which cannot survive user lenses — see the state declaration above.
+    const lensActive = activeLensKey !== null;
     const preLensTopics = lensActive
       ? safeParse(localStorage.getItem("preLensTopics"), null)
       : null;
@@ -250,7 +277,7 @@ export function CompassProvider({ children }) {
     const next = { ...evContextCacheRef.current, compass };
     evContextCacheRef.current = next;
     evContext.set(next).catch(() => {});
-  }, [authChecking, isLoggedIn, userId, answers, selectedTopics, invertedSpokes, writeIns, topics, clearedAt, lenses]);
+  }, [authChecking, isLoggedIn, userId, answers, selectedTopics, invertedSpokes, writeIns, topics, clearedAt, activeLensKey]);
 
   // Authed SWR hydrate (260426-mc5): when we learn the userId, read the
   // authed slice and seed local state. The /compass/answers fetch elsewhere
@@ -578,12 +605,16 @@ export function CompassProvider({ children }) {
     // Don't sync to server for guests
     if (!isLoggedIn) return;
 
-    // A lens (Local/Judicial) is a VIEW overlay, not the user's chosen compass.
-    // Never persist a lens set as selected_topic_ids — doing so clobbers the user's
-    // real compass on the server and makes consumers (e.g. essentials) unable to
-    // distinguish "my compass" from "the lens". The lens still renders locally; we
-    // just leave the server's saved compass untouched while it's active.
-    if (isLensTopicSet(selectedTopics, lenses)) return;
+    // A lens is a VIEW overlay, not the user's chosen compass. Never persist a
+    // lens set as selected_topic_ids — doing so clobbers the user's real compass
+    // on the server and makes consumers (e.g. essentials) unable to distinguish
+    // "my compass" from "the lens". The lens still renders locally; we just leave
+    // the server's saved compass untouched while it's active.
+    //
+    // Reads the explicit key rather than inferring from the topic set. Under the
+    // old inference, a user whose compass happened to match a lens stopped having
+    // their compass saved at all — silently, and permanently.
+    if (activeLensKey !== null) return;
 
     // Debounce server sync to avoid rapid calls during topic toggling
     clearTimeout(syncTimer.current);
@@ -593,7 +624,7 @@ export function CompassProvider({ children }) {
         body: JSON.stringify({ topic_ids: selectedTopics }),
       }).catch(() => {});
     }, 500);
-  }, [selectedTopics, isLoggedIn, lenses]);
+  }, [selectedTopics, isLoggedIn, activeLensKey]);
 
   // Cross-app logout sync — detect ev_session cookie cleared by another app
   useEffect(() => {
@@ -629,6 +660,8 @@ export function CompassProvider({ children }) {
         selectedTopics,
         setSelectedTopics: setSelected,
         lenses,
+        activeLensKey,
+        setActiveLensKey,
         answers,
         setAnswers,
         writeIns,
