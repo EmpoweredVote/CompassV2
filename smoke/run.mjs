@@ -480,7 +480,85 @@ const scenarios = [
       );
       return `${rows.length} answers persisted server-side`;
     },
-  }
+  },
+
+  {
+    name: "lens-round-trip-restores-the-compass",
+    // Drives the real chips, because the transitions are what changed: doStartLens
+    // records activeLensKey and exitLensMode clears it, replacing an inference over
+    // the topic set. Every other lens scenario seeds storage directly and would not
+    // notice if the buttons stopped being wired up at all.
+    //
+    // Clicks by data-testid, not by button text. Text matching finds the "Federal
+    // Lens" OFFER card that CombinedPage renders elsewhere on the page, which opens
+    // calibration instead of switching lens — measured, not guessed.
+    async run(b, baseUrl) {
+      const lenses = await (await fetch(`${baseUrl}${API}/lenses`)).json();
+      const federal = (Array.isArray(lenses) ? lenses : []).find((l) => l.key === "federal");
+      const local = (Array.isArray(lenses) ? lenses : []).find((l) => l.key === "local");
+      assert(federal && local, "federal or local lens missing from /compass/lenses");
+
+      const topics = await (await fetch(`${baseUrl}${API}/topics`)).json();
+      const lensIds = new Set([...federal.topicIds, ...local.topicIds]);
+      const own = topics.filter((t) => !lensIds.has(t.id)).slice(0, 8);
+      assert(own.length === 8, "could not find 8 topics outside both lenses");
+      const ownIds = own.map((t) => t.id);
+      // Answer the lens questions too: switching to a lens with unanswered
+      // questions auto-routes to the calibration overlay, which replaces the page.
+      const answered = [...own, ...topics.filter((t) => lensIds.has(t.id))];
+
+      await b.navigate(`${baseUrl}/results`, { settleMs: 4000 });
+      await b.evaluate(`(() => {
+        localStorage.clear();
+        sessionStorage.clear();
+        const answers = {};
+        ${JSON.stringify(answered.map((t) => t.short_title))}.forEach((s, i) => { answers[s] = (i % 5) + 1; });
+        localStorage.setItem('answers', JSON.stringify(answers));
+        localStorage.setItem('selectedTopics', ${JSON.stringify(JSON.stringify(ownIds))});
+        localStorage.setItem('calibration_completed', 'true');
+      })()`);
+      await b.navigate(`${baseUrl}/results`, { settleMs: 8000 });
+
+      const clickChip = async (key) => {
+        const r = await b.evaluate(`(() => {
+          const el = document.querySelector('[data-testid="lens-chip-${key}"]');
+          if (!el) return 'NOT_FOUND';
+          el.click();
+          return 'OK';
+        })()`);
+        assert(r === "OK", `lens chip ${key} not found`);
+        await b.sleep(1000);
+      };
+
+      await clickChip("federal");
+      const inLens = await b.evaluate(`sessionStorage.getItem('activeLensKey')`);
+      assert(inLens === "federal", `after clicking Federal, activeLensKey is ${JSON.stringify(inLens)}`);
+      const stash = await b.evaluate(`JSON.parse(localStorage.getItem('preLensTopics') || 'null')`);
+      assert(
+        Array.isArray(stash) && stash.length === 8,
+        `entering a lens must stash the real compass; got ${JSON.stringify(stash)}`
+      );
+
+      // Lens to lens must NOT re-stash, or the real compass is buried behind two
+      // overlays and can never be restored.
+      await clickChip("local");
+      const stash2 = await b.evaluate(`JSON.parse(localStorage.getItem('preLensTopics') || 'null')`);
+      assert(
+        JSON.stringify(stash2) === JSON.stringify(stash),
+        `lens-to-lens overwrote the stashed compass: ${JSON.stringify(stash2)}`
+      );
+
+      await clickChip("my-compass");
+      const afterKey = await b.evaluate(`sessionStorage.getItem('activeLensKey')`);
+      assert(afterKey === null, `activeLensKey was not cleared on exit (got ${JSON.stringify(afterKey)})`);
+      const restored = await b.evaluate(`JSON.parse(localStorage.getItem('selectedTopics') || '[]')`);
+      assert(
+        restored.length === ownIds.length && restored.every((id) => ownIds.includes(id)),
+        `compass was not restored; got ${JSON.stringify(restored)}`
+      );
+      return "entered a lens, switched lens, and came back to the same compass";
+    },
+  },
 ];
 
 // --------------------------------------------------------------------- runner

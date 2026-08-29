@@ -6,6 +6,7 @@ import { apiFetch, API_BASE } from "../lib/auth";
 import { useEvContextPromotion } from "@empoweredvote/ev-ui";
 import RadarChart from "../components/RadarChart";
 import CalibrationOverlay from "../components/CalibrationOverlay";
+import LensSwitcher from "../components/LensSwitcher";
 import LibraryDrawer from "../components/LibraryDrawer";
 import ComparePanel from "../components/ComparePanel";
 import SavePromptModal from "../components/SavePromptModal";
@@ -1176,7 +1177,11 @@ function CombinedPage() {
   const localLensNotStarted = localLensRemaining === localLensTopicIds.length && localLensTopicIds.length > 0;
   // Every lens the switcher can offer. User-authored lenses join this list when
   // the builder lands; the lookup below is already keyed, not positional.
-  const allLenses = [FEDERAL_LENS, LOCAL_LENS, JUDICIAL_LENS];
+  const allLenses = [
+    { ...FEDERAL_LENS, shortLabel: "Federal" },
+    { ...LOCAL_LENS, shortLabel: "Local" },
+    { ...JUDICIAL_LENS, shortLabel: "Judicial" },
+  ];
   // Activation is the explicit key, never a property of the topic set — a user
   // lens is built from the user's own topics, so "these topics all belong to a
   // lens" stops meaning "a lens is showing". See lib/compassSync.js.
@@ -1310,28 +1315,6 @@ function CombinedPage() {
   const exitToCompass = () => { if (activeLens) doStartLens(activeLens); };
 
   // Icon for each lens chip: house (local), Capitol dome (federal), gavel (judicial).
-  const renderLensIcon = (key) => {
-    if (key === 'federal') {
-      return (
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0 0 12 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75Z" />
-        </svg>
-      );
-    }
-    if (key === 'judicial') {
-      return (
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
-          <path fillRule="evenodd" d="M10 1a.75.75 0 01.75.75v1.5h2.75A2.75 2.75 0 0116.25 6v.75H18a.75.75 0 010 1.5h-1.75v5H18a.75.75 0 010 1.5h-1.75V15a2.75 2.75 0 01-2.75 2.75H6.5A2.75 2.75 0 013.75 15v-.25H2a.75.75 0 010-1.5h1.75v-5H2a.75.75 0 010-1.5h1.75V6A2.75 2.75 0 016.5 3.25h2.75v-1.5A.75.75 0 0110 1zm0 4.25H6.5A1.25 1.25 0 005.25 6.5v7A1.25 1.25 0 006.5 14.75h7A1.25 1.25 0 0014.75 13.5v-7A1.25 1.25 0 0013.5 5.25H10z" clipRule="evenodd" />
-        </svg>
-      );
-    }
-    return (
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
-        <path fillRule="evenodd" d="M9.293 2.293a1 1 0 011.414 0l7 7A1 1 0 0117 11h-1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-3a1 1 0 00-1-1H9a1 1 0 00-1 1v3a1 1 0 01-1 1H5a1 1 0 01-1-1v-6H3a1 1 0 01-.707-1.707l7-7z" clipRule="evenodd" />
-      </svg>
-    );
-  };
-
   // Auto-default: when the user views a U.S. House/Senate leader and has the
   // Federal lens calibrated, show the Federal lens automatically — but only if
   // they haven't made an explicit lens/compass choice this session. Any manual
@@ -1538,40 +1521,14 @@ function CombinedPage() {
           <TabBar />
 
           {/* -------- lens switcher — always visible -------- */}
-          <div
+          <LensSwitcher
             ref={localLensRef}
-            className="w-full max-w-6xl mx-auto lg:px-4 mb-3 flex items-center gap-2 flex-wrap justify-center lg:justify-start"
-          >
-            <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 mr-0.5">Lens:</span>
-            {[FEDERAL_LENS, LOCAL_LENS, JUDICIAL_LENS].map((lens) => {
-              const active = activeLens?.key === lens.key;
-              const label = lens.key === 'federal' ? 'Federal' : lens.key === 'local' ? 'Local' : 'Judicial';
-              return (
-                <button
-                  key={lens.key}
-                  onClick={() => doStartLens(lens)}
-                  title={active ? `${lens.name} active — click to restore your compass` : lens.name}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all cursor-pointer hover:opacity-90 active:scale-95"
-                  style={active
-                    ? { background: lens.color, color: '#fff', borderColor: lens.color }
-                    : { background: 'transparent', color: lens.color, borderColor: lens.color }}
-                >
-                  {renderLensIcon(lens.key)}
-                  {label}
-                </button>
-              );
-            })}
-            <button
-              onClick={exitToCompass}
-              title="Show my full compass"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all cursor-pointer hover:opacity-90 active:scale-95"
-              style={!activeLens
-                ? { background: isDark ? '#52525b' : '#6B7280', color: '#fff', borderColor: isDark ? '#52525b' : '#6B7280' }
-                : { background: 'transparent', color: isDark ? '#a1a1aa' : '#6B7280', borderColor: isDark ? '#52525b' : '#d1d5db' }}
-            >
-              My compass
-            </button>
-          </div>
+            lenses={allLenses}
+            activeLensKey={activeLensKey}
+            isDark={isDark}
+            onSelect={doStartLens}
+            onExit={exitToCompass}
+          />
 
           {/* -------- desktop 3-column layout: pills | chart | compare -------- */}
           <div className="hidden lg:block w-full relative">
