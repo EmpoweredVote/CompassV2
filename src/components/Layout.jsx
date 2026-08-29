@@ -5,13 +5,12 @@ import { useCompass } from "../components/CompassContext";
 import { useTheme } from "../ThemeProvider";
 import ReturnBanner from "./ReturnBanner";
 import { apiFetch, getToken, clearToken, API_BASE } from "../lib/auth";
-import { isLensTopicSet } from "../lib/lenses";
 
 function Layout({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { isDark, toggle: toggleDark } = useTheme();
-  const { topics, selectedTopics, setSelectedTopics, answers, setAnswers, writeIns, setWriteIns, invertedSpokes, setInvertedSpokes, clearCompassEverywhere, isLoggedIn, isAdmin, username, userId, setIsLoggedIn, authChecking, setCompassVersion } = useCompass();
+  const { topics, selectedTopics, setSelectedTopics, activeLensKey, answers, setAnswers, writeIns, setWriteIns, invertedSpokes, setInvertedSpokes, clearCompassEverywhere, isLoggedIn, isAdmin, username, userId, setIsLoggedIn, authChecking, setCompassVersion } = useCompass();
 
   const logout = async () => {
     try {
@@ -119,9 +118,13 @@ function Layout({ children }) {
       if (!res || !res.ok) serverSaveOk = false;
     }
     // Only persist selected topics when they represent the user's own chosen compass.
-    // A lens (Local/Judicial) is a view overlay — saving it would overwrite the user's
-    // real compass on the server. Answers above always save; the lens view does not.
-    if (!isLensTopicSet(selectedTopics)) {
+    // A lens is a view overlay — saving it would overwrite the user's real compass on
+    // the server. Answers above always save; the lens view does not.
+    //
+    // Keyed on activeLensKey rather than the topic set. The old test also ran against
+    // the hardcoded LENSES constant rather than the live /compass/lenses response, so
+    // it could disagree with the rest of the app about what even counted as a lens.
+    if (!activeLensKey) {
       await apiFetch('/compass/selected-topics', {
         method: 'PUT',
         body: JSON.stringify({ topic_ids: selectedTopics }),

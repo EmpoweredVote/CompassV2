@@ -343,7 +343,7 @@ function BackArrow() {
 // Main component
 // ────────────────────────────────────────────────
 
-export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = false, startAtPick = false, startWithLocalLens = false, startWithJudicialLens = false, startWithFederalLens = false, startWithAllTopics = false }) {
+export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = false, startAtPick = false, startWithLocalLens = false, startWithJudicialLens = false, startWithFederalLens = false, startWithAllTopics = false, startWithTopicIds = null }) {
   const {
     topics,
     categories,
@@ -364,6 +364,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     : startWithJudicialLens ? 'judicial_lens'
     : startWithFederalLens ? 'federal_lens'
     : startWithAllTopics ? 'full'
+    : startWithTopicIds ? 'recalibrate'
     : resumeMode ? 'resume'
     : 'default';
 
@@ -402,6 +403,20 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     if (startWithFederalLens) {
       const lensIds = FEDERAL_LENS.topicIds.filter(id => topics.some(t => t.id === id));
       return { step: "lens_intro", pickedTopics: lensIds, currentIndex: 0, lensApplied: true, lens: FEDERAL_LENS };
+    }
+
+    // An explicit list of questions to (re)answer — the recalibration path.
+    // Straight to "answer": there is nothing to pick and no lens intro to show,
+    // because the user already said which question they are fixing.
+    //
+    // Filtered against `topics` on purpose: a lens may hold a question the
+    // current season does not serve, and seeding the queue with an id that has
+    // no stances would render an unanswerable question.
+    if (Array.isArray(startWithTopicIds) && startWithTopicIds.length > 0) {
+      const valid = startWithTopicIds.filter((id) => topics.some((t) => t.id === id));
+      if (valid.length > 0) {
+        return { step: "answer", pickedTopics: valid, currentIndex: 0 };
+      }
     }
 
     if (startWithAllTopics) {
@@ -502,10 +517,14 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     if (initial.lensApplied) setPrevPickedTopics(selectedTopics.slice(0, 8));
     initializedRef.current = true;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [topics, resumeMode, startAtPick, startWithLocalLens, startWithJudicialLens, startWithFederalLens]);
+  }, [topics, resumeMode, startAtPick, startWithLocalLens, startWithJudicialLens, startWithFederalLens, startWithTopicIds]);
 
   useEffect(() => {
-    if (step === "welcome" || step === "lens_intro" || step === "complete" || startWithAllTopics) return;
+    // startWithTopicIds joins startWithAllTopics here: a one-question
+    // recalibration must not overwrite a half-finished full calibration, which
+    // the user should still be able to resume exactly where they left it.
+    if (step === "welcome" || step === "lens_intro" || step === "complete" ||
+        startWithAllTopics || startWithTopicIds) return;
     const progress = { step, pickedTopics, currentIndex, resumeMode: resumeMode || false, lensKey: activeLens?.key || null };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
   }, [step, pickedTopics, currentIndex, resumeMode]);

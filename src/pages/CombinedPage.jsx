@@ -6,6 +6,9 @@ import { apiFetch, API_BASE } from "../lib/auth";
 import { useEvContextPromotion } from "@empoweredvote/ev-ui";
 import RadarChart from "../components/RadarChart";
 import CalibrationOverlay from "../components/CalibrationOverlay";
+import LensSwitcher from "../components/LensSwitcher";
+import SaveLensModal from "../components/SaveLensModal";
+import RecalibrationPopover from "../components/RecalibrationPopover";
 import LibraryDrawer from "../components/LibraryDrawer";
 import ComparePanel from "../components/ComparePanel";
 import SavePromptModal from "../components/SavePromptModal";
@@ -13,7 +16,8 @@ import CoachMark from "../components/CoachMark";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useLocation } from "react-router";
 import { useTheme } from "../ThemeProvider";
-import { LOCAL_LENS as LOCAL_LENS_DEFAULT, JUDICIAL_LENS as JUDICIAL_LENS_DEFAULT, FEDERAL_LENS as FEDERAL_LENS_DEFAULT, isLensTopicSet } from "../lib/lenses";
+import { generateLensKey } from "../lib/userLenses";
+import { LOCAL_LENS as LOCAL_LENS_DEFAULT, JUDICIAL_LENS as JUDICIAL_LENS_DEFAULT, FEDERAL_LENS as FEDERAL_LENS_DEFAULT } from "../lib/lenses";
 import { tierFromDistrictType } from "../hooks/useFilteredPoliticians";
 import { getQuestionText, parseTensionTitle } from "../util/topic";
 import { TopicTierBadge } from "@empoweredvote/ev-ui";
@@ -157,7 +161,7 @@ function SortableTopicPill({ id, label, isCalibrated, onRemove, onMouseEnter, on
   );
 }
 
-function SortableVerticalPill({ id, topic, isCalibrated, onRemove, onOpen, pillBg }) {
+function SortableVerticalPill({ id, topic, isCalibrated, onRemove, onOpen, pillBg, needsRecalibration, onRecalibrate }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id,
     transition: { duration: 200, easing: "ease" },
@@ -196,6 +200,20 @@ function SortableVerticalPill({ id, topic, isCalibrated, onRemove, onOpen, pillB
         )}
         <span className="truncate">{topic.short_title}</span>
       </button>
+      {/* The question changed since this answer was given. The prompt sits next
+          to the question it is about, rather than in a banner that gets
+          dismissed once and never seen again. */}
+      {needsRecalibration && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onRecalibrate(); }}
+          onPointerDown={(e) => e.stopPropagation()}
+          title="This question was updated"
+          data-testid={`recalibrate-marker-${id}`}
+          className="shrink-0 inline-flex items-center gap-0.5 px-1 rounded text-[10px] font-bold bg-amber-400 text-neutral-900 cursor-pointer"
+        >
+          ⚠
+        </button>
+      )}
       {/* Remove */}
       <button
         onClick={(e) => { e.stopPropagation(); onRemove(); }}
@@ -353,6 +371,10 @@ function CombinedPage() {
     selectedTopics,
     setSelectedTopics,
     lenses,
+    activeLensKey,
+    setActiveLensKey,
+    userLenses,
+    saveUserLenses,
     categories,
     answers,
     setAnswers,
@@ -1172,11 +1194,30 @@ function CombinedPage() {
     [localLensTopicIds, topics, answers]
   );
   const localLensNotStarted = localLensRemaining === localLensTopicIds.length && localLensTopicIds.length > 0;
-  const lensIsActive = (lens) => selectedTopics.length > 0 && selectedTopics.every(id => lens.topicIds.includes(id));
-  const localLensActive = lensIsActive(LOCAL_LENS);
-  const judicialLensActive = lensIsActive(JUDICIAL_LENS);
-  const federalLensActive = lensIsActive(FEDERAL_LENS);
-  const activeLens = localLensActive ? LOCAL_LENS : (judicialLensActive ? JUDICIAL_LENS : (federalLensActive ? FEDERAL_LENS : null));
+  // Every lens the switcher can offer. User-authored lenses join this list when
+  // the builder lands; the lookup below is already keyed, not positional.
+  const allLenses = [
+    { ...FEDERAL_LENS, shortLabel: "Federal" },
+    { ...LOCAL_LENS, shortLabel: "Local" },
+    { ...JUDICIAL_LENS, shortLabel: "Judicial" },
+    // User lenses share the row with the curated three. They are given a colour
+    // here because the API does not store one for them.
+    ...userLenses.map((l) => ({
+      ...l,
+      color: "#7C3AED",
+      flagCount: (l.needsRecalibration || []).length,
+    })),
+  ];
+  // Activation is the explicit key, never a property of the topic set — a user
+  // lens is built from the user's own topics, so "these topics all belong to a
+  // lens" stops meaning "a lens is showing". See lib/compassSync.js.
+  const lensIsActive = (lens) => activeLensKey === lens.key;
+  const localLensActive = activeLensKey === LOCAL_LENS.key;
+  const judicialLensActive = activeLensKey === JUDICIAL_LENS.key;
+  const federalLensActive = activeLensKey === FEDERAL_LENS.key;
+  const activeLens = activeLensKey
+    ? (allLenses.find((l) => l.key === activeLensKey) ?? null)
+    : null;
   const pillBg = activeLens ? activeLens.color : (isDark ? '#52525b' : '#6B7280');
 
   // "Federal lens calibrated" = the user has a real stance on all 8 federal topics.
@@ -1230,6 +1271,57 @@ function CombinedPage() {
   // If the user only has local lens answers, restoring = no-op (same topics shown).
   // Exit lens mode helper — saves current lens order, returns base topics to resume from.
   // Per-lens order key so each lens remembers its own spoke ordering independently.
+  const [saveLensOpen, setSaveLensOpen] = useState(false);
+  const [renameLensOpen, setRenameLensOpen] = useState(false);
+  const [openFlagTopicId, setOpenFlagTopicId] = useState(null);
+  const [recalibrateTopicIds, setRecalibrateTopicIds] = useState(null);
+  // Dismissals are per session and deliberately NOT persisted: a question whose
+  // wording changed is a standing fact, and a permanently dismissible prompt is
+  // one that never gets acted on.
+  const [dismissedFlags, setDismissedFlags] = useState(() => new Set());
+
+  // The user lens currently being viewed, if any. Curated keys never start `u_`.
+  const activeUserLens = activeLensKey && activeLensKey.startsWith("u_")
+    ? (userLenses.find((l) => l.key === activeLensKey) ?? null)
+    : null;
+
+  // Flags belong to the lens being viewed: the same topic can sit in several
+  // lenses, and the prompt belongs beside each of them.
+  const flagsByTopic = new Map(
+    (activeUserLens?.needsRecalibration || [])
+      .filter((f) => !dismissedFlags.has(f.topicId))
+      .map((f) => [f.topicId, f])
+  );
+
+  // Dirty = the spokes on screen differ from what the lens stores. Order counts:
+  // a lens remembers its own spoke arrangement, so reordering is a real edit.
+  const activeLensDirty = !!activeUserLens &&
+    JSON.stringify(selectedTopics) !== JSON.stringify(activeUserLens.topicIds);
+
+  const updateActiveLens = async () => {
+    if (!activeUserLens) return;
+    await saveUserLenses(
+      userLenses.map((l) => (l.key === activeUserLens.key ? { ...l, topicIds: selectedTopics } : l))
+    );
+  };
+
+  const renameActiveLens = async (name) => {
+    if (!activeUserLens) return;
+    await saveUserLenses(
+      userLenses.map((l) => (l.key === activeUserLens.key ? { ...l, name } : l))
+    );
+  };
+
+  const deleteActiveLens = async () => {
+    if (!activeUserLens) return;
+    if (!window.confirm(`Delete the lens "${activeUserLens.name}"? Your answers are not affected.`)) return;
+    const key = activeUserLens.key;
+    // Leave the lens BEFORE removing it, so the compass is restored from
+    // preLensTopics rather than stranding the user on an orphaned topic set.
+    exitToCompass();
+    await saveUserLenses(userLenses.filter((l) => l.key !== key));
+  };
+
   const lensOrderKey = (lens) => `lensTopicsOrder:${lens.key}`;
 
   const exitLensMode = () => {
@@ -1239,9 +1331,11 @@ function CombinedPage() {
       const preLens = JSON.parse(localStorage.getItem("preLensTopics") || "null");
       if (Array.isArray(preLens) && preLens.length > 0) {
         localStorage.removeItem("preLensTopics");
+        setActiveLensKey(null);
         return preLens;
       }
     } catch { /* corrupt or unreadable localStorage — fall back to the default */ }
+    setActiveLensKey(null);
     return selectedTopics;
   };
 
@@ -1259,7 +1353,11 @@ function CombinedPage() {
     }
     // Save current topics as pre-lens — but never stash one lens over another
     // (that would lose the user's real compass behind two lens layers).
-    if (selectedTopics.length > 0 && !isLensTopicSet(selectedTopics, lenses)) {
+    // Only ever stash when leaving the user's OWN compass. Switching lens to lens
+    // must not overwrite the stash — that buries the real compass behind two
+    // overlays and it can never be restored. With an explicit key this is a
+    // direct test rather than a guess about the topic set.
+    if (!activeLensKey && selectedTopics.length > 0) {
       localStorage.setItem("preLensTopics", JSON.stringify(selectedTopics));
     }
     // Restore this lens's saved order (validated to its IDs) or fall back to default
@@ -1273,6 +1371,7 @@ function CombinedPage() {
       }
     } catch { /* corrupt or unreadable localStorage — fall back to the default */ }
     setSelectedTopics(lensTopics);
+    setActiveLensKey(lens.key);
     // If all lens topics already answered, mark calibration complete to block the overlay
     if (!calibrationCompleted) {
       const allAnswered = lensTopics.every(id => {
@@ -1293,28 +1392,6 @@ function CombinedPage() {
   const exitToCompass = () => { if (activeLens) doStartLens(activeLens); };
 
   // Icon for each lens chip: house (local), Capitol dome (federal), gavel (judicial).
-  const renderLensIcon = (key) => {
-    if (key === 'federal') {
-      return (
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0 0 12 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75Z" />
-        </svg>
-      );
-    }
-    if (key === 'judicial') {
-      return (
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
-          <path fillRule="evenodd" d="M10 1a.75.75 0 01.75.75v1.5h2.75A2.75 2.75 0 0116.25 6v.75H18a.75.75 0 010 1.5h-1.75v5H18a.75.75 0 010 1.5h-1.75V15a2.75 2.75 0 01-2.75 2.75H6.5A2.75 2.75 0 013.75 15v-.25H2a.75.75 0 010-1.5h1.75v-5H2a.75.75 0 010-1.5h1.75V6A2.75 2.75 0 016.5 3.25h2.75v-1.5A.75.75 0 0110 1zm0 4.25H6.5A1.25 1.25 0 005.25 6.5v7A1.25 1.25 0 006.5 14.75h7A1.25 1.25 0 0014.75 13.5v-7A1.25 1.25 0 0013.5 5.25H10z" clipRule="evenodd" />
-        </svg>
-      );
-    }
-    return (
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
-        <path fillRule="evenodd" d="M9.293 2.293a1 1 0 011.414 0l7 7A1 1 0 0117 11h-1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-3a1 1 0 00-1-1H9a1 1 0 00-1 1v3a1 1 0 01-1 1H5a1 1 0 01-1-1v-6H3a1 1 0 01-.707-1.707l7-7z" clipRule="evenodd" />
-      </svg>
-    );
-  };
-
   // Auto-default: when the user views a U.S. House/Senate leader and has the
   // Federal lens calibrated, show the Federal lens automatically — but only if
   // they haven't made an explicit lens/compass choice this session. Any manual
@@ -1328,11 +1405,12 @@ function CombinedPage() {
       !localLensActive && !judicialLensActive && !federalLensActive
     ) {
       // Overlay the Federal lens over the user's compass (restorable on exit).
-      if (selectedTopics.length > 0 && !isLensTopicSet(selectedTopics, lenses)) {
+      if (!activeLensKey && selectedTopics.length > 0) {
         localStorage.setItem("preLensTopics", JSON.stringify(selectedTopics));
       }
       const lensTopics = FEDERAL_LENS.topicIds.filter(id => topics.some(t => t.id === id)).slice(0, MAX_TOPICS);
       setSelectedTopics(lensTopics);
+      setActiveLensKey(FEDERAL_LENS.key);
       autoFederalRef.current = true;
     } else if (!polIsFederal && autoFederalRef.current && federalLensActive) {
       // Left the federal leader — restore the pre-lens compass.
@@ -1427,6 +1505,7 @@ function CombinedPage() {
           startWithJudicialLens={startWithJudicialLens}
           startWithFederalLens={startWithFederalLens}
           startWithAllTopics={startAllTopics}
+          startWithTopicIds={recalibrateTopicIds}
           onComplete={() => {
             localStorage.removeItem("calibration_skipped");
             localStorage.removeItem("calibration_progress");
@@ -1438,6 +1517,7 @@ function CombinedPage() {
             setStartWithLocalLens(false);
             setStartWithJudicialLens(false);
             setStartWithFederalLens(false);
+            setRecalibrateTopicIds(null);
             setStartResumeCalibration(false);
             setStartAllTopics(false);
             // Start post-cal tour if not already dismissed
@@ -1520,40 +1600,101 @@ function CombinedPage() {
           <TabBar />
 
           {/* -------- lens switcher — always visible -------- */}
-          <div
-            ref={localLensRef}
-            className="w-full max-w-6xl mx-auto lg:px-4 mb-3 flex items-center gap-2 flex-wrap justify-center lg:justify-start"
-          >
-            <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 mr-0.5">Lens:</span>
-            {[FEDERAL_LENS, LOCAL_LENS, JUDICIAL_LENS].map((lens) => {
-              const active = activeLens?.key === lens.key;
-              const label = lens.key === 'federal' ? 'Federal' : lens.key === 'local' ? 'Local' : 'Judicial';
-              return (
-                <button
-                  key={lens.key}
-                  onClick={() => doStartLens(lens)}
-                  title={active ? `${lens.name} active — click to restore your compass` : lens.name}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all cursor-pointer hover:opacity-90 active:scale-95"
-                  style={active
-                    ? { background: lens.color, color: '#fff', borderColor: lens.color }
-                    : { background: 'transparent', color: lens.color, borderColor: lens.color }}
-                >
-                  {renderLensIcon(lens.key)}
-                  {label}
-                </button>
-              );
-            })}
-            <button
-              onClick={exitToCompass}
-              title="Show my full compass"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all cursor-pointer hover:opacity-90 active:scale-95"
-              style={!activeLens
-                ? { background: isDark ? '#52525b' : '#6B7280', color: '#fff', borderColor: isDark ? '#52525b' : '#6B7280' }
-                : { background: 'transparent', color: isDark ? '#a1a1aa' : '#6B7280', borderColor: isDark ? '#52525b' : '#d1d5db' }}
-            >
-              My compass
-            </button>
+          <div className="w-full flex flex-col items-center lg:items-start">
+            <LensSwitcher
+              ref={localLensRef}
+              lenses={allLenses}
+              activeLensKey={activeLensKey}
+              isDark={isDark}
+              onSelect={doStartLens}
+              onExit={exitToCompass}
+              renderChipExtra={(lens, active) => {
+                if (!active || !lens.key.startsWith("u_")) return null;
+                return (
+                  <span className="ml-1 inline-flex items-center gap-1">
+                    {activeLensDirty && (
+                      <button
+                        onClick={updateActiveLens}
+                        title="Save these spokes to this lens"
+                        data-testid="lens-update"
+                        className="px-2 py-1 text-[11px] font-bold rounded-full bg-violet-600 text-white cursor-pointer"
+                      >
+                        Update
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setRenameLensOpen(true)}
+                      title="Rename this lens"
+                      data-testid="lens-rename"
+                      className="px-1.5 py-1 text-[11px] text-gray-500 dark:text-zinc-400 hover:underline cursor-pointer"
+                    >
+                      Rename
+                    </button>
+                    <button
+                      onClick={deleteActiveLens}
+                      title="Delete this lens"
+                      data-testid="lens-delete"
+                      className="px-1.5 py-1 text-[11px] text-red-600 dark:text-red-400 hover:underline cursor-pointer"
+                    >
+                      Delete
+                    </button>
+                  </span>
+                );
+              }}
+            />
+            {activeLensKey === null && selectedTopics.length > 0 && (
+              <button
+                onClick={() => setSaveLensOpen(true)}
+                data-testid="save-view-as-lens"
+                className="-mt-1 mb-3 inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border border-dashed border-gray-400 dark:border-zinc-600 text-gray-500 dark:text-zinc-400 hover:opacity-80 cursor-pointer"
+              >
+                + Save this view
+              </button>
+            )}
           </div>
+
+          {openFlagTopicId && flagsByTopic.has(openFlagTopicId) && (
+            <RecalibrationPopover
+              flag={flagsByTopic.get(openFlagTopicId)}
+              topicTitle={topics.find((t) => t.id === openFlagTopicId)?.short_title || ""}
+              onRecalibrate={() => {
+                setRecalibrateTopicIds([openFlagTopicId]);
+                setCalibrationActive(true);
+                setOpenFlagTopicId(null);
+              }}
+              onClose={() => {
+                setDismissedFlags((prev) => new Set(prev).add(openFlagTopicId));
+                setOpenFlagTopicId(null);
+              }}
+            />
+          )}
+
+          {renameLensOpen && activeUserLens && (
+            <SaveLensModal
+              topicCount={activeUserLens.topicIds.length}
+              initialName={activeUserLens.name}
+              onClose={() => setRenameLensOpen(false)}
+              onSave={renameActiveLens}
+            />
+          )}
+
+          {saveLensOpen && (
+            <SaveLensModal
+              topicCount={selectedTopics.length}
+              onClose={() => setSaveLensOpen(false)}
+              onSave={async (name) => {
+                await saveUserLenses([
+                  ...userLenses,
+                  { key: generateLensKey(), name, topicIds: selectedTopics, visibility: "private" },
+                ]);
+                // 🔴 DO NOT setActiveLensKey HERE. The user is looking at their own
+                // compass; it merely happens to match the lens they just saved.
+                // Marking it active would reclassify the compass as a view, so it
+                // would stop being persisted and a preLensTopics that was never
+                // stashed would go out as `s` — the exact bug this branch removed.
+              }}
+            />
+          )}
 
           {/* -------- desktop 3-column layout: pills | chart | compare -------- */}
           <div className="hidden lg:block w-full relative">
@@ -1624,6 +1765,8 @@ function CombinedPage() {
                             onRemove={() => setSelectedTopics(prev => prev.filter(tid => tid !== id))}
                             onOpen={() => setDrawerTopic(topic)}
                             pillBg={pillBg}
+                            needsRecalibration={flagsByTopic.has(id)}
+                            onRecalibrate={() => setOpenFlagTopicId(id)}
                           />
                         );
                       })}

@@ -14,6 +14,7 @@ import { startDevServer } from "./server.mjs";
 import {
   loadCredentials, login, resetServerAnswers, putServerAnswer,
   getServerAnswers, setServerSelectedTopics,
+  getServerLenses, clearServerLenses,
 } from "./auth.mjs";
 
 /** Thrown by a scenario that cannot run here; reported as SKIP, not failure. */
@@ -21,6 +22,8 @@ class Skip extends Error {}
 
 const API = "/api/compass";
 const BROKER_ORIGIN = "https://ev-context.empowered.vote";
+// Absolute API base, for calls that must bypass the dev-server proxy.
+const AUTH_API = "https://accounts-api.empowered.vote/api";
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -68,6 +71,24 @@ const seedBuiltCompass = async (b, count = 8) =>
     localStorage.setItem('calibration_completed', 'true');
     return Object.keys(answers).length;
   })()`);
+
+/**
+ * Skip unless the custom-lens API is live.
+ *
+ * /compass/my-lenses ships in EV-Accounts #224. Until that deploys, the path does
+ * not match compassRouter and falls through to the admin router, which answers
+ * 403 "Admin access required" — a confusing failure that has nothing to do with
+ * the frontend under test. Skip loudly instead, so the reason is in the output
+ * rather than inferred from a stack trace.
+ */
+async function requireMyLensesApi(token) {
+  const res = await fetch(`${AUTH_API}/compass/my-lenses`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    throw new Skip(`/compass/my-lenses not deployed yet (HTTP ${res.status}) — EV-Accounts #224`);
+  }
+}
 
 // ------------------------------------------------------------------ scenarios
 
@@ -311,6 +332,12 @@ const scenarios = [
         ${JSON.stringify(own.map((t) => t.short_title))}.forEach((s, i) => { answers[s] = (i % 5) + 1; });
         localStorage.setItem('answers', JSON.stringify(answers));
         // A lens overlay is active; preLensTopics holds the real compass.
+        //
+        // activeLensKey is what MAKES a lens active — it is the explicit record
+        // of what the user chose to view, and it lives in sessionStorage because
+        // a lens is a per-tab choice. It used to be inferred from the topic set,
+        // which cannot survive user-authored lenses (lib/compassSync.js).
+        sessionStorage.setItem('activeLensKey', ${JSON.stringify(lens.key)});
         localStorage.setItem('selectedTopics', JSON.stringify(lensIds));
         localStorage.setItem('preLensTopics', JSON.stringify(own));
         localStorage.setItem('calibration_completed', 'true');
@@ -473,6 +500,330 @@ const scenarios = [
           `Authed answers are POSTed fire-and-forget, so a failure here is silent.`
       );
       return `${rows.length} answers persisted server-side`;
+    },
+  },
+
+  {
+    name: "lens-round-trip-restores-the-compass",
+    // Drives the real chips, because the transitions are what changed: doStartLens
+    // records activeLensKey and exitLensMode clears it, replacing an inference over
+    // the topic set. Every other lens scenario seeds storage directly and would not
+    // notice if the buttons stopped being wired up at all.
+    //
+    // Clicks by data-testid, not by button text. Text matching finds the "Federal
+    // Lens" OFFER card that CombinedPage renders elsewhere on the page, which opens
+    // calibration instead of switching lens — measured, not guessed.
+    async run(b, baseUrl) {
+      const lenses = await (await fetch(`${baseUrl}${API}/lenses`)).json();
+      const federal = (Array.isArray(lenses) ? lenses : []).find((l) => l.key === "federal");
+      const local = (Array.isArray(lenses) ? lenses : []).find((l) => l.key === "local");
+      assert(federal && local, "federal or local lens missing from /compass/lenses");
+
+      const topics = await (await fetch(`${baseUrl}${API}/topics`)).json();
+      const lensIds = new Set([...federal.topicIds, ...local.topicIds]);
+      const own = topics.filter((t) => !lensIds.has(t.id)).slice(0, 8);
+      assert(own.length === 8, "could not find 8 topics outside both lenses");
+      const ownIds = own.map((t) => t.id);
+      // Answer the lens questions too: switching to a lens with unanswered
+      // questions auto-routes to the calibration overlay, which replaces the page.
+      const answered = [...own, ...topics.filter((t) => lensIds.has(t.id))];
+
+      await b.navigate(`${baseUrl}/results`, { settleMs: 4000 });
+      await b.evaluate(`(() => {
+        localStorage.clear();
+        sessionStorage.clear();
+        const answers = {};
+        ${JSON.stringify(answered.map((t) => t.short_title))}.forEach((s, i) => { answers[s] = (i % 5) + 1; });
+        localStorage.setItem('answers', JSON.stringify(answers));
+        localStorage.setItem('selectedTopics', ${JSON.stringify(JSON.stringify(ownIds))});
+        localStorage.setItem('calibration_completed', 'true');
+      })()`);
+      await b.navigate(`${baseUrl}/results`, { settleMs: 8000 });
+
+      const clickChip = async (key) => {
+        const r = await b.evaluate(`(() => {
+          const el = document.querySelector('[data-testid="lens-chip-${key}"]');
+          if (!el) return 'NOT_FOUND';
+          el.click();
+          return 'OK';
+        })()`);
+        assert(r === "OK", `lens chip ${key} not found`);
+        await b.sleep(1000);
+      };
+
+      await clickChip("federal");
+      const inLens = await b.evaluate(`sessionStorage.getItem('activeLensKey')`);
+      assert(inLens === "federal", `after clicking Federal, activeLensKey is ${JSON.stringify(inLens)}`);
+      const stash = await b.evaluate(`JSON.parse(localStorage.getItem('preLensTopics') || 'null')`);
+      assert(
+        Array.isArray(stash) && stash.length === 8,
+        `entering a lens must stash the real compass; got ${JSON.stringify(stash)}`
+      );
+
+      // Lens to lens must NOT re-stash, or the real compass is buried behind two
+      // overlays and can never be restored.
+      await clickChip("local");
+      const stash2 = await b.evaluate(`JSON.parse(localStorage.getItem('preLensTopics') || 'null')`);
+      assert(
+        JSON.stringify(stash2) === JSON.stringify(stash),
+        `lens-to-lens overwrote the stashed compass: ${JSON.stringify(stash2)}`
+      );
+
+      await clickChip("my-compass");
+      const afterKey = await b.evaluate(`sessionStorage.getItem('activeLensKey')`);
+      assert(afterKey === null, `activeLensKey was not cleared on exit (got ${JSON.stringify(afterKey)})`);
+      const restored = await b.evaluate(`JSON.parse(localStorage.getItem('selectedTopics') || '[]')`);
+      assert(
+        restored.length === ownIds.length && restored.every((id) => ownIds.includes(id)),
+        `compass was not restored; got ${JSON.stringify(restored)}`
+      );
+      return "entered a lens, switched lens, and came back to the same compass";
+    },
+  },
+
+  {
+    name: "guest-can-save-a-lens",
+    // A guest's lenses live in localStorage and must NOT reach the shared
+    // ev-context payload — that is what keeps the broker payload-size question
+    // off this feature's critical path, so it is asserted, not assumed.
+    async run(b, baseUrl) {
+      await b.navigate(`${baseUrl}/results`, { settleMs: 4000 });
+      await b.evaluate(`(() => { localStorage.clear(); sessionStorage.clear(); })()`);
+      await seedBuiltCompass(b, 8);
+      await b.navigate(`${baseUrl}/results`, { settleMs: 8000 });
+
+      const opened = await b.evaluate(`(() => {
+        const el = document.querySelector('[data-testid="save-view-as-lens"]');
+        if (!el) return 'NOT_FOUND';
+        el.click();
+        return 'OK';
+      })()`);
+      assert(opened === "OK", "no '+ Save this view' affordance on the compass");
+      await b.sleep(700);
+
+      // React tracks the input's value on the DOM node, so setting .value
+      // directly is invisible to it — go through the native setter and fire the
+      // event React actually listens for.
+      await b.evaluate(`(() => {
+        const input = document.querySelector('[data-testid="lens-name-input"]');
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+        setter.call(input, 'Smoke lens');
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      })()`);
+      await b.sleep(300);
+      await b.evaluate(`document.querySelector('[data-testid="lens-save-confirm"]').click()`);
+      await b.sleep(1500);
+
+      const stored = await b.evaluate(`JSON.parse(localStorage.getItem('customLenses') || '[]')`);
+      assert(stored.length === 1, `expected 1 saved lens, got ${stored.length}`);
+      assert(/^u_[a-z0-9]{6}$/.test(stored[0].key), `bad lens key ${stored[0].key}`);
+      assert(stored[0].name === "Smoke lens", `lens name is ${JSON.stringify(stored[0].name)}`);
+      assert(
+        stored[0].topicIds.length === 8,
+        `lens captured ${stored[0].topicIds.length} topics, expected the compass's 8`
+      );
+
+      // Saving a lens must not activate it: the user is still looking at their
+      // own compass, which merely happens to match the lens they just saved.
+      const activeKey = await b.evaluate(`sessionStorage.getItem('activeLensKey')`);
+      assert(activeKey === null, `saving a lens activated it (activeLensKey=${activeKey})`);
+
+      // And the chip is now in the row.
+      const chip = await b.evaluate(
+        `!!document.querySelector('[data-testid="lens-chip-' + ${JSON.stringify("")} + JSON.parse(localStorage.getItem('customLenses'))[0].key + '"]')`
+      );
+      assert(chip, "the new lens did not appear in the switcher row");
+
+      return `saved "${stored[0].name}" as ${stored[0].key}`;
+    },
+  },
+
+  {
+    name: "guest-lenses-promote-on-sign-in",
+    // The whole point of letting guests build lenses: the work has to survive
+    // signing in. Promotion is one whole-set PUT, and local storage is cleared
+    // only after the server confirms — clearing state that was not confirmed
+    // written is how you lose a user's work to one bad response.
+    async run(b, baseUrl) {
+      const creds = loadCredentials();
+      if (!creds) throw new Skip("no SMOKE_EMAIL / SMOKE_PASSWORD available");
+      const token = await login(creds);
+      await requireMyLensesApi(token);
+      await clearServerLenses(token);
+
+      const topics = await (await fetch(`${baseUrl}${API}/topics`)).json();
+      const chosen = topics.slice(0, 8).map((t) => t.id);
+
+      await b.navigate(`${baseUrl}/results`, { settleMs: 4000 });
+      await b.evaluate(`(() => {
+        localStorage.clear();
+        sessionStorage.clear();
+        localStorage.setItem('selectedTopics', ${JSON.stringify(JSON.stringify(chosen))});
+        localStorage.setItem('calibration_completed', 'true');
+        localStorage.setItem('customLenses', JSON.stringify([{
+          key: 'u_smoke1', name: 'Promoted lens',
+          topicIds: ${JSON.stringify(JSON.stringify(chosen))} && JSON.parse(${JSON.stringify(JSON.stringify(chosen))}),
+          visibility: 'private',
+        }]));
+      })()`);
+
+      // Sign in the way every other authed scenario does.
+      await b.evaluate(`localStorage.setItem('ev_token', ${JSON.stringify(token)})`);
+      await b.navigate(`${baseUrl}/results`, { settleMs: 14000 });
+
+      const server = await getServerLenses(token);
+      assert(
+        server.some((l) => l.name === "Promoted lens"),
+        `promoted lens missing from the server; got ${JSON.stringify(server.map((l) => l.name))}`
+      );
+
+      const local = await b.evaluate(`localStorage.getItem('customLenses')`);
+      assert(local === null, `guest lenses were not cleared after promotion (still ${local})`);
+
+      await clearServerLenses(token);
+      return `promoted 1 lens for ${creds.email}`;
+    },
+  },
+
+  {
+    name: "guest-can-edit-and-delete-a-lens",
+    // Editing is "activate, rearrange, Update" — there is no separate editor. The
+    // thing worth pinning is that browsing a lens does NOT rewrite it: leaving
+    // with unsaved spoke changes must discard them, or every visit silently
+    // redefines the lens the user made.
+    async run(b, baseUrl) {
+      const topics = await (await fetch(`${baseUrl}${API}/topics`)).json();
+      const eight = topics.slice(0, 8).map((t) => t.id);
+      const seven = eight.slice(0, 7);
+
+      await b.navigate(`${baseUrl}/results`, { settleMs: 4000 });
+      await b.evaluate(`(() => {
+        localStorage.clear();
+        sessionStorage.clear();
+        const answers = {};
+        ${JSON.stringify(topics.slice(0, 8).map((t) => t.short_title))}
+          .forEach((s, i) => { answers[s] = (i % 5) + 1; });
+        localStorage.setItem('answers', JSON.stringify(answers));
+        localStorage.setItem('selectedTopics', ${JSON.stringify(JSON.stringify(eight))});
+        localStorage.setItem('calibration_completed', 'true');
+        localStorage.setItem('customLenses', JSON.stringify([{
+          key: 'u_edit01', name: 'Editable', visibility: 'private',
+          topicIds: JSON.parse(${JSON.stringify(JSON.stringify(eight))}),
+        }]));
+      })()`);
+      await b.navigate(`${baseUrl}/results`, { settleMs: 8000 });
+
+      // Activate it, then shrink the on-screen spokes WITHOUT pressing Update.
+      await b.evaluate(`document.querySelector('[data-testid="lens-chip-u_edit01"]').click()`);
+      await b.sleep(1000);
+      await b.evaluate(`localStorage.setItem('selectedTopics', ${JSON.stringify(JSON.stringify(seven))})`);
+      await b.evaluate(`document.querySelector('[data-testid="lens-chip-my-compass"]').click()`);
+      await b.sleep(1000);
+
+      const untouched = await b.evaluate(`JSON.parse(localStorage.getItem('customLenses'))[0]`);
+      assert(
+        untouched.topicIds.length === 8,
+        `browsing a lens rewrote it: now holds ${untouched.topicIds.length} topics, expected 8`
+      );
+
+      // Delete it. window.confirm has to be answered before the click.
+      await b.evaluate(`window.confirm = () => true`);
+      await b.evaluate(`document.querySelector('[data-testid="lens-chip-u_edit01"]').click()`);
+      await b.sleep(900);
+      const del = await b.evaluate(`(() => {
+        const el = document.querySelector('[data-testid="lens-delete"]');
+        if (!el) return 'NOT_FOUND';
+        el.click();
+        return 'OK';
+      })()`);
+      assert(del === "OK", "no Delete action on the active user lens chip");
+      await b.sleep(1200);
+
+      const after = await b.evaluate(`JSON.parse(localStorage.getItem('customLenses') || '[]')`);
+      assert(after.length === 0, `lens survived deletion: ${JSON.stringify(after)}`);
+      const key = await b.evaluate(`sessionStorage.getItem('activeLensKey')`);
+      assert(key === null, `deleting the active lens left activeLensKey=${key}`);
+
+      return "unsaved edits discarded, lens deleted, compass restored";
+    },
+  },
+
+  {
+    name: "recalibration-prompt-renders",
+    // No topic in the OPEN season is stale today — every answer resolves to the
+    // version its season serves, so the API correctly returns no flags. Rather
+    // than wait for a season rollover to find out whether this renders, seed a
+    // lens that already carries needsRecalibration. The client does not compute
+    // staleness; it renders what the server decided, so a seeded flag exercises
+    // exactly the code that will run.
+    async run(b, baseUrl) {
+      const topics = await (await fetch(`${baseUrl}${API}/topics`)).json();
+      const eight = topics.slice(0, 8);
+      const flagged = eight[2];
+      const NOTE = "Rewrote the five options in plainer language.";
+
+      await b.navigate(`${baseUrl}/results`, { settleMs: 4000 });
+      await b.evaluate(`(() => {
+        localStorage.clear();
+        sessionStorage.clear();
+        const answers = {};
+        ${JSON.stringify(eight.map((t) => t.short_title))}.forEach((s, i) => { answers[s] = (i % 5) + 1; });
+        localStorage.setItem('answers', JSON.stringify(answers));
+        localStorage.setItem('selectedTopics', ${JSON.stringify(JSON.stringify(eight.map((t) => t.id)))});
+        localStorage.setItem('calibration_completed', 'true');
+        localStorage.setItem('customLenses', JSON.stringify([{
+          key: 'u_flag01', name: 'Flagged', visibility: 'private',
+          topicIds: JSON.parse(${JSON.stringify(JSON.stringify(eight.map((t) => t.id)))}),
+          needsRecalibration: [{
+            topicId: ${JSON.stringify(flagged.id)},
+            reason: 'question_revised',
+            currentValue: 3,
+            publicNote: ${JSON.stringify(NOTE)},
+            answeredVersion: 1,
+            effectiveVersion: 2,
+          }],
+        }]));
+      })()`);
+      await b.navigate(`${baseUrl}/results`, { settleMs: 8000 });
+
+      // The count badge rides on the chip even before the lens is opened.
+      const badge = await b.evaluate(
+        `(document.querySelector('[data-testid="lens-flags-u_flag01"]') || {}).textContent || null`
+      );
+      assert(badge === "1", `expected a "1" flag badge on the chip, got ${JSON.stringify(badge)}`);
+
+      await b.evaluate(`document.querySelector('[data-testid="lens-chip-u_flag01"]').click()`);
+      await b.sleep(1200);
+
+      const marker = await b.evaluate(`(() => {
+        const el = document.querySelector('[data-testid="recalibrate-marker-${flagged.id}"]');
+        if (!el) return 'NOT_FOUND';
+        el.click();
+        return 'OK';
+      })()`);
+      assert(marker === "OK", `no recalibration marker on the flagged topic "${flagged.short_title}"`);
+      await b.sleep(700);
+
+      const text = await b.evaluate(
+        `(document.querySelector('[data-testid="recalibration-popover"]') || {}).textContent || ''`
+      );
+      assert(text.includes("This question was updated"), `popover copy wrong: ${JSON.stringify(text.slice(0, 120))}`);
+      assert(
+        text.includes(NOTE),
+        "publicNote must be rendered verbatim — it is editorial's own wording"
+      );
+
+      // Later dismisses for the session, and only for the session.
+      await b.evaluate(`document.querySelector('[data-testid="recalibrate-later"]').click()`);
+      await b.sleep(600);
+      const gone = await b.evaluate(`!document.querySelector('[data-testid="recalibration-popover"]')`);
+      assert(gone, "popover did not close on Later");
+      const markerGone = await b.evaluate(
+        `!document.querySelector('[data-testid="recalibrate-marker-${flagged.id}"]')`
+      );
+      assert(markerGone, "marker should be dismissed for this session after Later");
+
+      return `flag rendered and dismissed for "${flagged.short_title}"`;
     },
   },
 ];

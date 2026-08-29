@@ -2,7 +2,12 @@
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
 import { extractHashToken, getToken, setToken, apiFetch, publicFetch, clearToken, API_BASE } from '../lib/auth';
 import { evContext } from '@empoweredvote/ev-ui';
-import { isLensTopicSet, LENSES, normalizeApiLens } from '../lib/lenses';
+import { LENSES, normalizeApiLens } from '../lib/lenses';
+import { shouldSyncCompass, compassToPublish } from '../lib/compassSync';
+import {
+  readGuestLenses, writeGuestLenses, clearGuestLenses,
+  mergeLensSets, regenerateConflictingKeys, toPutPayload,
+} from '../lib/userLenses';
 
 function safeParse(str, fallback) {
   try {
@@ -69,6 +74,38 @@ export function CompassProvider({ children }) {
   // Compass lenses — live source of truth is GET /compass/lenses; constants are
   // the offline fallback until the fetch resolves.
   const [lenses, setLenses] = useState(LENSES);
+
+  // Which lens is currently being viewed; null means "the user's own compass".
+  //
+  // 🔴 THIS REPLACES AN INFERENCE, AND THE INFERENCE WAS THE BUG. Activation used
+  // to be derived by testing whether every selected topic belonged to some lens
+  // (isLensTopicSet / lensIsActive). That works only while lenses are curated sets
+  // of topics the user did not choose. A USER lens is built from the user's own
+  // topics, so "save my compass as a lens" makes the user's compass match a lens
+  // by definition — and the derived answer becomes "a lens is active" while they
+  // are looking at their own compass. Everything downstream then treats the real
+  // compass as a disposable view: it is not persisted, and a stale preLensTopics
+  // goes out as `s`. That is the #68/#71 silent-non-persistence bug, structural.
+  //
+  // sessionStorage, not localStorage: a lens is a per-tab view choice, and two
+  // tabs may legitimately show different lenses. It survives a reload so that a
+  // refresh inside a lens does not silently reinterpret the topic set.
+  const [activeLensKey, setActiveLensKeyState] = useState(
+    () => sessionStorage.getItem("activeLensKey") || null
+  );
+  const setActiveLensKey = useCallback((key) => {
+    setActiveLensKeyState(key);
+    if (key) sessionStorage.setItem("activeLensKey", key);
+    else sessionStorage.removeItem("activeLensKey");
+  }, []);
+
+  // The user's own lenses. Guests keep them in localStorage and they never enter
+  // the shared ev-context payload — that is deliberate, and it is what keeps the
+  // broker payload-size question off this feature's critical path. Signed-in
+  // users read them from the API, which also carries needsRecalibration; a guest
+  // cannot have that, because staleness is computed from the revision an answer
+  // was stamped against and only the server knows it.
+  const [userLenses, setUserLenses] = useState(() => readGuestLenses());
   const [answers, setAnswers] = useState(
     () => safeParse(localStorage.getItem("answers"), {})
   );
@@ -201,13 +238,17 @@ export function CompassProvider({ children }) {
     // Compass already refuses to persist a lens as selected_topic_ids on the
     // server (see the sync effect below); this applies the same rule one layer
     // out. Other apps keep their own lens selection and do not want ours.
-    const lensActive = isLensTopicSet(selectedTopics, lenses);
-    const preLensTopics = lensActive
-      ? safeParse(localStorage.getItem("preLensTopics"), null)
-      : null;
-    const ownCompass = Array.isArray(preLensTopics) && preLensTopics.length > 0
-      ? preLensTopics
-      : selectedTopics;
+    //
+    // `activeLensKey` is the FACT. This used to be inferred from the topic set,
+    // which cannot survive user lenses — see the state declaration above.
+    const lensActive = !!activeLensKey;
+    const ownCompass = compassToPublish({
+      activeLensKey,
+      selectedTopics,
+      preLensTopics: lensActive
+        ? safeParse(localStorage.getItem("preLensTopics"), null)
+        : null,
+    });
 
     // Answers cover the user's compass AND any active lens, so a lens the user
     // just calibrated here still renders in another app that chose that lens
@@ -250,7 +291,7 @@ export function CompassProvider({ children }) {
     const next = { ...evContextCacheRef.current, compass };
     evContextCacheRef.current = next;
     evContext.set(next).catch(() => {});
-  }, [authChecking, isLoggedIn, userId, answers, selectedTopics, invertedSpokes, writeIns, topics, clearedAt, lenses]);
+  }, [authChecking, isLoggedIn, userId, answers, selectedTopics, invertedSpokes, writeIns, topics, clearedAt, activeLensKey]);
 
   // Authed SWR hydrate (260426-mc5): when we learn the userId, read the
   // authed slice and seed local state. The /compass/answers fetch elsewhere
@@ -511,6 +552,96 @@ export function CompassProvider({ children }) {
     }
   };
 
+
+  // ------------------------------------------------------------------ user lenses
+
+  const refreshUserLenses = useCallback(async () => {
+    if (!isLoggedIn) { setUserLenses(readGuestLenses()); return; }
+    try {
+      const res = await apiFetch('/compass/my-lenses');
+      const data = res ? await res.json() : [];
+      setUserLenses(Array.isArray(data) ? data : []);
+    } catch (err) {
+      // Custom lenses are additive. Their absence must never break the compass.
+      console.error('[compass] could not load custom lenses:', err);
+    }
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    if (authChecking) return;
+    refreshUserLenses();
+  }, [authChecking, isLoggedIn, refreshUserLenses]);
+
+  /**
+   * Persist the whole lens set. Whole-set replace rather than per-lens CRUD
+   * because that is how the client holds them: a guest builds lenses with no
+   * server round-trip, and sign-in promotes the collection in one request.
+   */
+  const saveUserLenses = useCallback(async (next) => {
+    setUserLenses(next);                       // optimistic — the user just acted
+    if (!isLoggedIn) { writeGuestLenses(next); return; }
+
+    const res = await apiFetch('/compass/my-lenses', {
+      method: 'PUT',
+      body: JSON.stringify(toPutPayload(next)),
+    });
+    if (res && res.status === 422) {
+      // Should be unreachable: topic ids come from the loaded topic set. If it
+      // happens the client holds an id the server has never heard of, which is
+      // worth saying loudly rather than showing a generic failure.
+      const body = await res.json().catch(() => ({}));
+      console.error('[compass] server rejected lens topics:', body.code, body.invalid_ids);
+    }
+    if (!res || !res.ok) {
+      // Keep the local state. Never drop a lens the user just made because one
+      // request failed; the next save retries the whole set.
+      throw new Error(`saving lenses failed (${res ? res.status : 'no response'})`);
+    }
+    const saved = await res.json();
+    if (Array.isArray(saved)) setUserLenses(saved);
+  }, [isLoggedIn]);
+
+  // Guest -> signed-in: fold whatever this browser holds into the account, once.
+  const promotedRef = useRef(false);
+  useEffect(() => {
+    if (authChecking || !isLoggedIn || promotedRef.current) return;
+    const local = readGuestLenses();
+    if (local.length === 0) { promotedRef.current = true; return; }
+    promotedRef.current = true;
+
+    (async () => {
+      try {
+        const res = await apiFetch('/compass/my-lenses');
+        const server = res ? await res.json() : [];
+        let merged = mergeLensSets(Array.isArray(server) ? server : [], local);
+
+        let put = await apiFetch('/compass/my-lenses', {
+          method: 'PUT', body: JSON.stringify(toPutPayload(merged)),
+        });
+
+        if (put && put.status === 409) {
+          // Another account already holds one of these randomly generated keys.
+          // Regenerate exactly those and retry ONCE — never loop.
+          const body = await put.json().catch(() => ({}));
+          merged = regenerateConflictingKeys(merged, body.conflicting_keys);
+          put = await apiFetch('/compass/my-lenses', {
+            method: 'PUT', body: JSON.stringify(toPutPayload(merged)),
+          });
+        }
+        if (!put || !put.ok) throw new Error(`promotion failed (${put ? put.status : 'no response'})`);
+
+        const saved = await put.json();
+        if (Array.isArray(saved)) setUserLenses(saved);
+        // Only now. Clearing local state that was not confirmed written is how
+        // you lose a user's work to one bad response.
+        clearGuestLenses();
+      } catch (err) {
+        console.error('[compass] lens promotion failed; keeping the local copy:', err);
+        promotedRef.current = false;           // let a later load try again
+      }
+    })();
+  }, [authChecking, isLoggedIn]);
+
   const retryLoadTopics = () => {
     setTopicsError(false);
     refreshData();
@@ -572,18 +703,21 @@ export function CompassProvider({ children }) {
   useEffect(() => {
     localStorage.setItem("selectedTopics", JSON.stringify(selectedTopics));
 
-    // Don't sync back to server until we've loaded from it first
-    if (!serverLoaded.current) return;
-
-    // Don't sync to server for guests
-    if (!isLoggedIn) return;
-
-    // A lens (Local/Judicial) is a VIEW overlay, not the user's chosen compass.
-    // Never persist a lens set as selected_topic_ids — doing so clobbers the user's
-    // real compass on the server and makes consumers (e.g. essentials) unable to
-    // distinguish "my compass" from "the lens". The lens still renders locally; we
-    // just leave the server's saved compass untouched while it's active.
-    if (isLensTopicSet(selectedTopics, lenses)) return;
+    // A lens is a VIEW overlay, not the user's chosen compass. Never persist a
+    // lens set as selected_topic_ids — doing so clobbers the user's real compass
+    // on the server and makes consumers (e.g. essentials) unable to distinguish
+    // "my compass" from "the lens". The lens still renders locally; we just leave
+    // the server's saved compass untouched while it's active.
+    //
+    // Reads the explicit key rather than inferring from the topic set. Under the
+    // old inference, a user whose compass happened to match a lens stopped having
+    // their compass saved at all — silently, and permanently. The rule is a pure
+    // function so it can be tested directly; see lib/compassSync.test.js.
+    if (!shouldSyncCompass({
+      serverLoaded: serverLoaded.current,
+      isLoggedIn,
+      activeLensKey,
+    })) return;
 
     // Debounce server sync to avoid rapid calls during topic toggling
     clearTimeout(syncTimer.current);
@@ -593,7 +727,7 @@ export function CompassProvider({ children }) {
         body: JSON.stringify({ topic_ids: selectedTopics }),
       }).catch(() => {});
     }, 500);
-  }, [selectedTopics, isLoggedIn, lenses]);
+  }, [selectedTopics, isLoggedIn, activeLensKey]);
 
   // Cross-app logout sync — detect ev_session cookie cleared by another app
   useEffect(() => {
@@ -629,6 +763,11 @@ export function CompassProvider({ children }) {
         selectedTopics,
         setSelectedTopics: setSelected,
         lenses,
+        activeLensKey,
+        setActiveLensKey,
+        userLenses,
+        saveUserLenses,
+        refreshUserLenses,
         answers,
         setAnswers,
         writeIns,
