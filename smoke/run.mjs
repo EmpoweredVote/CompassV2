@@ -311,6 +311,12 @@ const scenarios = [
         ${JSON.stringify(own.map((t) => t.short_title))}.forEach((s, i) => { answers[s] = (i % 5) + 1; });
         localStorage.setItem('answers', JSON.stringify(answers));
         // A lens overlay is active; preLensTopics holds the real compass.
+        //
+        // activeLensKey is what MAKES a lens active — it is the explicit record
+        // of what the user chose to view, and it lives in sessionStorage because
+        // a lens is a per-tab choice. It used to be inferred from the topic set,
+        // which cannot survive user-authored lenses (lib/compassSync.js).
+        sessionStorage.setItem('activeLensKey', ${JSON.stringify(lens.key)});
         localStorage.setItem('selectedTopics', JSON.stringify(lensIds));
         localStorage.setItem('preLensTopics', JSON.stringify(own));
         localStorage.setItem('calibration_completed', 'true');

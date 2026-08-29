@@ -13,7 +13,7 @@ import CoachMark from "../components/CoachMark";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useLocation } from "react-router";
 import { useTheme } from "../ThemeProvider";
-import { LOCAL_LENS as LOCAL_LENS_DEFAULT, JUDICIAL_LENS as JUDICIAL_LENS_DEFAULT, FEDERAL_LENS as FEDERAL_LENS_DEFAULT, isLensTopicSet } from "../lib/lenses";
+import { LOCAL_LENS as LOCAL_LENS_DEFAULT, JUDICIAL_LENS as JUDICIAL_LENS_DEFAULT, FEDERAL_LENS as FEDERAL_LENS_DEFAULT } from "../lib/lenses";
 import { tierFromDistrictType } from "../hooks/useFilteredPoliticians";
 import { getQuestionText, parseTensionTitle } from "../util/topic";
 import { TopicTierBadge } from "@empoweredvote/ev-ui";
@@ -353,6 +353,8 @@ function CombinedPage() {
     selectedTopics,
     setSelectedTopics,
     lenses,
+    activeLensKey,
+    setActiveLensKey,
     categories,
     answers,
     setAnswers,
@@ -1172,11 +1174,19 @@ function CombinedPage() {
     [localLensTopicIds, topics, answers]
   );
   const localLensNotStarted = localLensRemaining === localLensTopicIds.length && localLensTopicIds.length > 0;
-  const lensIsActive = (lens) => selectedTopics.length > 0 && selectedTopics.every(id => lens.topicIds.includes(id));
-  const localLensActive = lensIsActive(LOCAL_LENS);
-  const judicialLensActive = lensIsActive(JUDICIAL_LENS);
-  const federalLensActive = lensIsActive(FEDERAL_LENS);
-  const activeLens = localLensActive ? LOCAL_LENS : (judicialLensActive ? JUDICIAL_LENS : (federalLensActive ? FEDERAL_LENS : null));
+  // Every lens the switcher can offer. User-authored lenses join this list when
+  // the builder lands; the lookup below is already keyed, not positional.
+  const allLenses = [FEDERAL_LENS, LOCAL_LENS, JUDICIAL_LENS];
+  // Activation is the explicit key, never a property of the topic set — a user
+  // lens is built from the user's own topics, so "these topics all belong to a
+  // lens" stops meaning "a lens is showing". See lib/compassSync.js.
+  const lensIsActive = (lens) => activeLensKey === lens.key;
+  const localLensActive = activeLensKey === LOCAL_LENS.key;
+  const judicialLensActive = activeLensKey === JUDICIAL_LENS.key;
+  const federalLensActive = activeLensKey === FEDERAL_LENS.key;
+  const activeLens = activeLensKey
+    ? (allLenses.find((l) => l.key === activeLensKey) ?? null)
+    : null;
   const pillBg = activeLens ? activeLens.color : (isDark ? '#52525b' : '#6B7280');
 
   // "Federal lens calibrated" = the user has a real stance on all 8 federal topics.
@@ -1239,9 +1249,11 @@ function CombinedPage() {
       const preLens = JSON.parse(localStorage.getItem("preLensTopics") || "null");
       if (Array.isArray(preLens) && preLens.length > 0) {
         localStorage.removeItem("preLensTopics");
+        setActiveLensKey(null);
         return preLens;
       }
     } catch { /* corrupt or unreadable localStorage — fall back to the default */ }
+    setActiveLensKey(null);
     return selectedTopics;
   };
 
@@ -1259,7 +1271,11 @@ function CombinedPage() {
     }
     // Save current topics as pre-lens — but never stash one lens over another
     // (that would lose the user's real compass behind two lens layers).
-    if (selectedTopics.length > 0 && !isLensTopicSet(selectedTopics, lenses)) {
+    // Only ever stash when leaving the user's OWN compass. Switching lens to lens
+    // must not overwrite the stash — that buries the real compass behind two
+    // overlays and it can never be restored. With an explicit key this is a
+    // direct test rather than a guess about the topic set.
+    if (!activeLensKey && selectedTopics.length > 0) {
       localStorage.setItem("preLensTopics", JSON.stringify(selectedTopics));
     }
     // Restore this lens's saved order (validated to its IDs) or fall back to default
@@ -1273,6 +1289,7 @@ function CombinedPage() {
       }
     } catch { /* corrupt or unreadable localStorage — fall back to the default */ }
     setSelectedTopics(lensTopics);
+    setActiveLensKey(lens.key);
     // If all lens topics already answered, mark calibration complete to block the overlay
     if (!calibrationCompleted) {
       const allAnswered = lensTopics.every(id => {
@@ -1328,11 +1345,12 @@ function CombinedPage() {
       !localLensActive && !judicialLensActive && !federalLensActive
     ) {
       // Overlay the Federal lens over the user's compass (restorable on exit).
-      if (selectedTopics.length > 0 && !isLensTopicSet(selectedTopics, lenses)) {
+      if (!activeLensKey && selectedTopics.length > 0) {
         localStorage.setItem("preLensTopics", JSON.stringify(selectedTopics));
       }
       const lensTopics = FEDERAL_LENS.topicIds.filter(id => topics.some(t => t.id === id)).slice(0, MAX_TOPICS);
       setSelectedTopics(lensTopics);
+      setActiveLensKey(FEDERAL_LENS.key);
       autoFederalRef.current = true;
     } else if (!polIsFederal && autoFederalRef.current && federalLensActive) {
       // Left the federal leader — restore the pre-lens compass.
