@@ -17,6 +17,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { useLocation } from "react-router";
 import { useTheme } from "../ThemeProvider";
 import { generateLensKey } from "../lib/userLenses";
+import { takeCalibrateKey, clearCalibrateKey, resolveCalibrateLens } from "../lib/calibrateParam";
 import { LOCAL_LENS as LOCAL_LENS_DEFAULT, JUDICIAL_LENS as JUDICIAL_LENS_DEFAULT, FEDERAL_LENS as FEDERAL_LENS_DEFAULT } from "../lib/lenses";
 import { tierFromDistrictType } from "../hooks/useFilteredPoliticians";
 import { getQuestionText, parseTensionTitle } from "../util/topic";
@@ -374,6 +375,7 @@ function CombinedPage() {
     activeLensKey,
     setActiveLensKey,
     userLenses,
+    userLensesLoaded,
     saveUserLenses,
     categories,
     answers,
@@ -517,6 +519,16 @@ function CombinedPage() {
     return flag;
   });
 
+  // ── ?calibrate=<lensKey> arrival (from the Essentials lens CTA) ────────
+  // Read once, synchronously, before any calibration effect can fire. Until it
+  // is handled, `calibratePending` holds the automatic calibration routing below
+  // so the overlay cannot mount with the generic settings first — it computes
+  // its opening step ONCE on mount, so a lens supplied afterwards is ignored and
+  // the user gets a generic calibration instead of the lens they asked for.
+  const [pendingCalibrateKey] = useState(() => takeCalibrateKey());
+  const [calibrateHandled, setCalibrateHandled] = useState(false);
+  const calibratePending = !!pendingCalibrateKey && !calibrateHandled;
+
   // calibrationActive: overlay is currently in progress — stays true even if answeredCompassCount changes mid-flow
   const [calibrationActive, setCalibrationActive] = useState(
     () => !!localStorage.getItem("calibration_progress") || startWithLocalLens || startWithJudicialLens || startWithFederalLens || startResumeCalibration || startAllTopics
@@ -559,20 +571,22 @@ function CombinedPage() {
 
   // Start calibration when needed — but once active, it stays active until onComplete/onSkip
   useEffect(() => {
+    if (calibratePending) return; // a lens arrival decides how this opens
     if (needsCalibration && !calibrationActive) {
       setCalibrationActive(true);
     }
-  }, [needsCalibration, calibrationActive]);
+  }, [needsCalibration, calibrationActive, calibratePending]);
 
   // Auto-route to CalibrationOverlay whenever there aren't enough answered topics.
   // Don't show a partial/broken compass — always send them into Compass Construction.
   // Only skip if the user explicitly clicked "Skip for now" (calibrationSkipped).
   useEffect(() => {
+    if (calibratePending) return; // a lens arrival decides how this opens
     if (topicsLoaded && !showChart && !calibrationActive && !calibrationSkipped) {
       setStartAtPick(selectedTopics.length > 0);
       setCalibrationActive(true);
     }
-  }, [topicsLoaded, showChart, calibrationActive, calibrationSkipped, selectedTopics.length]);
+  }, [topicsLoaded, showChart, calibrationActive, calibrationSkipped, selectedTopics.length, calibratePending]);
 
   // Show overlay when active (stays shown even as answers change mid-flow)
   const showCalibration = calibrationActive;
@@ -1384,6 +1398,42 @@ function CombinedPage() {
       }
     }
   };
+
+  // Act on a ?calibrate=<lensKey> arrival, once topics AND lenses have settled.
+  //
+  // Waits for userLensesLoaded because a u_ key cannot resolve until
+  // /compass/my-lenses returns; resolving early would read a `u_` arrival as an
+  // unknown lens and drop it. The flag is set when that fetch SETTLES, not when
+  // it succeeds, so a failed fetch ends the wait instead of hanging it.
+  //
+  // An unresolvable key (someone else's lens, or one deleted since Essentials
+  // linked to it) is consumed and ignored — the user simply gets an ordinary
+  // arrival, which beats being told on landing that their lens is gone.
+  useEffect(() => {
+    if (!calibratePending) return;
+    if (!topicsLoaded || !userLensesLoaded) return;
+
+    const resolved = resolveCalibrateLens(pendingCalibrateKey, allLenses, topics);
+    clearCalibrateKey();
+    setCalibrateHandled(true);
+    if (!resolved) return;
+
+    // Apply the lens first: they asked to calibrate THIS lens, so it should be
+    // the one showing when they finish. doStartLens owns the preLensTopics stash
+    // (see #71) — never reimplement that here.
+    if (activeLensKey !== resolved.lens.key) doStartLens(resolved.lens);
+
+    // If a calibration was already mid-flight (calibration_progress restored the
+    // overlay before this ran) the lens is still applied, but that in-progress
+    // run finishes on its own terms rather than being discarded under the user.
+    if (calibrationActive) return;
+
+    setRecalibrateTopicIds(resolved.topicIds);
+    setCalibrationActive(true);
+  // doStartLens is redefined every render; depending on it would re-run this
+  // on every render. The calibratePending guard is what makes it run once.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [calibratePending, topicsLoaded, userLensesLoaded, pendingCalibrateKey, allLenses, topics, activeLensKey, calibrationActive]);
 
   // Back-compat alias for the Local Lens callers.
   const doStartLocalLens = () => doStartLens(LOCAL_LENS);

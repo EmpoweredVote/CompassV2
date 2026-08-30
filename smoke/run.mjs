@@ -826,6 +826,91 @@ const scenarios = [
       return `flag rendered and dismissed for "${flagged.short_title}"`;
     },
   },
+
+  {
+    name: "calibrate-param-opens-the-named-lens",
+    // Essentials has linked here as /?calibrate=<key>&return=<url> since the
+    // Federal Lens shipped, and this app never read the param — App.jsx parsed
+    // only `return`, so the "Calibrate this lens" CTA landed on a generic
+    // Compass with nothing selected.
+    //
+    // Two things can silently break this and neither shows up in a unit test:
+    //   1. HelpGuard sends an uncalibrated visitor from / to /results with a
+    //      <Navigate>, which DROPS the query string — and an uncalibrated
+    //      visitor is exactly who this link is usually for.
+    //   2. CalibrationOverlay computes its opening step ONCE on mount. If the
+    //      generic auto-route fires first, the lens topics are ignored and the
+    //      user gets the welcome screen instead of the lens's questions.
+    // Both are asserted below by driving a real fresh arrival.
+    async run(b, baseUrl) {
+      const lenses = await (await fetch(`${baseUrl}${API}/lenses`)).json();
+      const federal = (Array.isArray(lenses) ? lenses : []).find((l) => l.key === "federal");
+      assert(federal, "federal lens missing from /compass/lenses");
+
+      const topics = await (await fetch(`${baseUrl}${API}/topics`)).json();
+      const federalTitles = topics
+        .filter((t) => federal.topicIds.includes(t.id))
+        .map((t) => t.short_title);
+      assert(federalTitles.length > 0, "no federal lens topics resolved against /topics");
+
+      const RETURN = "https://essentials.empowered.vote/me";
+
+      // A brand new visitor: nothing calibrated, so HelpGuard WILL redirect.
+      await b.navigate(`${baseUrl}/results`, { settleMs: 3000 });
+      await b.evaluate(`(() => { localStorage.clear(); sessionStorage.clear(); })()`);
+
+      await b.navigate(
+        `${baseUrl}/?calibrate=federal&return=${encodeURIComponent(RETURN)}`,
+        { settleMs: 9000 }
+      );
+
+      // The param is consumed out of the URL so a refresh does not replay it...
+      const search = await b.evaluate(`window.location.search`);
+      assert(!search.includes("calibrate="), `?calibrate= was not stripped: ${JSON.stringify(search)}`);
+
+      // ...while `return` still reached ReturnBanner. Rewriting the whole query
+      // would consume it before that component mounts and silently kill the way
+      // back to Essentials — the one thing this link must not break.
+      const storedReturn = await b.evaluate(`sessionStorage.getItem('essentials_return_url')`);
+      assert(storedReturn === RETURN, `return url lost: ${JSON.stringify(storedReturn)}`);
+
+      // The named lens is applied, not just calibrated.
+      const key = await b.evaluate(`sessionStorage.getItem('activeLensKey')`);
+      assert(key === "federal", `activeLensKey after a ?calibrate= arrival is ${JSON.stringify(key)}`);
+
+      // Straight to questions. A fresh guest normally lands on the welcome
+      // screen ("calibrate your compass" / "Start with Local Lens") — seeing it
+      // here means the generic auto-route won the race and the lens was lost.
+      const welcome = await b.evaluate(
+        `document.body.innerText.includes('calibrate your compass')`
+      );
+      assert(!welcome, "generic calibration welcome screen won the race; the lens was ignored");
+
+      const sawStances = await b.waitFor(`${STANCE_BUTTONS}.length > 0`, { label: "stance buttons" });
+      assert(sawStances, "?calibrate= arrival never reached a question");
+
+      // And the questions it is asking belong to the lens.
+      const picked = await b.evaluate(`(() => {
+        const btns = ${STANCE_BUTTONS};
+        if (!btns.length) return false;
+        btns[0].click();
+        return true;
+      })()`);
+      assert(picked, "no stance buttons to answer");
+      await b.sleep(900);
+
+      const answers = await b.evaluate(`JSON.parse(localStorage.getItem('answers') || '{}')`);
+      const answered = Object.keys(answers);
+      assert(answered.length > 0, "answering the first question recorded nothing");
+      const strays = answered.filter((t) => !federalTitles.includes(t));
+      assert(
+        strays.length === 0,
+        `calibration asked questions outside the lens: ${strays.join(", ")}`
+      );
+
+      return `federal lens applied and calibrating, return url preserved`;
+    },
+  },
 ];
 
 // --------------------------------------------------------------------- runner

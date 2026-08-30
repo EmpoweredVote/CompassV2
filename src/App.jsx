@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { stashCalibrateKey } from "./lib/calibrateParam";
 import { Routes, Route, Navigate, useLocation } from "react-router";
 import { pageview, pageleave, identify } from "@empoweredvote/analytics";
 import Login from "./pages/Login";
@@ -35,6 +36,12 @@ function HelpGuard({ children }) {
     if (returnUrl) {
       sessionStorage.setItem("essentials_return_url", returnUrl);
     }
+    // Same for ?calibrate=, and for the same reason. This redirect unmounts the
+    // route before CombinedPage renders, so the lens-arrival handler there never
+    // sees the URL — and an uncalibrated visitor is precisely who the Essentials
+    // "Calibrate this lens" link is usually for, so without this the common case
+    // is the broken one.
+    stashCalibrateKey(window.location.search);
     return <Navigate to="/results" replace />;
   }
 
