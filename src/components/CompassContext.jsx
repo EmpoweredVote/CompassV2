@@ -106,6 +106,9 @@ export function CompassProvider({ children }) {
   // cannot have that, because staleness is computed from the revision an answer
   // was stamped against and only the server knows it.
   const [userLenses, setUserLenses] = useState(() => readGuestLenses());
+  // Whether refreshUserLenses has settled at least once. Guest lenses are read
+  // synchronously above, so this only ever gates on the authed fetch.
+  const [userLensesLoaded, setUserLensesLoaded] = useState(false);
   const [answers, setAnswers] = useState(
     () => safeParse(localStorage.getItem("answers"), {})
   );
@@ -556,7 +559,7 @@ export function CompassProvider({ children }) {
   // ------------------------------------------------------------------ user lenses
 
   const refreshUserLenses = useCallback(async () => {
-    if (!isLoggedIn) { setUserLenses(readGuestLenses()); return; }
+    if (!isLoggedIn) { setUserLenses(readGuestLenses()); setUserLensesLoaded(true); return; }
     try {
       const res = await apiFetch('/compass/my-lenses');
       const data = res ? await res.json() : [];
@@ -564,6 +567,11 @@ export function CompassProvider({ children }) {
     } catch (err) {
       // Custom lenses are additive. Their absence must never break the compass.
       console.error('[compass] could not load custom lenses:', err);
+    } finally {
+      // Settled, not succeeded. A ?calibrate=u_... arrival has to know when to
+      // stop waiting for a lens that may never arrive; without this it can only
+      // guess with a timeout, and a failed fetch would leave it guessing forever.
+      setUserLensesLoaded(true);
     }
   }, [isLoggedIn]);
 
@@ -784,6 +792,7 @@ export function CompassProvider({ children }) {
         refreshSelectedTopics,
         catLoaded,
         topicsLoaded,
+        userLensesLoaded,
         topicsError,
         retryLoadTopics,
         isLoggedIn,
