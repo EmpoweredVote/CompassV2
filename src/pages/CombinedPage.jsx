@@ -20,6 +20,7 @@ import { generateLensKey } from "../lib/userLenses";
 import { takeCalibrateKey, clearCalibrateKey, resolveCalibrateLens } from "../lib/calibrateParam";
 import { LOCAL_LENS as LOCAL_LENS_DEFAULT, JUDICIAL_LENS as JUDICIAL_LENS_DEFAULT, FEDERAL_LENS as FEDERAL_LENS_DEFAULT } from "../lib/lenses";
 import { tierFromDistrictType } from "../hooks/useFilteredPoliticians";
+import { ENTRY_REASONS } from "../lib/calibrationEvents";
 import { getQuestionText, parseTensionTitle } from "../util/topic";
 import { TopicTierBadge } from "@empoweredvote/ev-ui";
 import {
@@ -534,6 +535,18 @@ function CombinedPage() {
     () => !!localStorage.getItem("calibration_progress") || startWithLocalLens || startWithJudicialLens || startWithFederalLens || startResumeCalibration || startAllTopics
   );
 
+  // Why the overlay is on screen. Only this component knows: the overlay opens
+  // itself for anyone uncalibrated, so without this the analytics cannot tell
+  // "we showed this to someone" from "someone asked for it" — which is most of
+  // the landing-to-started drop in the funnel. Set alongside every
+  // setCalibrationActive(true); the initial value covers a resumed session,
+  // which arrives with progress already in localStorage and no gesture at all.
+  const [calibrationEntryReason, setCalibrationEntryReason] = useState(
+    () => (startWithLocalLens || startWithJudicialLens || startWithFederalLens
+      ? ENTRY_REASONS.LENS_LINK
+      : ENTRY_REASONS.AUTO_UNANSWERED)
+  );
+
   // Celebration screen edge case: if calibration_progress exists but all pickedTopics are already
   // answered (user refreshed on the "complete" celebration screen), skip celebration and go straight
   // to compass. This runs once after topics load.
@@ -573,9 +586,15 @@ function CombinedPage() {
   useEffect(() => {
     if (calibratePending) return; // a lens arrival decides how this opens
     if (needsCalibration && !calibrationActive) {
+      setCalibrationEntryReason(selectedTopics.length === 0
+        ? ENTRY_REASONS.AUTO_UNCALIBRATED
+        : ENTRY_REASONS.AUTO_UNANSWERED);
       setCalibrationActive(true);
     }
-  }, [needsCalibration, calibrationActive, calibratePending]);
+    // selectedTopics.length is read to label the entry reason. Re-running on it
+    // is harmless — the body is guarded by needsCalibration && !calibrationActive
+    // — and the sibling auto-route effect below already declares it.
+  }, [needsCalibration, calibrationActive, calibratePending, selectedTopics.length]);
 
   // Auto-route to CalibrationOverlay whenever there aren't enough answered topics.
   // Don't show a partial/broken compass — always send them into Compass Construction.
@@ -584,6 +603,9 @@ function CombinedPage() {
     if (calibratePending) return; // a lens arrival decides how this opens
     if (topicsLoaded && !showChart && !calibrationActive && !calibrationSkipped) {
       setStartAtPick(selectedTopics.length > 0);
+      setCalibrationEntryReason(selectedTopics.length === 0
+        ? ENTRY_REASONS.AUTO_UNCALIBRATED
+        : ENTRY_REASONS.AUTO_UNANSWERED);
       setCalibrationActive(true);
     }
   }, [topicsLoaded, showChart, calibrationActive, calibrationSkipped, selectedTopics.length, calibratePending]);
@@ -606,6 +628,7 @@ function CombinedPage() {
     setCalibrationSkipped(false);
     setCalibrationCompleted(false);
     setStartAtPick(false);
+    setCalibrationEntryReason(ENTRY_REASONS.USER_REQUESTED);
     setCalibrationActive(true);
   };
 
@@ -614,6 +637,7 @@ function CombinedPage() {
   // calibration_skipped — just opens the overlay at the pick step with existing topics pre-selected.
   const handleStartCalibrationFromBelow3 = () => {
     setStartAtPick(true);
+    setCalibrationEntryReason(ENTRY_REASONS.USER_REQUESTED);
     setCalibrationActive(true);
   };
 
@@ -1429,6 +1453,7 @@ function CombinedPage() {
     if (calibrationActive) return;
 
     setRecalibrateTopicIds(resolved.topicIds);
+    setCalibrationEntryReason(ENTRY_REASONS.LENS_LINK);
     setCalibrationActive(true);
   // doStartLens is redefined every render; depending on it would re-run this
   // on every render. The calibratePending guard is what makes it run once.
@@ -1485,6 +1510,7 @@ function CombinedPage() {
     setStartWithLocalLens(lens.key === 'local');
     setStartWithJudicialLens(lens.key === 'judicial');
     setStartWithFederalLens(lens.key === 'federal');
+    setCalibrationEntryReason(ENTRY_REASONS.USER_REQUESTED);
     setCalibrationActive(true);
   };
 
@@ -1556,6 +1582,7 @@ function CombinedPage() {
           startWithFederalLens={startWithFederalLens}
           startWithAllTopics={startAllTopics}
           startWithTopicIds={recalibrateTopicIds}
+          entryReason={calibrationEntryReason}
           onComplete={() => {
             localStorage.removeItem("calibration_skipped");
             localStorage.removeItem("calibration_progress");
@@ -1709,6 +1736,7 @@ function CombinedPage() {
               topicTitle={topics.find((t) => t.id === openFlagTopicId)?.short_title || ""}
               onRecalibrate={() => {
                 setRecalibrateTopicIds([openFlagTopicId]);
+                setCalibrationEntryReason(ENTRY_REASONS.USER_REQUESTED);
                 setCalibrationActive(true);
                 setOpenFlagTopicId(null);
               }}
@@ -1759,7 +1787,7 @@ function CombinedPage() {
                 </h2>
                 {uncalibratedCount > 0 && (
                   <button
-                    onClick={() => { setStartAtPick(false); setCalibrationActive(true); }}
+                    onClick={() => { setStartAtPick(false); setCalibrationEntryReason(ENTRY_REASONS.USER_REQUESTED); setCalibrationActive(true); }}
                     style={{ background: UNCALIBRATED_PURPLE }}
                     className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold text-white hover:opacity-90 cursor-pointer"
                   >
@@ -2063,7 +2091,7 @@ function CombinedPage() {
                 </h2>
                 {uncalibratedCount > 0 && (
                   <button
-                    onClick={() => { setStartAtPick(false); setCalibrationActive(true); }}
+                    onClick={() => { setStartAtPick(false); setCalibrationEntryReason(ENTRY_REASONS.USER_REQUESTED); setCalibrationActive(true); }}
                     style={{ background: UNCALIBRATED_PURPLE }}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white hover:opacity-90 transition-opacity cursor-pointer"
                   >

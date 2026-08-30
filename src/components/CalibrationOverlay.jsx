@@ -1,6 +1,16 @@
 // CalibrationOverlay.jsx
 import { useState, useEffect, useMemo, useRef } from "react";
 import { track } from "@empoweredvote/analytics";
+import {
+  STEPS,
+  EXIT_VIA,
+  eventsForOpen,
+  eventForGetStarted,
+  eventForAnswer,
+  eventForQuestionSkip,
+  eventForComplete,
+  eventForAbandon,
+} from "../lib/calibrationEvents.js";
 import { useTheme } from "../ThemeProvider";
 import { useCompass } from "./CompassContext";
 import { apiFetch } from "../lib/auth";
@@ -343,7 +353,7 @@ function BackArrow() {
 // Main component
 // ────────────────────────────────────────────────
 
-export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = false, startAtPick = false, startWithLocalLens = false, startWithJudicialLens = false, startWithFederalLens = false, startWithAllTopics = false, startWithTopicIds = null }) {
+export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = false, startAtPick = false, startWithLocalLens = false, startWithJudicialLens = false, startWithFederalLens = false, startWithAllTopics = false, startWithTopicIds = null, entryReason = "unknown" }) {
   const {
     topics,
     categories,
@@ -368,18 +378,39 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     : resumeMode ? 'resume'
     : 'default';
 
-  // Fire quiz_started once on mount
-  useEffect(() => {
-    track('compass_quiz_started', {
-      quiz_type: 'calibration',
+  // Analytics fire-once guards. Every one of these can be reached twice:
+  // StrictMode double-invokes effects in dev, a question can be re-answered
+  // before pressing Next, and an exit path can be re-entered after a Back.
+  // Double-counting any of them corrupts the very funnel this instruments.
+  const startReportedRef = useRef(false);
+  const reportedAnswers = useRef(new Set());
+  const reportedSkips = useRef(new Set());
+  const exitReportedRef = useRef(false);
+
+  const emit = ({ event, props }) => track(event, props);
+
+  // Calibration has begun. Fires either from the init effect (when the overlay
+  // opens past the welcome screen) or from the welcome/lens buttons.
+  // totalTopics is overridable because the lens buttons report a start in the
+  // same tick as setPickedTopics — the state has not landed yet.
+  const reportStart = (fromStep, totalTopics) => {
+    if (startReportedRef.current) return;
+    startReportedRef.current = true;
+    emit(eventForGetStarted({
+      fromStep,
+      totalTopics: totalTopics ?? pickedTopics.length,
       lens: lensType,
-      topic_count: startWithLocalLens || startWithJudicialLens || startWithFederalLens ? 8 : undefined,
-    });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    }));
+  };
 
   // Wrap onComplete to fire analytics before handing off
   const handleComplete = () => {
-    track('compass_calibration_completed', { lens: lensType });
+    exitReportedRef.current = true; // a completion is not an abandonment
+    emit(eventForComplete({
+      answeredCount,
+      totalTopics: pickedTopics.length,
+      lens: lensType,
+    }));
     onComplete();
   };
 
@@ -516,6 +547,23 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     if (initial.lens) setActiveLens(initial.lens);
     if (initial.lensApplied) setPrevPickedTopics(selectedTopics.slice(0, 8));
     initializedRef.current = true;
+
+    // The overlay is on screen. Reported from HERE, not from a mount effect,
+    // for two reasons: the entry step is unknown until topics have loaded, and
+    // the entry step is precisely what decides whether the overlay has merely
+    // appeared or has genuinely started. initializedRef also makes this
+    // fire-once for free, which a bare `[]` effect does not under StrictMode.
+    const openEvents = eventsForOpen({
+      entryStep: initial.step,
+      entryReason,
+      lens: lensType,
+      resume: resumeMode,
+      totalTopics: initial.pickedTopics.length,
+    });
+    for (const openEvent of openEvents) {
+      if (openEvent.event === "compass_calibration_started") startReportedRef.current = true;
+      emit(openEvent);
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [topics, resumeMode, startAtPick, startWithLocalLens, startWithJudicialLens, startWithFederalLens, startWithTopicIds]);
 
@@ -629,30 +677,54 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     return topics.find((t) => t.id === id) || null;
   }, [step, pickedTopics, currentIndex, topics]);
 
-  const answeredCount = useMemo(() => {
-    return pickedTopics.filter((id) => {
+  // Extracted so an event fired during setAnswers can count the answer being
+  // given: `answers` is still the previous render's map at that moment, so
+  // reporting `answeredCount` there would always be one behind.
+  const countAnswered = (answersMap) =>
+    pickedTopics.filter((id) => {
       const topic = topics.find((t) => t.id === id);
       if (!topic) return false;
-      const val = answers[topic.short_title];
+      const val = answersMap[topic.short_title];
       return val != null && val > 0;
     }).length;
-  }, [pickedTopics, topics, answers]);
+
+  const answeredCount = useMemo(
+    () => countAnswered(answers),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pickedTopics, topics, answers]
+  );
 
   // --- Handlers ---
 
   const handleGetStarted = () => {
+    reportStart(STEPS.WELCOME);
     setStep("pick");
   };
 
   const handleStartWithLens = () => {
     const lensIds = LOCAL_LENS.topicIds.filter(id => topics.some(t => t.id === id));
+    reportStart(STEPS.LENS_INTRO, lensIds.length);
     setPickedTopics(lensIds);
     setLensApplied(true);
     setActiveLens(LOCAL_LENS);
     setStep("lens_intro");
   };
 
-  const handleSkip = () => {
+  /**
+   * Leave without a compass. Callers MUST say where from and how: this has
+   * three of them — the welcome dismiss, the pick dismiss, and the Back arrow
+   * on question one — and they used to be one indistinguishable silent exit.
+   */
+  const handleSkip = (exitFrom, exitVia) => {
+    if (!exitReportedRef.current) {
+      exitReportedRef.current = true;
+      emit(eventForAbandon({
+        exitFrom,
+        exitVia,
+        answeredCount,
+        totalTopics: pickedTopics.length,
+      }));
+    }
     localStorage.removeItem(STORAGE_KEY);
     onSkip();
   };
@@ -688,6 +760,23 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     setStep("answer");
   };
 
+  /**
+   * One question answered. Deduped per topic for the same reason
+   * FullCalibration guards on `selectedValue !== null`: a user changing their
+   * mind before pressing Next is one answer, not several, and answered_count is
+   * only readable as a progress curve if each topic contributes once.
+   */
+  const reportAnswer = (slug, answersMap, answerType) => {
+    if (reportedAnswers.current.has(slug)) return;
+    reportedAnswers.current.add(slug);
+    emit(eventForAnswer({
+      topicSlug: slug,
+      answeredCount: countAnswered(answersMap),
+      totalTopics: pickedTopics.length,
+      answerType,
+    }));
+  };
+
   const handleSelectStance = async (value) => {
     if (!currentTopic) return;
     if (writeIns?.[currentTopic?.short_title]) {
@@ -699,6 +788,11 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     }
     setSelectedAnswer(value);
     setAnswers((prev) => ({ ...prev, [currentTopic.short_title]: value }));
+    reportAnswer(
+      currentTopic.short_title,
+      { ...answers, [currentTopic.short_title]: value },
+      "stance"
+    );
     if (isLoggedIn) {
       try {
         await apiFetch('/compass/answers', {
@@ -710,6 +804,21 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
   };
 
   const handleNext = () => {
+    // The same button reads "Next" or "Skip" depending on whether a stance is
+    // selected, so an advance with nothing answered IS the skip. (Unreachable
+    // under a lens, where the button is disabled until something is picked.)
+    if (
+      currentTopic &&
+      !(answers[currentTopic.short_title] > 0) &&
+      !reportedSkips.current.has(currentTopic.short_title)
+    ) {
+      reportedSkips.current.add(currentTopic.short_title);
+      emit(eventForQuestionSkip({
+        topicSlug: currentTopic.short_title,
+        answeredCount,
+        totalTopics: pickedTopics.length,
+      }));
+    }
     if (lensApplied) {
       if (currentIndex < pickedTopics.length - 1) {
         setCurrentIndex(currentIndex + 1);
@@ -738,7 +847,10 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     if (currentIndex > 0) {
       setCurrentIndex((i) => i - 1);
     } else {
-      handleSkip();
+      // Backing out of question one leaves the flow entirely. Reported as a
+      // navigation reversal, not a decision to skip — the distinction is the
+      // point of exit_via.
+      handleSkip(STEPS.ANSWER, EXIT_VIA.BACK);
     }
   };
 
@@ -808,6 +920,13 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     setAnswers((prev) => ({ ...prev, [currentTopic.short_title]: midpointValue }));
     setWriteIns((prev) => ({ ...prev, [currentTopic.short_title]: writeInText }));
     setSelectedAnswer(midpointValue);
+    // Deduped, which matters more here than for stances: every drag that
+    // repositions the write-in card comes back through this function.
+    reportAnswer(
+      currentTopic.short_title,
+      { ...answers, [currentTopic.short_title]: midpointValue },
+      "write_in"
+    );
     if (isLoggedIn) {
       apiFetch('/compass/answers', {
         method: "POST",
@@ -1137,7 +1256,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
                 Choose my own topics →
               </button>
               <button
-                onClick={handleSkip}
+                onClick={() => handleSkip(STEPS.WELCOME, EXIT_VIA.DISMISS)}
                 className="px-6 py-2 rounded-full text-sm font-medium transition-opacity hover:opacity-70 cursor-pointer"
                 style={{ color: t.textMuted }}
               >
@@ -1370,7 +1489,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
           {/* Title row */}
           <div className="flex items-center gap-3 max-w-5xl mx-auto">
             <button
-              onClick={handleSkip}
+              onClick={() => handleSkip(STEPS.PICK, EXIT_VIA.DISMISS)}
               className="p-1.5 rounded-full transition-colors cursor-pointer shrink-0 hover:opacity-70"
               style={{ color: t.textMuted }}
               aria-label="Close"
