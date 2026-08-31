@@ -17,6 +17,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { useLocation } from "react-router";
 import { useTheme } from "../ThemeProvider";
 import { generateLensKey } from "../lib/userLenses";
+import { bestMatchSpokes, MIN_SPOKES } from "../lib/bestMatch";
 import { takeCalibrateKey, clearCalibrateKey, resolveCalibrateLens } from "../lib/calibrateParam";
 import { LOCAL_LENS as LOCAL_LENS_DEFAULT, JUDICIAL_LENS as JUDICIAL_LENS_DEFAULT, FEDERAL_LENS as FEDERAL_LENS_DEFAULT } from "../lib/lenses";
 import { tierFromDistrictType } from "../hooks/useFilteredPoliticians";
@@ -58,6 +59,11 @@ const CALIBRATED_TEAL = "#00657C";
 // topic pills and the Calibrate button right next to the lens row, so a custom
 // lens wearing it read as a warning. Same collision Essentials removed.
 const CUSTOM_LENS_TEAL = "#00657C";
+// Best Match is a comparison display mode, not a lens — see lib/bestMatch.js for
+// why it must never become an activeLensKey. Gold ties it to the yellow "Match"
+// marker already used in the compare legend.
+const BEST_MATCH_KEY = "best";
+const BEST_MATCH_GOLD = "#8a6d0b";
 
 // -------- Helper Components (outside CombinedPage) --------
 
@@ -650,6 +656,10 @@ function CombinedPage() {
   // below are declared AFTER these state variables — prevents TDZ in the production
   // bundle where the minifier merges const chains and incorrectly orders declarations.
   const [comparePol, setComparePol] = useState(null); // { id, full_name/first/last, ... }
+  // Best Match is ON by default: comparing without it shows only the topics the
+  // politician happens to share with your compass, which is often very few.
+  // 🔴 Deliberately NOT routed through activeLensKey — see lib/bestMatch.js.
+  const [bestMatchEnabled, setBestMatchEnabled] = useState(true);
   const [compareDisplayTopics, setCompareDisplayTopics] = useState(null);
   const [compareReplacedSpokes, setCompareReplacedSpokes] = useState({});
 
@@ -705,7 +715,10 @@ function CombinedPage() {
   }, [comparePol, compareDisplayTopics, topics, answers, unansweredSpokesMap]);
 
   // If the compare compass ends up with fewer than 3 spokes, suppress it
-  const compareHasEnoughSpokes = !comparePol || compareDisplayTopics === null || compareDisplayTopics.length >= 3;
+  // Below MIN_SPOKES the caller renders "Not enough shared topics" rather than
+  // a compass: two axes is a line, not a shape. Threshold lives in
+  // lib/bestMatch.js so the rule and its tests cannot drift apart.
+  const compareHasEnoughSpokes = !comparePol || compareDisplayTopics === null || compareDisplayTopics.length >= MIN_SPOKES;
 
   // -------- Spoke click handler: calibration for unanswered, drawer for answered --------
   const handleSpokeClick = (shortTitle) => {
@@ -1074,55 +1087,52 @@ function CombinedPage() {
           }
         }
 
-        const polAnsweredSet = new Set(
-          allAnswers.filter((a) => parseFloat(a.value) > 0).map((a) => a.topic_id)
-        );
+        const polValues = {};
+        for (const a of allAnswers) {
+          const v = parseFloat(a.value);
+          if (v > 0) polValues[a.topic_id] = v;
+        }
+        // bestMatchSpokes works in topic ids; Compass stores answers by
+        // short_title, so translate once here rather than teaching the pure
+        // function about that quirk.
+        const userValues = {};
+        for (const t of currentTopics) {
+          const v = userAnswerMap[t.short_title];
+          if (v != null && v > 0) userValues[t.id] = v;
+        }
+
+        let displayTopics;
+        if (activeLensKey) {
+          // 🔴 A LENS IS AN EXPLICIT REQUEST FOR A TOPIC SET, so a spoke the
+          // politician has not answered is DROPPED, never substituted. Picking
+          // the Local Lens and getting axes for Tariffs and Same-Sex Marriage is
+          // the bug this prevents. Mirrors essentials `computeDisplaySpokes`,
+          // whose explicit-lens branch is "No auto-substitution: spokes are
+          // driven strictly by the chosen topic set".
+          displayTopics = selectedTopics.filter((id) => polValues[id] > 0);
+        } else if (bestMatchEnabled) {
+          // Best Match: their compass first, then the biggest disagreements.
+          displayTopics = bestMatchSpokes({
+            selectedTopics,
+            topics: currentTopics,
+            userValues,
+            polValues,
+          }).displayTopicIds;
+        } else {
+          // Best Match off and no lens: strictly their own compass, no filling.
+          displayTopics = selectedTopics.filter((id) => polValues[id] > 0);
+        }
+
         const selectedTopicSet = new Set(selectedTopics);
-
-        const userAnsweredNotSelected = currentTopics.filter((t) => {
-          const val = userAnswerMap[t.short_title];
-          return !selectedTopicSet.has(t.id) && val != null && val > 0;
-        });
-        const replacementPool = userAnsweredNotSelected.filter((t) =>
-          polAnsweredSet.has(t.id)
-        );
-        let replacementIdx = 0;
-
-        const displayTopics = [];
         const replacedSpokes = {};
         const compareAnswersMap = {};
-
-        for (const id of selectedTopics) {
+        for (const id of displayTopics) {
           const t = currentTopics.find((tt) => tt.id === id);
           if (!t) continue;
-
-          if (polAnsweredSet.has(id)) {
-            displayTopics.push(id);
-            const a = allAnswers.find((x) => x.topic_id === id);
-            if (a && parseFloat(a.value) > 0) compareAnswersMap[t.short_title] = parseFloat(a.value);
-          } else if (activeLensKey) {
-            // 🔴 A LENS IS AN EXPLICIT REQUEST FOR A TOPIC SET. Substituting a
-            // topic the politician happens to have answered silently answers a
-            // different question than the one asked: picking the Local Lens and
-            // getting spokes for Tariffs and Same-Sex Marriage, as reported from
-            // a screenshot. Drop the spoke instead — fewer axes, all of them
-            // ones the user chose. `compareHasEnoughSpokes` covers falling below
-            // three.
-            //
-            // This mirrors essentials `computeDisplaySpokes`, whose explicit-lens
-            // branch says "No auto-substitution: spokes are driven strictly by
-            // the chosen topic set". That function is the source of truth for
-            // this behaviour; the substitution below is being promoted into an
-            // opt-in "Best Match" lens separately.
-          } else {
-            if (replacementIdx < replacementPool.length) {
-              const replT = replacementPool[replacementIdx++];
-              displayTopics.push(replT.id);
-              replacedSpokes[replT.short_title] = true;
-              const a = allAnswers.find((x) => x.topic_id === replT.id);
-              if (a && parseFloat(a.value) > 0) compareAnswersMap[replT.short_title] = parseFloat(a.value);
-            }
-          }
+          // "Replaced" means "not from your compass" — the fill-pass topics, so
+          // the chart can still mark which axes the user did not choose.
+          if (!selectedTopicSet.has(id)) replacedSpokes[t.short_title] = true;
+          if (polValues[id] > 0) compareAnswersMap[t.short_title] = polValues[id];
         }
 
         setCompareDisplayTopics(displayTopics);
@@ -1135,7 +1145,7 @@ function CombinedPage() {
         setCompareDisplayTopics(null);
         setCompareReplacedSpokes({});
       });
-  }, [comparePol, selectedTopics, isLoggedIn, setCompareAnswers, topicsLoaded, activeLensKey]);
+  }, [comparePol, selectedTopics, isLoggedIn, setCompareAnswers, topicsLoaded, activeLensKey, bestMatchEnabled]);
 
   // -------- Library State --------
   const [answeredTopicIDs, setAnsweredTopicIDs] = useState([]);
@@ -1699,10 +1709,22 @@ function CombinedPage() {
           <div className="w-full flex flex-col items-center lg:items-start">
             <LensSwitcher
               ref={localLensRef}
-              lenses={allLenses}
-              activeLensKey={activeLensKey}
+              // Best Match only appears while a comparison is on, because it has
+              // nothing to match against otherwise. Injected here rather than
+              // into allLenses: that list feeds resolveCalibrateLens, and a
+              // ?calibrate=best link must not resolve to a lens with no topics.
+              lenses={comparePol
+                ? [{ key: BEST_MATCH_KEY, name: "Best Match", shortLabel: "Best Match", color: BEST_MATCH_GOLD }, ...allLenses]
+                : allLenses}
+              activeLensKey={activeLensKey || (comparePol && bestMatchEnabled ? BEST_MATCH_KEY : null)}
               isDark={isDark}
-              onSelect={doStartLens}
+              onSelect={(lens) => {
+                if (lens.key !== BEST_MATCH_KEY) { doStartLens(lens); return; }
+                // Mutually exclusive with a lens: picking Best Match leaves the
+                // lens, and picking it again falls back to a strict compass.
+                if (activeLensKey) { exitToCompass(); setBestMatchEnabled(true); }
+                else setBestMatchEnabled((on) => !on);
+              }}
               onExit={exitToCompass}
               renderChipExtra={(lens, active) => {
                 if (!active || !lens.key.startsWith("u_")) return null;
