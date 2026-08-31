@@ -53,6 +53,11 @@ const CATEGORY_COLORS = [
 
 const UNCALIBRATED_PURPLE = "#7C3AED";
 const CALIBRATED_TEAL = "#00657C";
+// Custom lens chips. Same hex as Essentials uses for them, and deliberately NOT
+// UNCALIBRATED_PURPLE: that violet already means "this needs calibrating" on the
+// topic pills and the Calibrate button right next to the lens row, so a custom
+// lens wearing it read as a warning. Same collision Essentials removed.
+const CUSTOM_LENS_TEAL = "#00657C";
 
 // -------- Helper Components (outside CombinedPage) --------
 
@@ -1095,6 +1100,20 @@ function CombinedPage() {
             displayTopics.push(id);
             const a = allAnswers.find((x) => x.topic_id === id);
             if (a && parseFloat(a.value) > 0) compareAnswersMap[t.short_title] = parseFloat(a.value);
+          } else if (activeLensKey) {
+            // 🔴 A LENS IS AN EXPLICIT REQUEST FOR A TOPIC SET. Substituting a
+            // topic the politician happens to have answered silently answers a
+            // different question than the one asked: picking the Local Lens and
+            // getting spokes for Tariffs and Same-Sex Marriage, as reported from
+            // a screenshot. Drop the spoke instead — fewer axes, all of them
+            // ones the user chose. `compareHasEnoughSpokes` covers falling below
+            // three.
+            //
+            // This mirrors essentials `computeDisplaySpokes`, whose explicit-lens
+            // branch says "No auto-substitution: spokes are driven strictly by
+            // the chosen topic set". That function is the source of truth for
+            // this behaviour; the substitution below is being promoted into an
+            // opt-in "Best Match" lens separately.
           } else {
             if (replacementIdx < replacementPool.length) {
               const replT = replacementPool[replacementIdx++];
@@ -1116,7 +1135,7 @@ function CombinedPage() {
         setCompareDisplayTopics(null);
         setCompareReplacedSpokes({});
       });
-  }, [comparePol, selectedTopics, isLoggedIn, setCompareAnswers, topicsLoaded]);
+  }, [comparePol, selectedTopics, isLoggedIn, setCompareAnswers, topicsLoaded, activeLensKey]);
 
   // -------- Library State --------
   const [answeredTopicIDs, setAnsweredTopicIDs] = useState([]);
@@ -1242,7 +1261,7 @@ function CombinedPage() {
     // here because the API does not store one for them.
     ...userLenses.map((l) => ({
       ...l,
-      color: "#7C3AED",
+      color: CUSTOM_LENS_TEAL,
       flagCount: (l.needsRecalibration || []).length,
     })),
   ];
