@@ -601,6 +601,20 @@ const scenarios = [
       assert(opened === "OK", "no '+ Save this view' affordance on the compass");
       await b.sleep(700);
 
+      // A guest lens is stored per-origin in localStorage, and Essentials reads
+      // custom lenses only from the authed /compass/my-lenses — so without this
+      // note a guest names a lens, sees it confirmed, and then cannot find it in
+      // the app it was built for. Asserted here because it is the only automated
+      // coverage this repo can give a component: there is no testing-library.
+      const guestNote = await b.evaluate(`(() => {
+        const el = document.querySelector('[data-testid="lens-guest-note"]');
+        return el ? (el.textContent || '').trim() : 'MISSING';
+      })()`);
+      assert(
+        guestNote.includes("Register a free account"),
+        `guest lens note missing or reworded: ${JSON.stringify(guestNote)}`
+      );
+
       // React tracks the input's value on the DOM node, so setting .value
       // directly is invisible to it — go through the native setter and fire the
       // event React actually listens for.
