@@ -130,7 +130,7 @@ export default function FullCalibration() {
       setDone(true);
     } else {
       setActiveTopic(firstUnanswered);
-      track('compass_calibration_started', { total_topics: allTopics.length });
+      track('compass_calibration_started', { total_topics: allTopics.length, surface: 'full' });
     }
 
     // Shared, deterministic (guestId + topicId hash) so the order a topic is
@@ -155,6 +155,7 @@ export default function FullCalibration() {
       topic_slug: activeTopic.short_title,
       answered_count: newAnsweredCount,
       total_topics: allTopics.length,
+      surface: 'full',
     });
 
     setSelectedValue(value);
@@ -181,6 +182,7 @@ export default function FullCalibration() {
         track('compass_calibration_completed', {
           answered_count: newAnsweredCount,
           total_topics: allTopics.length,
+          surface: 'full',
         });
       }
     }, 420);
@@ -192,6 +194,7 @@ export default function FullCalibration() {
       topic_slug: activeTopic.short_title,
       answered_count: answeredCount,
       total_topics: allTopics.length,
+      surface: 'full',
     });
     const curIdx = allTopics.findIndex(tp => tp.id === activeTopic.id);
     const next =
@@ -302,6 +305,7 @@ export default function FullCalibration() {
                     answered_count: answeredCount,
                     total_topics: allTopics.length,
                     progress_pct: progressPct,
+                    surface: 'full',
                   });
                   navigate('/library');
                 }}
