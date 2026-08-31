@@ -1,4 +1,5 @@
 import { forwardRef } from "react";
+import { readableOn, DARK_PAGE_BG, LIGHT_PAGE_BG } from "../lib/lensColors.js";
 
 /**
  * Chip icon. Capitol dome (federal), gavel (judicial), house (local), tag (a
@@ -62,6 +63,12 @@ const LensSwitcher = forwardRef(function LensSwitcher(
       {lenses.map((lens) => {
         const active = activeLensKey === lens.key;
         const color = lens.color || neutral;
+        // Only the INACTIVE chip needs adjusting. It paints the lens colour as
+        // text and border directly on the page, where the stored colours — set
+        // for a light background — fall as low as 1.6:1 on dark. The active chip
+        // uses the colour as a BACKGROUND under white text, so lightening it
+        // there would reduce contrast, not improve it.
+        const outline = readableOn(color, isDark ? DARK_PAGE_BG : LIGHT_PAGE_BG);
         return (
           <span key={lens.key} className="inline-flex items-center">
             <button
@@ -71,7 +78,7 @@ const LensSwitcher = forwardRef(function LensSwitcher(
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all cursor-pointer hover:opacity-90 active:scale-95"
               style={active
                 ? { background: color, color: "#fff", borderColor: color }
-                : { background: "transparent", color, borderColor: color }}
+                : { background: "transparent", color: outline, borderColor: outline }}
             >
               <LensIcon lensKey={lens.key} />
               {lens.shortLabel || lens.name}
