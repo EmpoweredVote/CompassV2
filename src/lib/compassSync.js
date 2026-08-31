@@ -46,3 +46,39 @@ export function compassToPublish({ activeLensKey, selectedTopics, preLensTopics 
     ? preLensTopics
     : selectedTopics;
 }
+
+/**
+ * The capped projection of answers published to shared context, plus the count
+ * of what was in scope before the cap.
+ *
+ * `n` is what lets a consumer distinguish a payload that is merely SCOPED from
+ * one the cap TRUNCATED. Publishing fewer answers than the user has is normal —
+ * the scope is the compass plus any active lens, not the user's whole history —
+ * so "fewer than they have" carries no signal. `n > Object.keys(a).length` does:
+ * it means topics that were supposed to be sent were dropped.
+ *
+ * `n` counts only scoped topics that actually HAVE an answer. An unanswered
+ * scoped topic was never going to be sent, and counting it would report a drop
+ * that never happened.
+ *
+ * With nothing in scope, or before topics have loaded, there is no
+ * id -> short_title map to scope with, so the complete answer set is published
+ * and `n` equals its size — no drop, nothing to report.
+ */
+export function buildSharedAnswers({ answerScope, topics, answers, cap }) {
+  const all = answers && typeof answers === "object" ? answers : {};
+  // Dedupe before the cap, not after: the cap is a budget of distinct topics,
+  // and slicing first would spend it on repeats.
+  const scope = Array.isArray(answerScope) ? [...new Set(answerScope)] : [];
+  if (scope.length === 0 || !Array.isArray(topics) || topics.length === 0) {
+    return { a: all, n: Object.keys(all).length };
+  }
+  const topicById = new Map(topics.map((t) => [t.id, t]));
+  const inScope = scope
+    .map((id) => {
+      const t = topicById.get(id);
+      return t && all[t.short_title] != null ? [t.short_title, all[t.short_title]] : null;
+    })
+    .filter(Boolean);
+  return { a: Object.fromEntries(inScope.slice(0, cap)), n: inScope.length };
+}

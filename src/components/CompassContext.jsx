@@ -3,7 +3,7 @@ import { createContext, useContext, useState, useEffect, useRef, useCallback } f
 import { extractHashToken, getToken, setToken, apiFetch, publicFetch, clearToken, API_BASE } from '../lib/auth';
 import { evContext } from '@empoweredvote/ev-ui';
 import { LENSES, normalizeApiLens } from '../lib/lenses';
-import { shouldSyncCompass, compassToPublish } from '../lib/compassSync';
+import { shouldSyncCompass, compassToPublish, buildSharedAnswers } from '../lib/compassSync';
 import {
   readGuestLenses, writeGuestLenses, clearGuestLenses,
   mergeLensSets, regenerateConflictingKeys, toPutPayload,
@@ -260,29 +260,22 @@ export function CompassProvider({ children }) {
     const answerScope = lensActive
       ? [...new Set([...ownCompass, ...selectedTopics])]
       : selectedTopics;
-    const activeIds = new Set(answerScope.slice(0, MAX_SHARED_ANSWERS));
-    const topicById = new Map(topics.map((t) => [t.id, t]));
-    const evAnswers = activeIds.size > 0 && topics.length > 0
-      ? Object.fromEntries(
-          [...activeIds]
-            .map((id) => {
-              const t = topicById.get(id);
-              return (t && answers[t.short_title] != null)
-                ? [t.short_title, answers[t.short_title]]
-                : null;
-            })
-            .filter(Boolean)
-        )
-      : answers;
+    // `n` rides along so a consumer can tell a SCOPED payload from a TRUNCATED
+    // one. Publishing fewer answers than the user has is normal; the cap
+    // silently discarding topics that were in scope is not, and until now
+    // nothing downstream could tell the two apart.
+    const { a: evAnswers, n: scopedAnswerCount } = buildSharedAnswers({
+      answerScope, topics, answers, cap: MAX_SHARED_ANSWERS,
+    });
     if (isLoggedIn) {
       if (!userId) return;
       evContext.setAuthedSlice(userId, {
-        compass: { a: evAnswers, i: invertedSpokes, w: writeIns },
+        compass: { a: evAnswers, n: scopedAnswerCount, i: invertedSpokes, w: writeIns },
       }).catch(() => {});
       return;
     }
     const compass = {
-      a: evAnswers, s: ownCompass, i: invertedSpokes, w: writeIns,
+      a: evAnswers, n: scopedAnswerCount, s: ownCompass, i: invertedSpokes, w: writeIns,
       ...(clearedAt > 0 ? { clearedAt } : {}),
     };
     // Remember the exact payload we published so the subscribe callback can
