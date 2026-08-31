@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { shouldSyncCompass, compassToPublish } from "./compassSync.js";
+import { shouldSyncCompass, compassToPublish, buildSharedAnswers } from "./compassSync.js";
 
 // The state of a signed-in user, loaded, looking at their own compass — the one
 // combination in which their compass may be written to the server.
@@ -74,5 +74,83 @@ describe("compassToPublish", () => {
     // A leftover stash must never displace the compass the user is looking at.
     expect(compassToPublish({ activeLensKey: null, selectedTopics: own, preLensTopics: ["stale"] }))
       .toEqual(own);
+  });
+});
+
+/**
+ * buildSharedAnswers() — the capped projection published to shared context.
+ *
+ * `n` exists so a consumer can tell a payload that is merely SCOPED (normal —
+ * we publish the compass plus any active lens, not every answer the user has
+ * ever given) from one the cap actually TRUNCATED. Without it, "fewer answers
+ * than the user has" is true almost always and therefore says nothing.
+ */
+describe("buildSharedAnswers", () => {
+  const topics = [
+    { id: 1, short_title: "econ" },
+    { id: 2, short_title: "educ" },
+    { id: 3, short_title: "envi" },
+    { id: 4, short_title: "heal" },
+    { id: 5, short_title: "immi" },
+  ];
+  const answers = { econ: 1, educ: 2, envi: 3, heal: 4, immi: 5 };
+
+  it("caps the published answers and reports the full in-scope count", () => {
+    const { a, n } = buildSharedAnswers({
+      answerScope: [1, 2, 3, 4, 5], topics, answers, cap: 3,
+    });
+    expect(Object.keys(a)).toHaveLength(3);
+    expect(n).toBe(5);
+  });
+
+  it("reports no drop when the scope fits under the cap", () => {
+    const { a, n } = buildSharedAnswers({
+      answerScope: [1, 2], topics, answers, cap: 8,
+    });
+    expect(Object.keys(a)).toHaveLength(2);
+    expect(n).toBe(2);
+  });
+
+  it("counts only scoped topics that actually have an answer", () => {
+    // A scoped topic with no answer was never going to be sent, so counting it
+    // would report a drop that never happened.
+    const { a, n } = buildSharedAnswers({
+      answerScope: [1, 2, 3, 4], topics, answers: { econ: 1, envi: 3 }, cap: 8,
+    });
+    expect(Object.keys(a).sort()).toEqual(["econ", "envi"]);
+    expect(n).toBe(2);
+  });
+
+  it("counts a repeated topic once", () => {
+    const { a, n } = buildSharedAnswers({
+      answerScope: [1, 1, 2], topics, answers, cap: 8,
+    });
+    expect(Object.keys(a)).toHaveLength(2);
+    expect(n).toBe(2);
+  });
+
+  it("publishes the complete answer set when nothing is in scope", () => {
+    const { a, n } = buildSharedAnswers({
+      answerScope: [], topics, answers, cap: 8,
+    });
+    expect(a).toEqual(answers);
+    expect(n).toBe(5);
+  });
+
+  it("publishes the complete answer set before topics have loaded", () => {
+    // Without topics there is no id -> short_title map, so scoping is impossible.
+    const { a, n } = buildSharedAnswers({
+      answerScope: [1, 2], topics: [], answers, cap: 8,
+    });
+    expect(a).toEqual(answers);
+    expect(n).toBe(5);
+  });
+
+  it("never reports a drop it did not make", () => {
+    // The consumer's whole contract is `n > count(a)` means data is missing.
+    for (const cap of [1, 3, 5, 16]) {
+      const { a, n } = buildSharedAnswers({ answerScope: [1, 2, 3], topics, answers, cap });
+      expect(n).toBeGreaterThanOrEqual(Object.keys(a).length);
+    }
   });
 });
