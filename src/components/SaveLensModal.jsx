@@ -7,7 +7,7 @@ import { useState } from "react";
  * whole of "build a lens" — there is no second topic picker to keep in step with
  * the first. Also serves rename, via initialName.
  */
-export default function SaveLensModal({ topicCount, initialName = "", onSave, onClose }) {
+export default function SaveLensModal({ topicCount, initialName = "", isGuest = false, onSave, onClose }) {
   const [name, setName] = useState(initialName);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -51,6 +51,21 @@ export default function SaveLensModal({ topicCount, initialName = "", onSave, on
         <p className="mt-2 text-xs text-gray-500 dark:text-zinc-400">
           {topicCount} {topicCount === 1 ? "topic" : "topics"} from your compass
         </p>
+        {/*
+          Guests keep their lenses in localStorage on this origin, and Essentials
+          reads custom lenses only from /compass/my-lenses — an authed endpoint.
+          So a guest lens is real, named, and invisible in the app it was built
+          for. Say so at the moment it is created rather than letting them find
+          out by looking for it in Essentials and not finding it.
+
+          Creation only: `initialName` means this is a rename, where the person
+          has already been told.
+        */}
+        {isGuest && !initialName && (
+          <p className="mt-2 text-xs text-gray-500 dark:text-zinc-400" data-testid="lens-guest-note">
+            Saved on this device. Register a free account to use your custom lenses in Essentials.
+          </p>
+        )}
         {error && <p className="mt-2 text-xs text-red-600 dark:text-red-400">{error}</p>}
         <div className="mt-4 flex justify-end gap-2">
           <button onClick={onClose} className="px-3 py-1.5 text-sm rounded-lg text-gray-600 dark:text-zinc-300">

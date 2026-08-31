@@ -1778,6 +1778,7 @@ function CombinedPage() {
           {saveLensOpen && (
             <SaveLensModal
               topicCount={selectedTopics.length}
+              isGuest={!isLoggedIn}
               onClose={() => setSaveLensOpen(false)}
               onSave={async (name) => {
                 await saveUserLenses([
