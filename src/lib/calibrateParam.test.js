@@ -39,6 +39,20 @@ describe("isCalibrateKeyShape", () => {
     expect(isCalibrateKeyShape("judicial")).toBe(true);
   });
 
+  // 🔴 THIS ASSERTION IS THE INVERSE OF WHAT IT USED TO BE, DELIBERATELY.
+  // The old suite asserted `isCalibrateKeyShape("education") === false`,
+  // encoding as intended behaviour the very bug that kept Essentials'
+  // school-board CTA from ever working: the shape check was an allowlist of the
+  // three bundled constants, so a lens that existed in the DB and was served by
+  // /compass/lenses was rejected at the door and the visitor landed on a generic
+  // empty Compass. A key is now accepted on SHAPE, so a lens added to the DB
+  // works the day it is added rather than the day someone remembers to edit
+  // lenses.js.
+  it("accepts a curated key the client does not bundle a constant for", () => {
+    expect(isCalibrateKeyShape("education")).toBe(true);
+    expect(isCalibrateKeyShape("some-future-lens")).toBe(true);
+  });
+
   it("accepts a user lens key in the server's shape", () => {
     expect(isCalibrateKeyShape("u_7f3a91")).toBe(true);
   });
@@ -50,10 +64,18 @@ describe("isCalibrateKeyShape", () => {
     expect(isCalibrateKeyShape("")).toBe(false);
     expect(isCalibrateKeyShape(null)).toBe(false);
     expect(isCalibrateKeyShape("U_7F3A91")).toBe(false);
-    expect(isCalibrateKeyShape("u_")).toBe(false);
-    expect(isCalibrateKeyShape("u_" + "a".repeat(33))).toBe(false);
     expect(isCalibrateKeyShape("../etc")).toBe(false);
-    expect(isCalibrateKeyShape("education")).toBe(false);
+    expect(isCalibrateKeyShape("Education")).toBe(false);
+    expect(isCalibrateKeyShape("a".repeat(33))).toBe(false);
+  });
+
+  // `u_` is a reserved prefix: a key claiming it must satisfy the stricter
+  // user-lens pattern and must never fall through to the looser curated one.
+  it("holds malformed user keys to the user pattern, not the curated one", () => {
+    expect(isCalibrateKeyShape("u_")).toBe(false);
+    expect(isCalibrateKeyShape("u_abc")).toBe(false);
+    expect(isCalibrateKeyShape("u_" + "a".repeat(33))).toBe(false);
+    expect(isCalibrateKeyShape("u_ABCD")).toBe(false);
   });
 });
 

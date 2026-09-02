@@ -367,6 +367,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     setInvertedSpokes,
     initRandomInversions,
     isLoggedIn,
+    lenses,
   } = useCompass();
 
   // Determine quiz lens type for analytics
@@ -467,10 +468,12 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
           // Local Immigration Enforcement) is picked up instead of replaying
           // the stale saved list.
           if (parsed.lensKey) {
-            lens = parsed.lensKey === 'local' ? LOCAL_LENS
-                 : parsed.lensKey === 'judicial' ? JUDICIAL_LENS
-                 : parsed.lensKey === 'federal' ? FEDERAL_LENS
-                 : null;
+            // Keyed lookup against the live lens list, not a ternary over three
+            // named constants. The old chain resolved anything else to null, so
+            // a refresh part-way through an Education calibration silently
+            // dropped the lens and replayed the stale saved topic list instead.
+            // `lenses` falls back to the bundled constants before the API lands.
+            lens = (lenses || []).find((l) => l.key === parsed.lensKey) || null;
             if (lens) {
               pickedTopics = lens.topicIds.filter(id => topics.some(t => t.id === id));
             }
