@@ -316,10 +316,18 @@ const scenarios = [
     async run(b, baseUrl) {
       const topics = await (await fetch(`${baseUrl}${API}/topics`)).json();
       const lenses = await (await fetch(`${baseUrl}${API}/lenses`)).json();
+      // ⚠ The lens's topics must exist IN THE OPEN SEASON, not merely be listed
+      // on the lens. /compass/lenses returns every active lens, including ones
+      // built entirely from a future season's topics — the Education Lens is all
+      // Season-2 topics, and it sorts first by key. Picking it made this scenario
+      // pass against a degenerate case: a "lens" of 8 ids the app cannot render,
+      // and an "own compass" of every topic there is.
       const lens = (Array.isArray(lenses) ? lenses : []).find(
-        (l) => Array.isArray(l.topicIds) && l.topicIds.length >= 3
+        (l) =>
+          Array.isArray(l.topicIds) &&
+          l.topicIds.filter((id) => topics.some((t) => t.id === id)).length >= 3
       );
-      assert(lens, "no lens with topics returned by /compass/lenses");
+      assert(lens, "no lens with topics in the open season returned by /compass/lenses");
       // The user's own compass: topics deliberately not in the lens.
       const own = topics.filter((t) => !lens.topicIds.includes(t.id)).slice(0, 8);
       assert(own.length === 8, "could not find 8 non-lens topics");

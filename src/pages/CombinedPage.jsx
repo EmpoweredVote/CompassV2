@@ -19,7 +19,7 @@ import { useTheme } from "../ThemeProvider";
 import { generateLensKey } from "../lib/userLenses";
 import { bestMatchSpokes, MIN_SPOKES } from "../lib/bestMatch";
 import { takeCalibrateKey, clearCalibrateKey, resolveCalibrateLens } from "../lib/calibrateParam";
-import { LOCAL_LENS as LOCAL_LENS_DEFAULT, JUDICIAL_LENS as JUDICIAL_LENS_DEFAULT, FEDERAL_LENS as FEDERAL_LENS_DEFAULT } from "../lib/lenses";
+import { LOCAL_LENS as LOCAL_LENS_DEFAULT, JUDICIAL_LENS as JUDICIAL_LENS_DEFAULT, FEDERAL_LENS as FEDERAL_LENS_DEFAULT, orderLenses, lensShortLabel } from "../lib/lenses";
 import { tierFromDistrictType } from "../hooks/useFilteredPoliticians";
 import { ENTRY_REASONS } from "../lib/calibrationEvents";
 import { getQuestionText, parseTensionTitle } from "../util/topic";
@@ -1261,13 +1261,30 @@ function CombinedPage() {
     [localLensTopicIds, topics, answers]
   );
   const localLensNotStarted = localLensRemaining === localLensTopicIds.length && localLensTopicIds.length > 0;
-  // Every lens the switcher can offer. User-authored lenses join this list when
-  // the builder lands; the lookup below is already keyed, not positional.
+  // Every lens the switcher can offer.
+  //
+  // 🔴 THIS LIST USED TO BE THE THREE CONSTANTS, WRITTEN OUT BY NAME. The
+  // Education Lens sat in inform.compass_lenses, was returned by
+  // /compass/lenses, and still could not appear — the switcher only ever read
+  // three hardcoded names. Building it from `lenses` (the API list CompassContext
+  // fetches on mount, falling back to the bundled constants) means the next lens
+  // added to the DB shows up with no frontend change at all.
+  //
+  // Order and label are derived rather than hardcoded: see LENS_DISPLAY_ORDER
+  // and lensShortLabel in lib/lenses.js for why each is a client concern.
+  //
+  // ⚠ A lens whose topics the open season does not serve is DROPPED, not shown
+  // empty. Every downstream consumer already filters lens topics against the
+  // loaded set — resolveCalibrateLens returns null, getInitialState picks zero
+  // topics — so an unfiltered chip here would open a calibration with nothing in
+  // it. This is what keeps the Education Lens hidden until Season 2 opens, with
+  // no feature flag to remember to flip.
+  const curatedLenses = orderLenses(lenses)
+    .filter((l) => (l.topicIds || []).some((id) => topics.some((t) => t.id === id)))
+    .map((l) => ({ ...l, shortLabel: lensShortLabel(l) }));
   const allLenses = [
-    { ...FEDERAL_LENS, shortLabel: "Federal" },
-    { ...LOCAL_LENS, shortLabel: "Local" },
-    { ...JUDICIAL_LENS, shortLabel: "Judicial" },
-    // User lenses share the row with the curated three. They are given a colour
+    ...curatedLenses,
+    // User lenses share the row with the curated set. They are given a colour
     // here because the API does not store one for them.
     ...userLenses.map((l) => ({
       ...l,

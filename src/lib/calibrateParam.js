@@ -10,13 +10,31 @@
 // Pure functions only — no React, no fetch. The wiring that uses them lives in
 // CombinedPage and is covered by the smoke suite.
 
-import { LENSES } from "./lenses.js";
-
 /** Where the key waits out a redirect. Mirrors ReturnBanner's session key. */
 export const CALIBRATE_SESSION_KEY = "compass_calibrate_lens";
 
 /** The server's user-lens key shape. Kept in step with userLenses.js. */
 const USER_KEY_RE = /^u_[a-z0-9]{4,32}$/;
+
+/**
+ * The shape of a curated lens key (inform.compass_lenses.key): lowercase, short.
+ *
+ * 🔴 THIS USED TO BE `LENSES.some(l => l.key === key)` — AN ALLOWLIST OF THE
+ * THREE BUNDLED CONSTANTS, AND IT SILENTLY BROKE EVERY NEW LENS. The Education
+ * Lens existed in the DB and was served by /compass/lenses for weeks, but
+ * `?calibrate=education` — the link Essentials emits from a school-board race —
+ * was rejected here, never stashed, and the visitor landed on a generic empty
+ * Compass. That is the exact failure #74 fixed for the other three, reintroduced
+ * for the fourth by an allowlist that only the client knew about.
+ *
+ * Matching on shape instead means a lens added to the DB works the day it is
+ * added. Safe to loosen, because this was never a security boundary: an
+ * unrecognised key reaches `resolveCalibrateLens`, fails a `.find()`, returns
+ * null, and the visitor gets an ordinary arrival. The check exists only so junk
+ * cannot take up residence in sessionStorage and be retried on every navigation
+ * for the rest of the session — which shape-matching still prevents.
+ */
+const CURATED_KEY_RE = /^[a-z][a-z0-9_-]{1,31}$/;
 
 /**
  * Is this a key some lens could plausibly claim?
@@ -28,7 +46,12 @@ const USER_KEY_RE = /^u_[a-z0-9]{4,32}$/;
  */
 export function isCalibrateKeyShape(key) {
   if (typeof key !== "string" || key.length === 0) return false;
-  return USER_KEY_RE.test(key) || LENSES.some((l) => l.key === key);
+  // `u_` is a RESERVED PREFIX, so a key claiming it must satisfy the stricter
+  // user-lens pattern and never fall through to the looser curated one. Without
+  // this branch the malformed `u_` passes as a plausible curated key — caught by
+  // the existing "rejects anything else" test, which is why that test is there.
+  if (key.startsWith("u_")) return USER_KEY_RE.test(key);
+  return CURATED_KEY_RE.test(key);
 }
 
 /**
