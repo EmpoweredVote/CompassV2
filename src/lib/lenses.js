@@ -85,12 +85,18 @@ export const EDUCATION_LENS = {
 // mount and passes the result down. Keep these in sync as a safety net.
 export const LENSES = [LOCAL_LENS, JUDICIAL_LENS, FEDERAL_LENS, EDUCATION_LENS];
 
-// Presentation order for the switcher row.
+// Presentation order for the switcher row — THE FALLBACK, not the source.
 //
-// WHY THIS IS CLIENT-SIDE: inform.compass_lenses has no sort_order column, and
-// getCompassLenses returns `ORDER BY l.key` — alphabetical, which would put
-// Education first and shuffle the three chips users already know. Order is a
-// presentation concern, so the client owns it until the column exists.
+// The source is `sortOrder` on each lens, from inform.compass_lenses.sort_order
+// (CC_0043). This list is what orders lenses that do not carry one:
+//
+//   1. the bundled constants above, which have no sortOrder by design — this
+//      list IS their order, and duplicating the numbers would just be two
+//      places to edit;
+//   2. rows from a server that has not deployed the sortOrder field yet.
+//
+// Both render the same order as the DB, so the switcher looks identical whether
+// the API has landed, is stale, or never answers at all.
 //
 // 🔴 THIS LIST GATES ORDER, NOT EXISTENCE. A lens whose key is missing here is
 // still shown; it sorts after the known ones, in API order. That is the whole
@@ -98,13 +104,30 @@ export const LENSES = [LOCAL_LENS, JUDICIAL_LENS, FEDERAL_LENS, EDUCATION_LENS];
 // is exactly what did NOT happen for Education.
 export const LENS_DISPLAY_ORDER = ['federal', 'local', 'judicial', 'education'];
 
-/** Curated lenses in switcher order: known keys first, unknown appended. */
+/**
+ * Curated lenses in switcher order.
+ *
+ * Prefers the server's `sortOrder` and falls back to LENS_DISPLAY_ORDER when no
+ * lens carries one. The two are never mixed: `lenses` in CompassContext is
+ * either the bundled constants or an API response, replaced wholesale, so the
+ * list is uniform. Choosing per-list rather than per-lens keeps the comparator
+ * from interleaving two number spaces that mean different things.
+ *
+ * Ties break on the original position, which for an API response is the order
+ * the server sent — already `ORDER BY l.sort_order, l.key`.
+ */
 export function orderLenses(lenses) {
-  const rank = (l) => {
-    const i = LENS_DISPLAY_ORDER.indexOf(l?.key);
-    return i === -1 ? LENS_DISPLAY_ORDER.length : i;
-  };
-  return [...(Array.isArray(lenses) ? lenses : [])]
+  const list = [...(Array.isArray(lenses) ? lenses : [])];
+  const useServerOrder = list.some((l) => Number.isFinite(l?.sortOrder));
+
+  const rank = useServerOrder
+    ? (l) => (Number.isFinite(l?.sortOrder) ? l.sortOrder : Number.MAX_SAFE_INTEGER)
+    : (l) => {
+        const i = LENS_DISPLAY_ORDER.indexOf(l?.key);
+        return i === -1 ? LENS_DISPLAY_ORDER.length : i;
+      };
+
+  return list
     .map((l, i) => ({ l, i }))
     .sort((a, b) => rank(a.l) - rank(b.l) || a.i - b.i)
     .map(({ l }) => l);
@@ -132,6 +155,11 @@ export function normalizeApiLens(l) {
     icon: l.icon,
     topicIds: Array.isArray(l.topicIds) ? l.topicIds : [],
     autoDistrictTypes: Array.isArray(l.autoDistrictTypes) ? l.autoDistrictTypes : [],
+    // ⚠ This whitelists fields, so anything not named here is DROPPED. Carried
+    // through only when it is a real number: writing a default would make every
+    // lens look server-ordered and permanently disable the LENS_DISPLAY_ORDER
+    // fallback that covers a server which has not deployed the field yet.
+    ...(Number.isFinite(l.sortOrder) ? { sortOrder: l.sortOrder } : {}),
   };
 }
 
