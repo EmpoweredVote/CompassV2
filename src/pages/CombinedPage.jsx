@@ -17,6 +17,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { useLocation } from "react-router";
 import { useTheme } from "../ThemeProvider";
 import { generateLensKey } from "../lib/userLenses";
+import { mergeFlags, flagWeight, offCompassFlags } from "../lib/recalibration";
 import { bestMatchSpokes, MIN_SPOKES } from "../lib/bestMatch";
 import { takeCalibrateKey, clearCalibrateKey, resolveCalibrateLens } from "../lib/calibrateParam";
 import { LOCAL_LENS as LOCAL_LENS_DEFAULT, JUDICIAL_LENS as JUDICIAL_LENS_DEFAULT, FEDERAL_LENS as FEDERAL_LENS_DEFAULT, orderLenses, lensShortLabel } from "../lib/lenses";
@@ -174,7 +175,7 @@ function SortableTopicPill({ id, label, isCalibrated, onRemove, onMouseEnter, on
   );
 }
 
-function SortableVerticalPill({ id, topic, isCalibrated, onRemove, onOpen, pillBg, needsRecalibration, onRecalibrate }) {
+function SortableVerticalPill({ id, topic, isCalibrated, onRemove, onOpen, pillBg, recalFlag, onRecalibrate }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id,
     transition: { duration: 200, easing: "ease" },
@@ -215,16 +216,38 @@ function SortableVerticalPill({ id, topic, isCalibrated, onRemove, onOpen, pillB
       </button>
       {/* The question changed since this answer was given. The prompt sits next
           to the question it is about, rather than in a banner that gets
-          dismissed once and never seen again. */}
-      {needsRecalibration && (
+          dismissed once and never seen again.
+
+          🔴 TWO WEIGHTS, AND THE RATIO IS WHY. At the changeover 89 answers are
+          reworded against 7 suppressed — roughly half of an affected compass. An
+          amber warning on half a compass is a warning nobody reads, and the
+          seven that actually lost their value are the ones needing action. So
+          amber ⚠ where the spoke went blank, a quiet violet dot where the answer
+          is still on the chart. Both are clickable and both open the same
+          popover; only the loudness differs. */}
+      {recalFlag && (
         <button
           onClick={(e) => { e.stopPropagation(); onRecalibrate(); }}
           onPointerDown={(e) => e.stopPropagation()}
-          title="This question was updated"
+          title={
+            flagWeight(recalFlag) === "loud"
+              ? "Your answer was set aside — this question's options changed"
+              : "This question was updated; your answer still stands"
+          }
           data-testid={`recalibrate-marker-${id}`}
-          className="shrink-0 inline-flex items-center gap-0.5 px-1 rounded text-[10px] font-bold bg-amber-400 text-neutral-900 cursor-pointer"
+          data-weight={flagWeight(recalFlag)}
+          className={
+            flagWeight(recalFlag) === "loud"
+              ? "shrink-0 inline-flex items-center gap-0.5 px-1 rounded text-[10px] font-bold bg-amber-400 text-neutral-900 cursor-pointer"
+              : "shrink-0 inline-flex items-center justify-center w-2 h-2 rounded-full cursor-pointer"
+          }
+          style={
+            flagWeight(recalFlag) === "loud"
+              ? undefined
+              : { background: UNCALIBRATED_PURPLE }
+          }
         >
-          ⚠
+          {flagWeight(recalFlag) === "loud" ? "⚠" : ""}
         </button>
       )}
       {/* Remove */}
@@ -1363,19 +1386,68 @@ function CombinedPage() {
   // wording changed is a standing fact, and a permanently dismissible prompt is
   // one that never gets acted on.
   const [dismissedFlags, setDismissedFlags] = useState(() => new Set());
+  // Flags for the spokes on the user's own compass, lens or no lens. Guests have
+  // none: their answers live client-side and were never stamped against a
+  // revision, so there is nothing for the server to compare.
+  const [compassFlags, setCompassFlags] = useState([]);
+
+  // 🔴 THE FETCH THAT MAKES SUPPRESSION EXPLICABLE. GET /compass/answers now
+  // withholds an answer whose rung moved or was invalidated (CC_0062), so the
+  // spoke renders as uncalibrated. This is what tells the user why.
+  //
+  // Keyed on the selection, because the server flags exactly the selected
+  // topics, and re-run when calibration closes so a flag the user has just acted
+  // on clears itself rather than lingering until reload.
+  const selectedKey = (selectedTopics || []).join(",");
+  useEffect(() => {
+    if (!isLoggedIn) { setCompassFlags([]); return; }
+    let cancelled = false;
+    apiFetch("/compass/recalibration-flags")
+      .then((r) => (r && r.ok ? r.json() : []))
+      .then((data) => {
+        if (!cancelled) setCompassFlags(Array.isArray(data) ? data : []);
+      })
+      // A failed flag fetch must not break the compass. The worst case is the
+      // prompt being absent, which is the state this whole change improves on —
+      // not a blank page.
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [isLoggedIn, selectedKey, calibrationActive]);
 
   // The user lens currently being viewed, if any. Curated keys never start `u_`.
   const activeUserLens = activeLensKey && activeLensKey.startsWith("u_")
     ? (userLenses.find((l) => l.key === activeLensKey) ?? null)
     : null;
 
-  // Flags belong to the lens being viewed: the same topic can sit in several
-  // lenses, and the prompt belongs beside each of them.
-  const flagsByTopic = new Map(
-    (activeUserLens?.needsRecalibration || [])
-      .filter((f) => !dismissedFlags.has(f.topicId))
-      .map((f) => [f.topicId, f])
-  );
+  // 🔴 BOTH SOURCES, BECAUSE THE LENS ONE ALONE REACHED ALMOST NOBODY.
+  // Lens flags belong beside the lens being viewed — the same topic can sit in
+  // several lenses and the prompt belongs next to each of them — but that made
+  // the explanation conditional on owning a custom lens, having the affected
+  // topic in it, and having it active right now. Of the 6 users holding one of
+  // the 7 answers suppressed at the changeover, one owns a lens.
+  //
+  // compassFlags cover the user's SELECTED topics: the spokes actually on
+  // screen, which is where a blanked answer needs explaining. See
+  // lib/recalibration for the merge rule (the suppressed record wins a tie).
+  const flagsByTopic = mergeFlags({
+    lensFlags: activeUserLens?.needsRecalibration,
+    compassFlags: compassFlags,
+    dismissed: dismissedFlags,
+  });
+
+  // The flags with no spoke to hang a pill on. /recalibration-flags covers every
+  // answered topic, and most of a user's answers are not on their current spokes,
+  // so without this the majority of them would be reported nowhere at all.
+  //
+  // Two groups, deliberately not one number: `setAside` lost a value, `updated`
+  // did not. At the changeover that is 5 against 79 — summing them would announce
+  // "84 answers need attention" when 79 are intact.
+  const offCompass = offCompassFlags(flagsByTopic, selectedTopics);
+  const startRecalibration = (flags) => {
+    setRecalibrateTopicIds(flags.map((f) => f.topicId));
+    setCalibrationEntryReason(ENTRY_REASONS.USER_REQUESTED);
+    setCalibrationActive(true);
+  };
 
   // Dirty = the spokes on screen differ from what the lens stores. Order counts:
   // a lens remembers its own spoke arrangement, so reordering is a real edit.
@@ -1788,6 +1860,67 @@ function CombinedPage() {
             )}
           </div>
 
+          {/* Flags for questions that are not currently spokes. One place rather
+              than a prompt per topic: there is nothing on screen for these to
+              point at, and the action is the same within each group.
+
+              🔴 TWO ROWS, NOT ONE TALLY. Set-aside answers lost their value and
+              are the ones worth acting on; updated ones are intact and only the
+              wording moved. At the changeover that is 5 against 79, so a single
+              count would drown the five that matter in the seventy-nine that do
+              not. Same reasoning as the two-weight spoke marker.
+
+              Recalibrating works off the compass — CalibrationOverlay filters
+              startWithTopicIds against the season's topics, not the selection. */}
+          {(offCompass.setAside.length > 0 || offCompass.updated.length > 0) && (
+            <div
+              data-testid="off-compass-summary"
+              className="-mt-1 mb-3 flex flex-col gap-1.5 rounded-lg border border-violet-300 dark:border-violet-800 bg-violet-50 dark:bg-violet-950/40 px-3 py-2 text-xs text-violet-900 dark:text-violet-200"
+            >
+              <p className="text-[11px] font-semibold uppercase tracking-wide opacity-70">
+                Questions that aren't on your compass right now
+              </p>
+
+              {offCompass.setAside.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2" data-testid="off-compass-set-aside">
+                  <span className="shrink-0 inline-flex items-center px-1 rounded text-[10px] font-bold bg-amber-400 text-neutral-900">
+                    ⚠
+                  </span>
+                  <span>
+                    {offCompass.setAside.length === 1
+                      ? "1 answer was set aside — that question's options changed."
+                      : `${offCompass.setAside.length} answers were set aside — those questions' options changed.`}
+                  </span>
+                  <button
+                    onClick={() => startRecalibration(offCompass.setAside)}
+                    data-testid="off-compass-set-aside-action"
+                    className="ml-auto px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500 text-neutral-900 cursor-pointer"
+                  >
+                    {offCompass.setAside.length === 1 ? "Answer it again" : "Answer them again"}
+                  </button>
+                </div>
+              )}
+
+              {offCompass.updated.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2" data-testid="off-compass-updated">
+                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: UNCALIBRATED_PURPLE }} />
+                  <span>
+                    {offCompass.updated.length === 1
+                      ? "1 question was updated. Your answer still stands."
+                      : `${offCompass.updated.length} questions were updated. Your answers still stand.`}
+                  </span>
+                  <button
+                    onClick={() => startRecalibration(offCompass.updated)}
+                    data-testid="off-compass-updated-action"
+                    className="ml-auto px-2.5 py-1 rounded-full text-[11px] font-bold border border-violet-400 dark:border-violet-600 cursor-pointer"
+                  >
+                    Review
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           {openFlagTopicId && flagsByTopic.has(openFlagTopicId) && (
             <RecalibrationPopover
               flag={flagsByTopic.get(openFlagTopicId)}
@@ -1902,7 +2035,7 @@ function CombinedPage() {
                             onRemove={() => setSelectedTopics(prev => prev.filter(tid => tid !== id))}
                             onOpen={() => setDrawerTopic(topic)}
                             pillBg={pillBg}
-                            needsRecalibration={flagsByTopic.has(id)}
+                            recalFlag={flagsByTopic.get(id)}
                             onRecalibrate={() => setOpenFlagTopicId(id)}
                           />
                         );
