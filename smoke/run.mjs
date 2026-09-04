@@ -52,7 +52,7 @@ const STANCE_BUTTONS = `[...document.querySelectorAll('[data-testid="stance-opti
 const answeredCount = (b) =>
   b.evaluate(`Object.keys(JSON.parse(localStorage.getItem('answers') || '{}')).length`);
 
-/** The "N / 44" counter in the /calibrate header. */
+/** The "N / M" counter in the /calibrate header. M is the open season's size. */
 const progress = (b) =>
   b.evaluate(`(document.querySelector('[data-testid="calibration-progress"]') || {}).textContent || null`);
 
@@ -197,8 +197,18 @@ const scenarios = [
       await b.navigate(`${baseUrl}/calibrate`, { settleMs: 8000 });
       await b.waitFor(`${STANCE_BUTTONS}.length > 0`, { label: "stance buttons" });
 
+      // ⚠ THE DENOMINATOR IS THE OPEN SEASON'S QUESTION COUNT, so it must not be
+      // hardcoded — it changed from 44 to 60 the moment Season 2 opened and failed
+      // this scenario for a reason that had nothing to do with what it tests.
+      // What it tests is that the counter ADVANCES with each answer.
       const before = await progress(b);
-      assert(before === "8 / 44", `expected to start at "8 / 44", got ${JSON.stringify(before)}`);
+      const parsed = /^\s*(\d+)\s*\/\s*(\d+)\s*$/.exec(String(before ?? ""));
+      assert(parsed, `expected an "N / M" progress counter, got ${JSON.stringify(before)}`);
+      const total = parsed[2];
+      assert(
+        parsed[1] === "8",
+        `expected to start at 8 answered, got ${JSON.stringify(before)}`
+      );
 
       for (let i = 0; i < 6; i++) {
         await b.evaluate(`(() => { const btns = ${STANCE_BUTTONS}; btns[${i} % btns.length].click(); })()`);
@@ -214,9 +224,12 @@ const scenarios = [
       }
 
       const after = await progress(b);
-      assert(after === "14 / 44", `expected "14 / 44" after 6 answers, got ${JSON.stringify(after)}`);
+      assert(
+        after === `14 / ${total}`,
+        `expected "14 / ${total}" after 6 answers, got ${JSON.stringify(after)}`
+      );
 
-      return `8 / 44 -> ${after}, all 6 answers persisted`;
+      return `8 / ${total} -> ${after}, all 6 answers persisted`;
     },
   },
 
