@@ -17,7 +17,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { useLocation } from "react-router";
 import { useTheme } from "../ThemeProvider";
 import { generateLensKey } from "../lib/userLenses";
-import { mergeFlags, flagWeight, offCompassSuppressed } from "../lib/recalibration";
+import { mergeFlags, flagWeight, offCompassFlags } from "../lib/recalibration";
 import { bestMatchSpokes, MIN_SPOKES } from "../lib/bestMatch";
 import { takeCalibrateKey, clearCalibrateKey, resolveCalibrateLens } from "../lib/calibrateParam";
 import { LOCAL_LENS as LOCAL_LENS_DEFAULT, JUDICIAL_LENS as JUDICIAL_LENS_DEFAULT, FEDERAL_LENS as FEDERAL_LENS_DEFAULT, orderLenses, lensShortLabel } from "../lib/lenses";
@@ -1435,12 +1435,19 @@ function CombinedPage() {
     dismissed: dismissedFlags,
   });
 
-  // The suppressed answers with no spoke to hang a pill on. /recalibration-flags
-  // covers every answered topic, and most of a user's answers are not on their
-  // current spokes — so without this the majority of set-aside answers would be
-  // reported nowhere at all. Suppressed only: see lib/recalibration for why the
-  // 79 reworded ones stay quiet.
-  const setAsideOffCompass = offCompassSuppressed(flagsByTopic, selectedTopics);
+  // The flags with no spoke to hang a pill on. /recalibration-flags covers every
+  // answered topic, and most of a user's answers are not on their current spokes,
+  // so without this the majority of them would be reported nowhere at all.
+  //
+  // Two groups, deliberately not one number: `setAside` lost a value, `updated`
+  // did not. At the changeover that is 5 against 79 — summing them would announce
+  // "84 answers need attention" when 79 are intact.
+  const offCompass = offCompassFlags(flagsByTopic, selectedTopics);
+  const startRecalibration = (flags) => {
+    setRecalibrateTopicIds(flags.map((f) => f.topicId));
+    setCalibrationEntryReason(ENTRY_REASONS.USER_REQUESTED);
+    setCalibrationActive(true);
+  };
 
   // Dirty = the spokes on screen differ from what the lens stores. Order counts:
   // a lens remembers its own spoke arrangement, so reordering is a real edit.
@@ -1853,35 +1860,64 @@ function CombinedPage() {
             )}
           </div>
 
-          {/* Answers set aside on questions that are not currently spokes. One
-              quiet line rather than a prompt per topic: there is nothing on
-              screen for these to point at, and the action is the same for all of
-              them. Recalibrating works off the compass — CalibrationOverlay
-              filters startWithTopicIds against the season's topics, not the
-              selection. */}
-          {setAsideOffCompass.length > 0 && (
+          {/* Flags for questions that are not currently spokes. One place rather
+              than a prompt per topic: there is nothing on screen for these to
+              point at, and the action is the same within each group.
+
+              🔴 TWO ROWS, NOT ONE TALLY. Set-aside answers lost their value and
+              are the ones worth acting on; updated ones are intact and only the
+              wording moved. At the changeover that is 5 against 79, so a single
+              count would drown the five that matter in the seventy-nine that do
+              not. Same reasoning as the two-weight spoke marker.
+
+              Recalibrating works off the compass — CalibrationOverlay filters
+              startWithTopicIds against the season's topics, not the selection. */}
+          {(offCompass.setAside.length > 0 || offCompass.updated.length > 0) && (
             <div
-              data-testid="set-aside-summary"
-              className="-mt-1 mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-violet-300 dark:border-violet-800 bg-violet-50 dark:bg-violet-950/40 px-3 py-2 text-xs text-violet-900 dark:text-violet-200"
+              data-testid="off-compass-summary"
+              className="-mt-1 mb-3 flex flex-col gap-1.5 rounded-lg border border-violet-300 dark:border-violet-800 bg-violet-50 dark:bg-violet-950/40 px-3 py-2 text-xs text-violet-900 dark:text-violet-200"
             >
-              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: UNCALIBRATED_PURPLE }} />
-              <span>
-                {setAsideOffCompass.length === 1
-                  ? "1 of your answers was set aside — the question's options changed."
-                  : `${setAsideOffCompass.length} of your answers were set aside — those questions' options changed.`}
-                {" "}They aren't on your compass right now.
-              </span>
-              <button
-                onClick={() => {
-                  setRecalibrateTopicIds(setAsideOffCompass.map((f) => f.topicId));
-                  setCalibrationEntryReason(ENTRY_REASONS.USER_REQUESTED);
-                  setCalibrationActive(true);
-                }}
-                data-testid="set-aside-review"
-                className="ml-auto px-2.5 py-1 rounded-full text-[11px] font-bold bg-violet-600 text-white cursor-pointer"
-              >
-                {setAsideOffCompass.length === 1 ? "Answer it again" : "Answer them again"}
-              </button>
+              <p className="text-[11px] font-semibold uppercase tracking-wide opacity-70">
+                Questions that aren't on your compass right now
+              </p>
+
+              {offCompass.setAside.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2" data-testid="off-compass-set-aside">
+                  <span className="shrink-0 inline-flex items-center px-1 rounded text-[10px] font-bold bg-amber-400 text-neutral-900">
+                    ⚠
+                  </span>
+                  <span>
+                    {offCompass.setAside.length === 1
+                      ? "1 answer was set aside — that question's options changed."
+                      : `${offCompass.setAside.length} answers were set aside — those questions' options changed.`}
+                  </span>
+                  <button
+                    onClick={() => startRecalibration(offCompass.setAside)}
+                    data-testid="off-compass-set-aside-action"
+                    className="ml-auto px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500 text-neutral-900 cursor-pointer"
+                  >
+                    {offCompass.setAside.length === 1 ? "Answer it again" : "Answer them again"}
+                  </button>
+                </div>
+              )}
+
+              {offCompass.updated.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2" data-testid="off-compass-updated">
+                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: UNCALIBRATED_PURPLE }} />
+                  <span>
+                    {offCompass.updated.length === 1
+                      ? "1 question was updated. Your answer still stands."
+                      : `${offCompass.updated.length} questions were updated. Your answers still stand.`}
+                  </span>
+                  <button
+                    onClick={() => startRecalibration(offCompass.updated)}
+                    data-testid="off-compass-updated-action"
+                    className="ml-auto px-2.5 py-1 rounded-full text-[11px] font-bold border border-violet-400 dark:border-violet-600 cursor-pointer"
+                  >
+                    Review
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

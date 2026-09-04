@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { copyFor, flagWeight, mergeFlags, isSuppressed, offCompassSuppressed } from "./recalibration";
+import { copyFor, flagWeight, mergeFlags, isSuppressed, offCompassFlags } from "./recalibration";
 
 /**
  * The server decides WHAT is flagged (CC_0061, via /compass/recalibration-flags
@@ -168,56 +168,81 @@ describe("mergeFlags — the compass and the lens both get to speak", () => {
   });
 });
 
-describe("offCompassSuppressed — the answers set aside where nobody can see them", () => {
+describe("offCompassFlags — the flags with no spoke to hang on", () => {
   // 🔴 WHY THIS EXISTS. The flags endpoint covers every answered topic, not just
   // the selected ones, because scoping to the selection reached only 12 of the
-  // 96 non-fresh answers — `invalidated` 0 of 1, `moved` 2 of 6. But most
-  // answers are not on the user's spokes, so those flags have no pill to hang
-  // on. This is the set that needs saying out loud somewhere else.
+  // 96 non-fresh answers — `invalidated` 0 of 1, `moved` 2 of 6. Most answers
+  // are not on the user's spokes, so most flags have no pill to hang on.
+  //
+  // ⚠ TWO GROUPS, NOT ONE COUNT. `setAside` lost a value; `updated` did not.
+  // Adding them into a single number would say "84 answers need attention" when
+  // 79 of them are intact, which is the distinction the copy and the two-weight
+  // marker both exist to preserve.
   const map = (...flags) => new Map(flags.map((f) => [f.topicId, f]));
 
-  it("finds a suppressed answer on a topic not currently shown", () => {
-    const out = offCompassSuppressed(map(flag({ topicId: "x", disposition: "moved" })), []);
-    expect(out.map((f) => f.topicId)).toEqual(["x"]);
+  it("puts a suppressed off-compass answer in setAside", () => {
+    const out = offCompassFlags(map(flag({ topicId: "x", disposition: "moved" })), []);
+    expect(out.setAside.map((f) => f.topicId)).toEqual(["x"]);
+    expect(out.updated).toEqual([]);
   });
 
-  it("ignores a suppressed answer that already has a spoke", () => {
+  it("puts a reworded off-compass answer in updated, not setAside", () => {
+    const out = offCompassFlags(map(flag({ topicId: "y", disposition: "reworded" })), []);
+    expect(out.updated.map((f) => f.topicId)).toEqual(["y"]);
+    expect(out.setAside).toEqual([]);
+  });
+
+  it("ignores anything that already has a spoke", () => {
     // It has a pill there. Saying it twice is nagging.
-    const out = offCompassSuppressed(map(flag({ topicId: "x", disposition: "moved" })), ["x"]);
-    expect(out).toEqual([]);
-  });
-
-  // ⚠ THE 79 THAT MUST STAY QUIET. Reworded answers kept their value, so nothing
-  // vanished and there is nothing to report. Surfacing them here would be the
-  // same noise the two-weight marker exists to avoid, at four times the volume.
-  it("ignores a reworded answer off the compass", () => {
-    const out = offCompassSuppressed(map(flag({ topicId: "y", disposition: "reworded" })), []);
-    expect(out).toEqual([]);
+    const out = offCompassFlags(
+      map(
+        flag({ topicId: "x", disposition: "moved" }),
+        flag({ topicId: "y", disposition: "reworded" })
+      ),
+      ["x", "y"]
+    );
+    expect(out.setAside).toEqual([]);
+    expect(out.updated).toEqual([]);
   });
 
   it("ignores a topic the season is not asking", () => {
     // No value was withheld and no recalibration is possible — the question is
     // not on the board to answer.
-    const out = offCompassSuppressed(
+    const out = offCompassFlags(
       map(flag({ topicId: "z", reason: "not_asked_this_season", disposition: "fresh" })),
       []
     );
-    expect(out).toEqual([]);
+    expect(out.setAside).toEqual([]);
+    expect(out.updated).toEqual([]);
   });
 
-  it("reports invalidated as well as moved", () => {
-    const out = offCompassSuppressed(
+  it("counts invalidated as set aside, alongside moved", () => {
+    const out = offCompassFlags(
       map(
         flag({ topicId: "a", disposition: "moved" }),
         flag({ topicId: "b", disposition: "invalidated" })
       ),
       []
     );
-    expect(out.map((f) => f.topicId).sort()).toEqual(["a", "b"]);
+    expect(out.setAside.map((f) => f.topicId).sort()).toEqual(["a", "b"]);
+  });
+
+  it("keeps the two groups disjoint", () => {
+    const out = offCompassFlags(
+      map(
+        flag({ topicId: "a", disposition: "moved" }),
+        flag({ topicId: "b", disposition: "reworded" }),
+        flag({ topicId: "c", disposition: "invalidated" })
+      ),
+      []
+    );
+    const ids = [...out.setAside, ...out.updated].map((f) => f.topicId);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids.length).toBe(3);
   });
 
   it("copes with no selection and no flags", () => {
-    expect(offCompassSuppressed(new Map(), undefined)).toEqual([]);
-    expect(offCompassSuppressed(undefined, [])).toEqual([]);
+    expect(offCompassFlags(new Map(), undefined)).toEqual({ setAside: [], updated: [] });
+    expect(offCompassFlags(undefined, [])).toEqual({ setAside: [], updated: [] });
   });
 });

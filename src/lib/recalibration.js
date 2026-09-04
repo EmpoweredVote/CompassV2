@@ -115,7 +115,7 @@ export function mergeFlags({ compassFlags, lensFlags, dismissed } = {}) {
 }
 
 /**
- * The suppressed answers that have no spoke to explain them.
+ * The off-compass flags, split by whether a value was actually lost.
  *
  * 🔴 WHY THIS IS A SEPARATE SET. /compass/recalibration-flags covers EVERY
  * answered topic, not just the selected ones, because scoping it to the
@@ -125,20 +125,30 @@ export function mergeFlags({ compassFlags, lensFlags, dismissed } = {}) {
  * off-screen is still set aside: it is already missing from
  * compass_responses_effective for scoring and every other reader.
  *
- * ⚠ SUPPRESSED ONLY, AND THE RATIO IS WHY. Of the 84 off-compass flags, 79 are
- * `reworded` — the value is intact, nothing vanished, and there is nothing to
- * report. Surfacing those here would be exactly the noise the two-weight marker
- * exists to avoid, at four times the volume. The 5 that lost a value are the
- * ones worth interrupting for.
+ * ⚠ TWO GROUPS, NOT ONE COUNT, AND THE RATIO IS WHY. At the changeover the
+ * off-compass flags are 5 `setAside` against 79 `updated`. Summing them would
+ * announce "84 answers need attention" when 79 of them are intact and only the
+ * wording moved — collapsing the exact distinction the three copy states and the
+ * two-weight marker both exist to preserve. So the caller gets both counts and
+ * can give each its own weight.
  *
- * `not_asked_this_season` is excluded too: no value was withheld, and the
+ * `not_asked_this_season` is in neither group: no value was withheld, and the
  * question is not on the board to re-answer.
  */
-export function offCompassSuppressed(flagsByTopic, selectedTopics) {
-  if (!flagsByTopic) return [];
+export function offCompassFlags(flagsByTopic, selectedTopics) {
+  const setAside = [];
+  const updated = [];
+  if (!flagsByTopic) return { setAside, updated };
+
   const onCompass = new Set(selectedTopics ?? []);
 
-  return [...flagsByTopic.values()].filter(
-    (f) => isSuppressed(f?.disposition) && !onCompass.has(f.topicId)
-  );
+  for (const flag of flagsByTopic.values()) {
+    if (!flag?.topicId || onCompass.has(flag.topicId)) continue;
+    if (flag.reason === "not_asked_this_season") continue;
+
+    if (isSuppressed(flag.disposition)) setAside.push(flag);
+    else if (flag.disposition === "reworded") updated.push(flag);
+  }
+
+  return { setAside, updated };
 }
