@@ -113,3 +113,32 @@ export function mergeFlags({ compassFlags, lensFlags, dismissed } = {}) {
 
   return out;
 }
+
+/**
+ * The suppressed answers that have no spoke to explain them.
+ *
+ * 🔴 WHY THIS IS A SEPARATE SET. /compass/recalibration-flags covers EVERY
+ * answered topic, not just the selected ones, because scoping it to the
+ * selection reached only 12 of the 96 non-fresh answers at the changeover —
+ * `invalidated` 0 of 1, `moved` 2 of 6. Most answers are not on the user's
+ * current spokes, so most flags have no pill to hang on, and an answer set aside
+ * off-screen is still set aside: it is already missing from
+ * compass_responses_effective for scoring and every other reader.
+ *
+ * ⚠ SUPPRESSED ONLY, AND THE RATIO IS WHY. Of the 84 off-compass flags, 79 are
+ * `reworded` — the value is intact, nothing vanished, and there is nothing to
+ * report. Surfacing those here would be exactly the noise the two-weight marker
+ * exists to avoid, at four times the volume. The 5 that lost a value are the
+ * ones worth interrupting for.
+ *
+ * `not_asked_this_season` is excluded too: no value was withheld, and the
+ * question is not on the board to re-answer.
+ */
+export function offCompassSuppressed(flagsByTopic, selectedTopics) {
+  if (!flagsByTopic) return [];
+  const onCompass = new Set(selectedTopics ?? []);
+
+  return [...flagsByTopic.values()].filter(
+    (f) => isSuppressed(f?.disposition) && !onCompass.has(f.topicId)
+  );
+}

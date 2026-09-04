@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { copyFor, flagWeight, mergeFlags, isSuppressed } from "./recalibration";
+import { copyFor, flagWeight, mergeFlags, isSuppressed, offCompassSuppressed } from "./recalibration";
 
 /**
  * The server decides WHAT is flagged (CC_0061, via /compass/recalibration-flags
@@ -165,5 +165,59 @@ describe("mergeFlags — the compass and the lens both get to speak", () => {
       lensFlags: [flag({ topicId: "g", disposition: "reworded" })],
     });
     expect(map.get("g").disposition).toBe("moved");
+  });
+});
+
+describe("offCompassSuppressed — the answers set aside where nobody can see them", () => {
+  // 🔴 WHY THIS EXISTS. The flags endpoint covers every answered topic, not just
+  // the selected ones, because scoping to the selection reached only 12 of the
+  // 96 non-fresh answers — `invalidated` 0 of 1, `moved` 2 of 6. But most
+  // answers are not on the user's spokes, so those flags have no pill to hang
+  // on. This is the set that needs saying out loud somewhere else.
+  const map = (...flags) => new Map(flags.map((f) => [f.topicId, f]));
+
+  it("finds a suppressed answer on a topic not currently shown", () => {
+    const out = offCompassSuppressed(map(flag({ topicId: "x", disposition: "moved" })), []);
+    expect(out.map((f) => f.topicId)).toEqual(["x"]);
+  });
+
+  it("ignores a suppressed answer that already has a spoke", () => {
+    // It has a pill there. Saying it twice is nagging.
+    const out = offCompassSuppressed(map(flag({ topicId: "x", disposition: "moved" })), ["x"]);
+    expect(out).toEqual([]);
+  });
+
+  // ⚠ THE 79 THAT MUST STAY QUIET. Reworded answers kept their value, so nothing
+  // vanished and there is nothing to report. Surfacing them here would be the
+  // same noise the two-weight marker exists to avoid, at four times the volume.
+  it("ignores a reworded answer off the compass", () => {
+    const out = offCompassSuppressed(map(flag({ topicId: "y", disposition: "reworded" })), []);
+    expect(out).toEqual([]);
+  });
+
+  it("ignores a topic the season is not asking", () => {
+    // No value was withheld and no recalibration is possible — the question is
+    // not on the board to answer.
+    const out = offCompassSuppressed(
+      map(flag({ topicId: "z", reason: "not_asked_this_season", disposition: "fresh" })),
+      []
+    );
+    expect(out).toEqual([]);
+  });
+
+  it("reports invalidated as well as moved", () => {
+    const out = offCompassSuppressed(
+      map(
+        flag({ topicId: "a", disposition: "moved" }),
+        flag({ topicId: "b", disposition: "invalidated" })
+      ),
+      []
+    );
+    expect(out.map((f) => f.topicId).sort()).toEqual(["a", "b"]);
+  });
+
+  it("copes with no selection and no flags", () => {
+    expect(offCompassSuppressed(new Map(), undefined)).toEqual([]);
+    expect(offCompassSuppressed(undefined, [])).toEqual([]);
   });
 });
