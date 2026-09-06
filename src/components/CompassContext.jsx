@@ -1,6 +1,6 @@
 // CompassContext.jsx
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
-import { extractHashToken, getToken, setToken, apiFetch, publicFetch, clearToken, API_BASE } from '../lib/auth';
+import { extractHashToken, getToken, setToken, apiFetch, publicFetch, clearToken, refreshAccessToken, API_BASE } from '../lib/auth';
 import { evContext } from '@empoweredvote/ev-ui';
 import { LENSES, normalizeApiLens } from '../lib/lenses';
 import { shouldSyncCompass, compassToPublish, buildSharedAnswers } from '../lib/compassSync';
@@ -470,7 +470,15 @@ export function CompassProvider({ children }) {
 
         // Auth check (runs after potential SSO token injection)
         if (getToken()) {
-          const r = await publicFetch('/account/me');
+          let r = await publicFetch('/account/me');
+          // A stale local token 401s even when the cookie session is still
+          // valid. Try a silent refresh, then re-check; if that can't produce a
+          // token (terminal or transient), fall back to guest below. The init
+          // path never redirects — it degrades silently.
+          if (r.status === 401) {
+            const fresh = await refreshAccessToken().catch(() => null);
+            if (fresh) r = await publicFetch('/account/me');
+          }
           if (r.status === 401) {
             clearToken();
           } else if (r.ok) {
@@ -741,9 +749,17 @@ export function CompassProvider({ children }) {
       try {
         const res = await fetch(SESSION_URL, { credentials: 'include' });
         if (res.status === 401) {
+          // Terminal: the shared session ended (logout elsewhere, or the refresh
+          // token expired). A transient 503 is neither ok nor 401 — ignored,
+          // session kept (ev-accounts B5).
           clearToken();
           setIsLoggedIn(false);
           setUsername(null);
+        } else if (res.ok) {
+          // Keep the short-lived access token fresh from the rotating cookie so
+          // authed calls don't have to bounce through a 401 first.
+          const data = await res.json();
+          if (data.access_token) setToken(data.access_token);
         }
       } catch {
         // Network error — don't log out
