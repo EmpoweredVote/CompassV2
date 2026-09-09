@@ -3,6 +3,7 @@
 import { track } from "@empoweredvote/analytics";
 import { useCompass } from "../components/CompassContext";
 import { apiFetch, API_BASE } from "../lib/auth";
+import { orderLensTopics } from "../lib/lensOrder";
 import { useEvContextPromotion } from "@empoweredvote/ev-ui";
 import RadarChart from "../components/RadarChart";
 import CalibrationOverlay from "../components/CalibrationOverlay";
@@ -1516,16 +1517,17 @@ function CombinedPage() {
     if (!activeLensKey && selectedTopics.length > 0) {
       localStorage.setItem("preLensTopics", JSON.stringify(selectedTopics));
     }
-    // Restore this lens's saved order (validated to its IDs) or fall back to default
+    // Restore this lens's saved order. It is an ORDERING, not a MEMBERSHIP: ids the
+    // saved list knows are placed where it remembers them, and ids it does not know
+    // are appended in the lens's own order. Using the saved list AS the membership
+    // is what let CC_0086's re-derived Federal Lens render as six spokes instead of
+    // eight for anyone who had ever reordered it. See lib/lensOrder.js.
     const lensTopicIds = lens.topicIds.filter(id => topics.some(t => t.id === id));
-    let lensTopics = lensTopicIds.slice(0, MAX_TOPICS);
+    let saved = null;
     try {
-      const saved = JSON.parse(localStorage.getItem(lensOrderKey(lens)) || "null");
-      if (Array.isArray(saved) && saved.length > 0) {
-        const validated = saved.filter(id => lens.topicIds.includes(id));
-        if (validated.length > 0) lensTopics = validated;
-      }
-    } catch { /* corrupt or unreadable localStorage — fall back to the default */ }
+      saved = JSON.parse(localStorage.getItem(lensOrderKey(lens)) || "null");
+    } catch { /* corrupt or unreadable localStorage — fall back to the lens order */ }
+    const lensTopics = orderLensTopics(lensTopicIds, saved, MAX_TOPICS);
     setSelectedTopics(lensTopics);
     setActiveLensKey(lens.key);
     // If all lens topics already answered, mark calibration complete to block the overlay
