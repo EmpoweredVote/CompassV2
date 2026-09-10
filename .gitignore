@@ -44,6 +44,7 @@ public/*.png
 # Brand assets — keep tracked despite the public/*.png rule above
 !public/compass-logo-dark.png
 !public/compass-favicon-*.png
+!public/og-image.png
 
 # Editor/tooling backups. A `.env.bak` holding live credentials sat
 # untracked in ev-accounts on 2026-07-26 and a single `git add -A`
