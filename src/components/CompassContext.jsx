@@ -206,10 +206,27 @@ export function CompassProvider({ children }) {
   // the user may navigate away before a two-step async chain completes.
   const evContextCacheRef = useRef({});
 
-  // Serialized copy of the last `compass` payload this tab published to the
-  // broker. The broker echoes our own writes back to us, so the subscribe
-  // callback uses this to tell "our echo" from "a real remote change".
-  const publishedRef = useRef(null);
+  // Identify this tab's own writes so the subscribe callback below can
+  // recognise a STALE echo of one of them (see publishSeqRef) regardless of
+  // content — comparing payload content instead (the previous approach) broke
+  // down in two ways: the compared shapes didn't actually match (see git
+  // history), and even fixed, only the MOST RECENT write's payload was ever
+  // remembered, so any earlier write's echo — and Full Calibration fires a new
+  // write on every single answer, so several are routinely in flight at
+  // once — fell through and got misapplied as if it were a genuine remote
+  // change.
+  const tabInstanceIdRef = useRef(null);
+  if (tabInstanceIdRef.current == null) {
+    tabInstanceIdRef.current =
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `tab-${Date.now()}-${Math.random()}`;
+  }
+  // Monotonic counter, one increment per guest write. Tagged onto the
+  // published payload as `_seq` (echoed back unchanged by the broker) so an
+  // echo can be checked against the HIGHEST seq this tab has sent, not just
+  // the most recent one's content.
+  const publishSeqRef = useRef(0);
 
   // Preload the broker iframe immediately so it's ready before any write.
   useEffect(() => {
@@ -274,16 +291,12 @@ export function CompassProvider({ children }) {
       }).catch(() => {});
       return;
     }
+    const seq = ++publishSeqRef.current;
     const compass = {
       a: evAnswers, n: scopedAnswerCount, s: ownCompass, i: invertedSpokes, w: writeIns,
+      _origin: tabInstanceIdRef.current, _seq: seq,
       ...(clearedAt > 0 ? { clearedAt } : {}),
     };
-    // Remember the exact payload we published so the subscribe callback can
-    // recognise our own echo. Comparing the echo against local state instead
-    // would fail whenever `a` is capped (i.e. the user has answers outside the
-    // 8 selected topics — every answer given on /calibrate), and the capped
-    // copy would then overwrite the fuller local answers.
-    publishedRef.current = JSON.stringify(compass);
     const next = { ...evContextCacheRef.current, compass };
     evContextCacheRef.current = next;
     evContext.set(next).catch(() => {});
@@ -377,11 +390,6 @@ export function CompassProvider({ children }) {
       if (shared && typeof shared === 'object') evContextCacheRef.current = shared;
       const c = shared && shared.compass;
       if (!c || typeof c !== 'object') return;
-      // Skip echo of our own writes. The broker re-broadcasts every set() back
-      // to the tab that made it, so compare against the payload we published —
-      // NOT against local state. `a` is capped to the 8 selected topics, so a
-      // local comparison never matches once the user has answers beyond those
-      // 8, and we'd treat our own echo as a remote change.
       // An explicit reset elsewhere wins outright, and only a real reset can
       // send this — an unhydrated tab publishes no clearedAt at all, so it can
       // never wipe a populated one. Handled before the echo checks because a
@@ -396,11 +404,28 @@ export function CompassProvider({ children }) {
         return;
       }
 
-      const incoming = JSON.stringify({ a: c.a, s: c.s, i: c.i, w: c.w });
-      if (incoming === publishedRef.current) return;
-      // Use refs so this always reflects current values without re-registering.
-      const local = JSON.stringify({ a: answersRef.current, s: selectedTopicsRef.current, i: invertedSpokesRef.current, w: writeInsRef.current });
-      if (incoming === local) return;
+      // Skip a STALE echo of one of OUR OWN writes. The broker re-broadcasts
+      // every set() back to the tab that made it, and Full Calibration fires a
+      // new write on every single answer, so several are routinely still in
+      // flight when one of them echoes back. `_seq` is tagged onto every write
+      // this tab sends (see the write effect above) and is monotonic, so an
+      // echo carrying an older `_seq` than the highest we've sent describes a
+      // superseded version of our own state — real, but obsolete the moment a
+      // newer write went out. Applying it anyway reverts local state to the
+      // past, and because invertedSpokes/etc. are effect dependencies, THAT
+      // revert triggers another publish — a self-sustaining ping-pong that
+      // surfaced as the Full Calibration Flip button flickering.
+      //
+      // This used to be done by comparing the echo's JSON against the last
+      // published payload, which was broken two ways: the compared shapes
+      // didn't line up (so the check never fired), and even fixed it could
+      // only ever remember the MOST RECENT write — useless once multiple
+      // writes are in flight, which full calibration guarantees. `_seq` +
+      // `_origin` identify every one of our own writes individually, not just
+      // the last.
+      if (c._origin === tabInstanceIdRef.current && (Number(c._seq) || 0) < publishSeqRef.current) {
+        return;
+      }
       // `a` carries only the topics in the sender's compass (`s`, capped at 8),
       // so it is a partial view. Treat it as authoritative for the topics it
       // declares and leave every other answer untouched: a plain replace deletes
