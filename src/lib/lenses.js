@@ -4,7 +4,10 @@ export const LOCAL_LENS = {
   key: 'local',
   name: 'Local Lens',
   description: '8 questions most local candidates have already answered',
-  color: '#5A9A6E',
+  color: '#00657C',
+  // The deep teal goes muddy against the dark background, so on dark surfaces
+  // the lens picks up the same light blue the calibration flow uses there.
+  darkColor: '#59B0C4',
   topicIds: [
     '669cac97-66a6-4087-b036-936fbe62efb3', // Housing
     '4938766b-b45a-46e3-93bd-b8b30651271a', // Homelessness
@@ -146,12 +149,17 @@ export function lensShortLabel(lens) {
 }
 
 // Normalize an API lens row (GET /compass/lenses) into the constant shape.
+// Color is the one field the constants still own: it is a brand/design token
+// tuned against the app's palette and dark mode, not editorial content, so the
+// local value wins and the API color is only a fallback for unknown keys.
 export function normalizeApiLens(l) {
+  const local = LENSES.find(x => x.key === l.key);
   return {
     key: l.key,
     name: l.name,
     description: l.description,
-    color: l.color,
+    color: local?.color ?? l.color,
+    darkColor: local?.darkColor,
     icon: l.icon,
     topicIds: Array.isArray(l.topicIds) ? l.topicIds : [],
     autoDistrictTypes: Array.isArray(l.autoDistrictTypes) ? l.autoDistrictTypes : [],
@@ -161,6 +169,19 @@ export function normalizeApiLens(l) {
     // fallback that covers a server which has not deployed the field yet.
     ...(Number.isFinite(l.sortOrder) ? { sortOrder: l.sortOrder } : {}),
   };
+}
+
+// The lens color for the surface it is drawn on. Lenses that read the same on
+// either background declare only `color`.
+export function getLensColor(lens, isDark) {
+  if (!lens) return null;
+  return (isDark && lens.darkColor) || lens.color;
+}
+
+// Ink for text and icons sitting on a filled lens chip. The light dark-mode
+// colors need dark ink; the deep ones keep white.
+export function getLensInk(lens, isDark) {
+  return isDark && lens?.darkColor ? '#131416' : '#FFFFFF';
 }
 
 // Returns the subset of a topics array that belongs to this lens, in lens order.
