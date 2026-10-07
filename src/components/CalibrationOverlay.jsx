@@ -14,7 +14,7 @@ import {
 import { useTheme } from "../ThemeProvider";
 import { useCompass } from "./CompassContext";
 import { apiFetch } from "../lib/auth";
-import { LOCAL_LENS, JUDICIAL_LENS, FEDERAL_LENS } from "../lib/lenses";
+import { LOCAL_LENS, JUDICIAL_LENS, FEDERAL_LENS, getLensColor, getLensInk } from "../lib/lenses";
 import RadarChart from "./RadarChart";
 import { getQuestionText, parseTensionTitle } from "../util/topic";
 import { TopicTierBadge } from "@empoweredvote/ev-ui";
@@ -35,7 +35,9 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
+import { DARK_THEME, LIGHT_THEME } from "../lib/calibrationTheme";
 import CoachMark from "./CoachMark";
+import { motion, AnimatePresence } from "framer-motion";
 
 const STORAGE_KEY = "calibration_progress";
 const MAX_TOPICS = 8;
@@ -46,60 +48,12 @@ const CATEGORY_COLORS = [
   '#00657C', '#FF5740', '#59B0C4', '#5A9A6E', '#7C6B9E', '#D4940B', '#FED12E',
 ];
 
-// ────────────────────────────────────────────────
-// Theme palettes (EV semantic tokens)
-// ────────────────────────────────────────────────
-const DARK_THEME = {
-  bg:             '#131416',
-  card:           '#2F3237',
-  cardElev:       '#41454E',
-  border:         '#41454E',
-  borderAccent:   '#59B0C4',
-  textHead:       '#EBEDEF',
-  textBody:       '#D3D7DE',
-  textMuted:      '#9CA3AF',
-  textAccent:     '#59B0C4',
-  btnBg:          '#005366',
-  btnText:        '#FFFFFF',
-  selBg:          'rgba(89,176,196,0.12)',
-  selBorder:      '#59B0C4',
-  yellow:         '#FED12E',
-  yellowDark:     '#D0A301',
-  yellowBg:       'rgba(254,209,46,0.12)',
-  progressBg:     '#41454E',
-  divider:        '#41454E',
-  stickyBg:       'rgba(19,20,22,0.97)',
-  stanceBg:       '#2F3237',
-  stanceText:     '#D3D7DE',
-  stanceBorder:   '#41454E',
-  writeOwnColor:  '#6B7280',
-};
+// Spider-graph series colors, shared by the landing hero radar and the
+// onboarding illustrations so both screens read as the same chart.
+const RADAR_YOU = '#7C6B9E';   // your compass
+const RADAR_CAND = '#5A9A6E';  // a candidate's
+const RADAR_ALIGN = '#FED12E'; // a topic where both land on the same value
 
-const LIGHT_THEME = {
-  bg:             '#F7F7F8',
-  card:           '#FFFFFF',
-  cardElev:       '#EBEDEF',
-  border:         '#D3D7DE',
-  borderAccent:   '#00657C',
-  textHead:       '#2F3237',
-  textBody:       '#535964',
-  textMuted:      '#6d7a9a',
-  textAccent:     '#00657C',
-  btnBg:          '#005366',
-  btnText:        '#FFFFFF',
-  selBg:          '#E4F3F6',
-  selBorder:      '#00657C',
-  yellow:         '#FED12E',
-  yellowDark:     '#D0A301',
-  yellowBg:       '#FEF3C7',
-  progressBg:     '#D3D7DE',
-  divider:        '#D3D7DE',
-  stickyBg:       'rgba(247,247,248,0.97)',
-  stanceBg:       '#FFFFFF',
-  stanceText:     '#2F3237',
-  stanceBorder:   '#D3D7DE',
-  writeOwnColor:  '#8F9EBC',
-};
 
 // ────────────────────────────────────────────────
 // Sub-components
@@ -140,6 +94,531 @@ function GhostRadar({ size = "w-64 md:w-80" }) {
       </svg>
     </div>
   );
+}
+
+// ────────────────────────────────────────────────
+// Onboarding illustrations (theme-aware inline SVG)
+// ────────────────────────────────────────────────
+
+function radarPolygon(values, R, cx, cy) {
+  const N = values.length;
+  return values
+    .map((v, i) => {
+      const a = (2 * Math.PI * i) / N;
+      const x = cx + R * v * Math.sin(a);
+      const y = cy - R * v * Math.cos(a);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+}
+
+function LearnRadar({ t, shapes, labels, strokeWidth = 2.5, loop = false, alignColor = null }) {
+  const cx = 120, cy = 120, R = 64, N = 8, LR = 86;
+
+  // Topics where every series lands on the same value — the points of
+  // agreement. Their vertex dots coincide exactly, so instead of stacking one
+  // series' dot on the other's we swap in a single accent marker.
+  const alignIdx =
+    alignColor && shapes.length > 1
+      ? shapes[0].values.reduce((acc, v, i) => {
+          const agrees = shapes.every((s) => Math.abs(s.values[i] - v) < 0.001);
+          return agrees ? [...acc, i] : acc;
+        }, [])
+      : [];
+  const dotDelay = (idx, i) => 0.9 + idx * 0.45 + i * 0.05;
+
+  return (
+    <svg viewBox="0 0 240 240" className="w-full h-full overflow-visible">
+      {/* Grid fades in first */}
+      <motion.g initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }}>
+        {[0.33, 0.66, 1].map((lvl) => (
+          <circle key={lvl} cx={cx} cy={cy} r={R * lvl} fill="none" stroke={t.divider} strokeWidth="1" />
+        ))}
+        {Array.from({ length: N }).map((_, i) => {
+          const a = (2 * Math.PI * i) / N;
+          return (
+            <line key={i} x1={cx} y1={cy} x2={cx + R * Math.sin(a)} y2={cy - R * Math.cos(a)} stroke={t.divider} strokeWidth="1" />
+          );
+        })}
+      </motion.g>
+
+      {/* Topic labels around the compass */}
+      {labels &&
+        labels.map((lab, i) => {
+          const a = (2 * Math.PI * i) / N;
+          const sinv = Math.sin(a);
+          const cosv = Math.cos(a);
+          const x = cx + LR * sinv;
+          const y = cy - LR * cosv;
+          const anchor = Math.abs(sinv) < 0.35 ? "middle" : sinv > 0 ? "start" : "end";
+          const dy = cosv > 0.35 ? -3 : cosv < -0.35 ? 9 : 3;
+          return (
+            <motion.text
+              key={`lab-${i}`}
+              x={x}
+              y={y + dy}
+              textAnchor={anchor}
+              fontSize="8"
+              fontWeight="700"
+              fill={t.textMuted}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5 + i * 0.05 }}
+            >
+              {lab}
+            </motion.text>
+          );
+        })}
+
+      {/* Each shape draws its outline, then fills. `loop` redraws continuously. */}
+      {shapes.map((s, idx) => {
+        const delay = 0.3 + idx * 0.45;
+        return (
+          <motion.polygon
+            key={idx}
+            points={radarPolygon(s.values, R, cx, cy)}
+            fill={s.fill ? `${s.color}33` : "none"}
+            stroke={s.color}
+            strokeWidth={strokeWidth}
+            strokeLinejoin="round"
+            initial={{ pathLength: 0, opacity: 0 }}
+            animate={{ pathLength: 1, opacity: 1 }}
+            transition={{
+              pathLength: loop
+                ? { duration: 1.1, delay, ease: "easeInOut", repeat: Infinity, repeatDelay: 0.9 }
+                : { duration: 0.9, delay, ease: "easeInOut" },
+              opacity: { duration: 0.4, delay },
+            }}
+          />
+        );
+      })}
+
+      {/* Vertex dots — on the filled shapes, minus the agreement points */}
+      {shapes.map((s, idx) =>
+        s.fill
+          ? s.values.map((v, i) => {
+              if (alignIdx.includes(i)) return null;
+              const a = (2 * Math.PI * i) / N;
+              return (
+                <motion.circle
+                  key={`${idx}-${i}`}
+                  cx={cx + R * v * Math.sin(a)}
+                  cy={cy - R * v * Math.cos(a)}
+                  r={loop ? 2.5 : 3.4}
+                  fill={s.color}
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ delay: dotDelay(idx, i), type: "spring", stiffness: 320, damping: 18 }}
+                  style={{ transformBox: "fill-box", transformOrigin: "center" }}
+                />
+              );
+            })
+          : null
+      )}
+
+      {/* Agreement markers — one dot where both compasses land together, with a
+          slow halo so the eye is pulled to the match. Stroked in the page bg so
+          the yellow stays legible against either fill. */}
+      {alignIdx.map((i) => {
+        const a = (2 * Math.PI * i) / N;
+        const v = shapes[0].values[i];
+        const x = cx + R * v * Math.sin(a);
+        const y = cy - R * v * Math.cos(a);
+        const appear = dotDelay(shapes.length - 1, i);
+        return (
+          <g key={`align-${i}`}>
+            <motion.circle
+              cx={x}
+              cy={y}
+              r={4.6}
+              fill="none"
+              stroke={alignColor}
+              strokeWidth="1.6"
+              initial={{ scale: 1, opacity: 0 }}
+              animate={{ scale: [1, 2.1], opacity: [0.75, 0] }}
+              transition={{ delay: appear, duration: 1.7, ease: "easeOut", repeat: Infinity, repeatDelay: 0.5 }}
+              style={{ transformBox: "fill-box", transformOrigin: "center" }}
+            />
+            <motion.circle
+              cx={x}
+              cy={y}
+              r={4.6}
+              fill={alignColor}
+              stroke={t.bg}
+              strokeWidth="1.6"
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: appear, type: "spring", stiffness: 320, damping: 16 }}
+              style={{ transformBox: "fill-box", transformOrigin: "center" }}
+            />
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+// Landing hero: the same draw-in radar as the onboarding compare step — You vs a candidate.
+function LandingRadar({ t }) {
+  const TOPICS = ["Housing", "Climate", "Schools", "Safety", "Health", "Jobs", "Justice", "Taxes"];
+  const YOU = [0.95, 0.62, 0.85, 0.58, 0.9, 0.72, 0.52, 0.8];
+  const CAND = [0.58, 0.88, 0.55, 0.9, 0.62, 0.78, 0.9, 0.5];
+  return (
+    <LearnRadar
+      t={t}
+      labels={TOPICS}
+      strokeWidth={1.8}
+      loop
+      shapes={[
+        { values: CAND, color: RADAR_CAND, fill: true },
+        { values: YOU, color: RADAR_YOU, fill: true },
+      ]}
+    />
+  );
+}
+
+// Write-in demo: types a custom stance, then drags the card into a slot on the spectrum.
+function WriteInIllo({ t }) {
+  const FULL = "Fund transit, not highways";
+  const YELLOW = "#FED12E";
+  const [n, setN] = useState(0);
+  const [docked, setDocked] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const timers = [];
+    const push = (fn, ms) => timers.push(setTimeout(() => { if (!cancelled) fn(); }, ms));
+    const run = () => {
+      setN(0);
+      setDocked(false);
+      for (let i = 1; i <= FULL.length; i++) push(() => setN(i), 65 * i);
+      const done = 65 * FULL.length;
+      push(() => setDocked(true), done + 750); // finished typing -> drag it up
+      push(run, done + 750 + 2100);
+    };
+    run();
+    return () => { cancelled = true; timers.forEach(clearTimeout); };
+  }, []);
+
+  const Rung = ({ label, cls }) => (
+    <div className={`absolute left-0 right-0 ${cls}`}>
+      <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl" style={{ border: `1.5px solid ${t.border}` }}>
+        <span className="w-4 h-4 rounded-full shrink-0" style={{ border: `2px solid ${t.border}` }} />
+        <span className="text-sm font-medium" style={{ color: t.textMuted }}>{label}</span>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="w-full max-w-[16rem]">
+      <p className="text-xs font-bold tracking-widest uppercase mb-2 text-center" style={{ color: t.textMuted }}>
+        Transit
+      </p>
+      <div className="relative" style={{ height: "15rem" }}>
+        {/* Destination slot at the top */}
+        <motion.div
+          className="absolute left-0 right-0 rounded-xl border-2 border-dashed h-[3rem]"
+          style={{ borderColor: YELLOW, top: 0 }}
+          animate={{ opacity: docked ? 0 : 1 }}
+          transition={{ duration: 0.3 }}
+        />
+
+        {/* Preset stances */}
+        <Rung label="More buses and trains" cls="top-[3.75rem]" />
+        <Rung label="Keep spending as it is" cls="top-[7.5rem]" />
+
+        {/* Write-in card: sits in line at the bottom while typing, then drags up to the top slot */}
+        <motion.div
+          className="absolute left-0 right-0 z-10"
+          style={{ top: 0 }}
+          animate={{ y: docked ? 0 : 180 }}
+          transition={{ type: "spring", stiffness: 230, damping: 24 }}
+        >
+          <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl" style={{ border: `2px solid ${YELLOW}`, background: t.card }}>
+            <svg viewBox="0 0 24 24" className="w-4 h-4 shrink-0 mt-0.5" fill={t.textMuted}>
+              <circle cx="9" cy="6" r="1.5" /><circle cx="15" cy="6" r="1.5" />
+              <circle cx="9" cy="12" r="1.5" /><circle cx="15" cy="12" r="1.5" />
+              <circle cx="9" cy="18" r="1.5" /><circle cx="15" cy="18" r="1.5" />
+            </svg>
+            <span className="text-sm font-semibold text-left leading-snug min-h-[1.25rem]" style={{ color: t.textHead }}>
+              {FULL.slice(0, n)}
+              {!docked && (
+                <motion.span
+                  className="inline-block w-0.5 h-4 ml-px align-middle"
+                  style={{ background: t.textHead }}
+                  animate={{ opacity: [1, 0, 1] }}
+                  transition={{ duration: 0.8, repeat: Infinity }}
+                />
+              )}
+            </span>
+          </div>
+        </motion.div>
+      </div>
+      <motion.div
+        className="flex items-center justify-center gap-1 text-xs font-semibold mt-1"
+        style={{ color: "#D4940B" }}
+        animate={{ opacity: docked ? 0.45 : 1 }}
+      >
+        <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 19V5M5 12l7-7 7 7" />
+        </svg>
+        {docked ? "Placed on the spectrum" : "Type, then drag up to place"}
+      </motion.div>
+    </div>
+  );
+}
+
+function LearnIllustration({ kind, t }) {
+  // Index 5 ("Jobs") is deliberately identical in both series — LearnRadar
+  // detects the match and marks it as a point of agreement.
+  const YOU = [0.9, 0.55, 0.95, 0.5, 0.78, 0.8, 0.92, 0.6];
+  const CAND = [0.6, 0.82, 0.55, 0.72, 0.5, 0.8, 0.5, 0.8];
+  const TEAL = "#59B0C4"; // topic chips + stance selection accents (not the radar)
+  const TOPICS = ["Housing", "Climate", "Schools", "Safety", "Health", "Jobs", "Justice", "Taxes"];
+
+  if (kind === "what") {
+    return (
+      <div className="w-full max-w-[16rem] aspect-square">
+        <LearnRadar t={t} labels={TOPICS} shapes={[{ values: YOU, color: RADAR_YOU, fill: true }]} />
+      </div>
+    );
+  }
+
+  if (kind === "choose") {
+    const CHIPS = [
+      { label: "Housing", on: true },
+      { label: "Climate", on: true },
+      { label: "Schools", on: false },
+      { label: "Public safety", on: true },
+      { label: "Healthcare", on: false },
+      { label: "Jobs", on: true },
+    ];
+    return (
+      <div className="w-full max-w-[16rem] flex flex-wrap gap-2 justify-center">
+        {CHIPS.map((c, i) => (
+          <motion.span
+            key={c.label}
+            initial={{ opacity: 0, scale: 0.8, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ delay: 0.1 + i * 0.09, type: "spring", stiffness: 300, damping: 20 }}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-semibold"
+            style={
+              c.on
+                ? { background: `${TEAL}22`, color: TEAL, border: `1.5px solid ${TEAL}` }
+                : { background: "transparent", color: t.textMuted, border: `1.5px solid ${t.border}` }
+            }
+          >
+            {c.on && (
+              <motion.svg
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                className="w-3.5 h-3.5"
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.3 + i * 0.09, type: "spring", stiffness: 420, damping: 16 }}
+              >
+                <path fillRule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0l-3.5-3.5a1 1 0 011.4-1.4l2.8 2.8 6.8-6.8a1 1 0 011.4 0z" clipRule="evenodd" />
+              </motion.svg>
+            )}
+            {c.label}
+          </motion.span>
+        ))}
+      </div>
+    );
+  }
+
+  if (kind === "stance") {
+    const OPTIONS = [
+      "Build housing everywhere, fast",
+      "Add more homes near transit",
+      "Grow slowly and carefully",
+      "Keep neighborhoods as they are",
+    ];
+    const sel = 1;
+    return (
+      <div className="w-full max-w-[16rem] flex flex-col gap-2.5">
+        <p className="text-xs font-bold tracking-widest uppercase mb-1 text-center" style={{ color: t.textMuted }}>
+          Housing
+        </p>
+        {OPTIONS.map((o, i) => {
+          const active = i === sel;
+          return (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, x: -12 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.15 + i * 0.12, type: "spring", stiffness: 260, damping: 22 }}
+              className="flex items-center gap-2.5 px-3 py-2 rounded-xl"
+              style={
+                active
+                  ? { background: `${TEAL}22`, border: `1.5px solid ${TEAL}` }
+                  : { background: "transparent", border: `1.5px solid ${t.border}` }
+              }
+            >
+              <span
+                className="w-4 h-4 rounded-full shrink-0 flex items-center justify-center"
+                style={{ border: `2px solid ${active ? TEAL : t.border}`, background: active ? TEAL : "transparent" }}
+              >
+                {active && <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#fff" }} />}
+              </span>
+              <span className="text-sm font-medium text-left" style={{ color: active ? TEAL : t.textBody }}>
+                {o}
+              </span>
+            </motion.div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  if (kind === "writein") {
+    return <WriteInIllo t={t} />;
+  }
+
+  if (kind === "compare") {
+    return (
+      <div className="w-full flex flex-col items-center gap-4">
+        <div className="w-full max-w-[16rem] aspect-square">
+          <LearnRadar
+            t={t}
+            labels={TOPICS}
+            alignColor={RADAR_ALIGN}
+            shapes={[
+              { values: CAND, color: RADAR_CAND, fill: true },
+              { values: YOU, color: RADAR_YOU, fill: true },
+            ]}
+          />
+        </div>
+        <motion.div
+          className="flex items-center gap-5"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1.2 }}
+        >
+          <span className="flex items-center gap-2 text-sm font-semibold" style={{ color: t.textBody }}>
+            <span className="w-3 h-3 rounded-full" style={{ background: RADAR_YOU }} /> You
+          </span>
+          <span className="flex items-center gap-2 text-sm font-semibold" style={{ color: t.textBody }}>
+            <span className="w-3 h-3 rounded-full" style={{ background: RADAR_CAND }} /> A candidate
+          </span>
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (kind === "candidate") {
+    const PURPLE = "#7C6B9E";
+    const GREEN = "#5A9A6E";
+    const Chevron = () => (
+      <svg viewBox="0 0 20 20" fill="none" stroke={t.textMuted} strokeWidth="1.6" className="w-4 h-4 shrink-0">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M6 8l4 4 4-4" />
+      </svg>
+    );
+    return (
+      <div
+        className="w-full max-w-[19rem] rounded-2xl p-4 text-left"
+        style={{ background: t.card, border: `1px solid ${t.border}` }}
+      >
+        {/* Header */}
+        <div className="flex items-center gap-2.5 mb-1.5">
+          <div
+            className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+            style={{ background: "#00657C", color: "#fff" }}
+          >
+            DC
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold leading-tight" style={{ color: t.textHead }}>David Chiu</p>
+            <p className="text-xs" style={{ color: t.textMuted }}>City Attorney</p>
+          </div>
+          <Chevron />
+        </div>
+        <p className="text-xs font-semibold mb-3" style={{ color: t.textAccent }}>View full profile ↗</p>
+
+        {/* Topic selector */}
+        <div
+          className="flex items-center justify-between px-3 py-2 rounded-lg mb-3"
+          style={{ border: `1px solid ${t.border}`, background: t.bg }}
+        >
+          <span className="text-sm font-semibold" style={{ color: t.textHead }}>Civil Rights</span>
+          <Chevron />
+        </div>
+
+        {/* Question */}
+        <p className="text-sm font-bold leading-snug mb-2" style={{ color: t.textHead }}>
+          What role should government play in reducing inequality?
+        </p>
+
+        {/* Legend */}
+        <div className="flex items-center gap-4 mb-3 text-xs font-semibold">
+          <span className="flex items-center gap-1.5" style={{ color: t.textBody }}>
+            <span className="w-2.5 h-2.5 rounded-full" style={{ background: PURPLE }} />You
+          </span>
+          <span className="flex items-center gap-1.5" style={{ color: t.textBody }}>
+            <span className="w-2.5 h-2.5 rounded-full" style={{ background: GREEN }} />David Chiu
+          </span>
+        </div>
+
+        {/* Stance options */}
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.2 }}
+          className="text-xs leading-snug mb-2"
+          style={{ color: t.textMuted }}
+        >
+          mandate racial equity requirements and provide reparations
+        </motion.p>
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35 }}
+          className="flex items-start gap-2 px-3 py-2 rounded-lg"
+          style={{ border: `1px solid ${t.border}`, background: t.bg }}
+        >
+          <span className="text-xs leading-snug flex-1" style={{ color: t.textBody }}>
+            strengthen civil rights enforcement and address systemic discrimination
+          </span>
+          <span className="flex items-center gap-1 shrink-0 mt-0.5">
+            <motion.span
+              className="w-2.5 h-2.5 rounded-full"
+              style={{ background: PURPLE }}
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ delay: 0.75, type: "spring", stiffness: 420, damping: 15 }}
+            />
+            <motion.span
+              className="w-2.5 h-2.5 rounded-full"
+              style={{ background: GREEN }}
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ delay: 0.9, type: "spring", stiffness: 420, damping: 15 }}
+            />
+          </span>
+        </motion.div>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+// Thin horizontal lines that pulse (fade + stretch) — quiet signal motion
+function PulseLines({ accent }) {
+  const lines = [
+    { cls: "top-[28%] left-0 w-44 h-px", dur: 3.6, delay: 0 },
+    { cls: "bottom-[32%] right-0 w-56 h-px", dur: 4.4, delay: 0.9 },
+    { cls: "top-[70%] left-[6%] w-28 h-px", dur: 3.1, delay: 1.6 },
+  ];
+  return lines.map((l, i) => (
+    <motion.span
+      key={i}
+      className={`absolute ${l.cls}`}
+      style={{ background: `linear-gradient(90deg, transparent, ${accent}, transparent)` }}
+      animate={{ opacity: [0, 0.45, 0], scaleX: [0.5, 1, 0.5] }}
+      transition={{ duration: l.dur, delay: l.delay, repeat: Infinity, ease: "easeInOut" }}
+    />
+  ));
 }
 
 const SMOOTH_TRANSITION = {
@@ -204,6 +683,69 @@ function SortableTopicPill({ id, label, onRemove, t }) {
         className="ml-0.5 leading-none cursor-pointer hover:opacity-70 transition-opacity"
         style={{ color: t.textAccent }}
         aria-label={`Remove ${label}`}
+      >
+        ×
+      </button>
+    </div>
+  );
+}
+
+// One editable row in the lens intro's topic list. The order of these rows is
+// the order calibration walks, so the grip and the × are how a user shapes the
+// flow before it starts rather than sitting through a list someone else chose.
+function SortableLensTopicRow({ id, index, label, onRemove, canRemove, accent, t }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id, transition: SMOOTH_TRANSITION });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Translate.toString(transform),
+        transition: isDragging ? undefined : transition,
+        background: t.card,
+        border: `1px solid ${isDragging ? accent : t.border}`,
+        boxShadow: isDragging ? '0 8px 24px rgba(0,0,0,0.18)' : undefined,
+        position: 'relative',
+        zIndex: isDragging ? 1 : 0,
+        touchAction: 'none',
+      }}
+      className="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium select-none"
+    >
+      {/* Only the grip starts a drag, so the remove button stays clickable */}
+      <span
+        {...attributes}
+        {...listeners}
+        className="shrink-0 cursor-grab active:cursor-grabbing"
+        style={{ color: t.textMuted }}
+        aria-label={`Reorder ${label}`}
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+          <path d="M10 3a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM10 8.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM11.5 15.5a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0z" />
+          <path d="M5 3a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM5 8.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM6.5 15.5a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0z" />
+        </svg>
+      </span>
+
+      <span className="shrink-0 w-4 text-xs font-bold tabular-nums" style={{ color: accent }}>
+        {index + 1}
+      </span>
+
+      <span className="flex-1 min-w-0 truncate" style={{ color: accent }}>{label}</span>
+
+      <button
+        onClick={onRemove}
+        onPointerDown={(e) => e.stopPropagation()}
+        disabled={!canRemove}
+        aria-label={`Remove ${label}`}
+        title={canRemove ? `Remove ${label}` : `Keep at least ${MIN_TOPICS} topics`}
+        className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-lg leading-none opacity-40 hover:opacity-100 disabled:opacity-15 disabled:cursor-not-allowed transition-opacity cursor-pointer"
+        style={{ color: t.textMuted }}
       >
         ×
       </button>
@@ -325,17 +867,17 @@ function SortableWriteInCard({ id, text, onChange, onCancel, showHint, isDark })
 // Icon helpers
 // ────────────────────────────────────────────────
 
-function SunIcon() {
+function SunIcon({ className = "w-4 h-4" }) {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}>
       <path d="M10 2a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 0110 2zM10 15a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 0110 15zM10 7a3 3 0 100 6 3 3 0 000-6zM15.657 5.404a.75.75 0 10-1.06-1.06l-1.061 1.06a.75.75 0 001.06 1.06l1.061-1.06zM6.464 14.596a.75.75 0 10-1.06-1.06l-1.061 1.06a.75.75 0 001.06 1.06l1.061-1.06zM18 10a.75.75 0 01-.75.75h-1.5a.75.75 0 010-1.5h1.5A.75.75 0 0118 10zM5 10a.75.75 0 01-.75.75h-1.5a.75.75 0 010-1.5h1.5A.75.75 0 015 10zM14.596 15.657a.75.75 0 001.06-1.06l-1.06-1.061a.75.75 0 10-1.06 1.06l1.06 1.061zM5.404 6.464a.75.75 0 001.06-1.06l-1.06-1.061a.75.75 0 10-1.06 1.06l1.06 1.061z" />
     </svg>
   );
 }
 
-function MoonIcon() {
+function MoonIcon({ className = "w-4 h-4" }) {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}>
       <path fillRule="evenodd" d="M7.455 2.004a.75.75 0 01.26.77 7 7 0 009.958 7.967.75.75 0 011.067.853A8.5 8.5 0 116.647 1.921a.75.75 0 01.808.083z" clipRule="evenodd" />
     </svg>
   );
@@ -422,6 +964,12 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
   const { isDark, toggle: toggleDark } = useTheme();
   const t = isDark ? DARK_THEME : LIGHT_THEME;
 
+  // Topic-pick coach mark — points at the first topic card on the pick step.
+  const firstTopicRef = useRef(null);
+  const [topicPickHintDismissed, setTopicPickHintDismissed] = useState(
+    () => !!localStorage.getItem("onboarding_topicPickHint")
+  );
+
   // Load persisted progress on mount, honouring resumeMode and startAtPick
   const getInitialState = () => {
     if (startWithLocalLens) {
@@ -474,7 +1022,10 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
             // dropped the lens and replayed the stale saved topic list instead.
             // `lenses` falls back to the bundled constants before the API lands.
             lens = (lenses || []).find((l) => l.key === parsed.lensKey) || null;
-            if (lens) {
+            // Only replay the lens definition when the user left it alone.
+            // Once they have reordered or removed topics, the saved list is
+            // theirs and re-deriving would silently undo that.
+            if (lens && !parsed.lensEdited) {
               pickedTopics = lens.topicIds.filter(id => topics.some(t => t.id === id));
             }
           }
@@ -522,15 +1073,25 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
   const [pickedTopics, setPickedTopics] = useState([]);
   const [lensApplied, setLensApplied] = useState(false);
   const [activeLens, setActiveLens] = useState(null);
+  // Set once the user reorders or drops a topic on the lens intro. Their list
+  // is no longer the lens definition, so restoring progress must not re-derive
+  // it from the constant and throw their choices away.
+  const [lensEdited, setLensEdited] = useState(false);
   // Snapshot of compass topics before a lens was applied — restored when pressing "← Change my topics"
   const [prevPickedTopics, setPrevPickedTopics] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [learnMode, setLearnMode] = useState("full"); // 'full' | 'custom'
+  const [learnIndex, setLearnIndex] = useState(0);
+  const [learnDir, setLearnDir] = useState(1); // slide direction for carousel transitions
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [showWriteIn, setShowWriteIn] = useState(false);
   const [writeInText, setWriteInText] = useState("");
   const [orderedItems, setOrderedItems] = useState([]);
+  const orderedItemsRef = useRef([]);
+  orderedItemsRef.current = orderedItems;
   const [hasRepositioned, setHasRepositioned] = useState(false);
   const writeInSaveTimer = useRef(null);
+  const wheelLockRef = useRef(false); // debounces trackpad/scroll momentum in the onboarding carousel
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 3 } }),
@@ -574,11 +1135,11 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     // startWithTopicIds joins startWithAllTopics here: a one-question
     // recalibration must not overwrite a half-finished full calibration, which
     // the user should still be able to resume exactly where they left it.
-    if (step === "welcome" || step === "lens_intro" || step === "complete" ||
+    if (step === "welcome" || step === "learn" || step === "lens_intro" || step === "complete" ||
         startWithAllTopics || startWithTopicIds) return;
-    const progress = { step, pickedTopics, currentIndex, resumeMode: resumeMode || false, lensKey: activeLens?.key || null };
+    const progress = { step, pickedTopics, currentIndex, resumeMode: resumeMode || false, lensKey: activeLens?.key || null, lensEdited };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
-  }, [step, pickedTopics, currentIndex, resumeMode]);
+  }, [step, pickedTopics, currentIndex, resumeMode, lensEdited]);
 
   useEffect(() => {
     if (step !== "answer") return;
@@ -611,29 +1172,6 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
       setHasRepositioned(false);
     }
   }, [currentIndex, step, pickedTopics, topics, answers, writeIns, invertedSpokes]);
-
-  const firstTopicRef = useRef(null);
-  const [topicPickHintDismissed, setTopicPickHintDismissed] = useState(
-    () => !!localStorage.getItem("onboarding_topicPickHint")
-  );
-
-  const stancesPanelRef = useRef(null);
-  const writeOwnBtnRef = useRef(null);
-  const [answerTourStep, setAnswerTourStep] = useState(() =>
-    localStorage.getItem("onboarding_answerTour") ? -1 : 0
-  );
-  const advanceAnswerTour = () => {
-    if (answerTourStep < 1) {
-      setAnswerTourStep(answerTourStep + 1);
-    } else {
-      localStorage.setItem("onboarding_answerTour", "1");
-      setAnswerTourStep(-1);
-    }
-  };
-  const skipAnswerTour = () => {
-    localStorage.setItem("onboarding_answerTour", "1");
-    setAnswerTourStep(-1);
-  };
 
   const [writeInHintShown, setWriteInHintShown] = useState(
     () => !!localStorage.getItem("onboarding_writeInHint")
@@ -699,6 +1237,8 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
 
   // --- Handlers ---
 
+  // TODO(onboarding): defined but not yet wired to a button — kept pending review.
+  // eslint-disable-next-line no-unused-vars
   const handleGetStarted = () => {
     reportStart(STEPS.WELCOME);
     setStep("pick");
@@ -711,6 +1251,48 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     setLensApplied(true);
     setActiveLens(LOCAL_LENS);
     setStep("lens_intro");
+  };
+
+  // From the lens intro, run the onboarding carousel before calibration.
+  const handleLensLearn = () => {
+    setLearnMode("lens");
+    setLearnIndex(0);
+    setStep("learn");
+  };
+
+  // TODO(onboarding): defined but not yet wired to a button — kept pending review.
+  // eslint-disable-next-line no-unused-vars
+  const handleBuildFullCompass = () => {
+    setLearnMode("full");
+    setLearnIndex(0);
+    setStep("learn");
+  };
+
+  const handleChooseTopics = () => {
+    setLearnMode("custom");
+    setLearnIndex(0);
+    setStep("learn");
+  };
+
+  const proceedFromLearn = () => {
+    if (learnMode === "lens") {
+      // Local Lens path: topics were already set by handleStartWithLens, so
+      // onboarding hands straight off to the 8-issue calibration.
+      handleContinueToAnswer();
+    } else if (learnMode === "full") {
+      const allIds = topics.map((tp) => tp.id);
+      setPickedTopics(allIds);
+      initRandomInversions(topics);
+      setCurrentIndex(0);
+      setSelectedAnswer(null);
+      setLensApplied(false);
+      setActiveLens(null);
+      setStep("answer");
+    } else {
+      setLensApplied(false);
+      setActiveLens(null);
+      setStep("pick");
+    }
   };
 
   /**
@@ -1087,15 +1669,43 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
   const isLastUnanswered = allRemainingAnswered;
 
   // Shared dark-mode toggle button rendered inline in each step header
-  const DarkToggle = ({ style: extraStyle = {} }) => (
+  const DarkToggle = ({ style: extraStyle = {}, sizeClass = "w-8 h-8", iconClass }) => (
     <button
       onClick={toggleDark}
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-      className="w-8 h-8 rounded-full flex items-center justify-center cursor-pointer transition-opacity hover:opacity-70 shrink-0"
+      className={`${sizeClass} rounded-full flex items-center justify-center cursor-pointer transition-opacity hover:opacity-70 shrink-0`}
       style={{ background: t.cardElev, color: t.textMuted, ...extraStyle }}
     >
-      {isDark ? <SunIcon /> : <MoonIcon />}
+      {isDark ? <SunIcon className={iconClass} /> : <MoonIcon className={iconClass} />}
     </button>
+  );
+
+  // Shared top bar: EV wordmark (left), Compass logo (center), dark toggle (right)
+  const evLogoSrc = isDark ? "/EVLogo-dark.svg" : "/EVLogo.svg";
+  const compassLogoSrc = isDark ? "/compass-logo-dark.png" : "/compass-logo-light.svg";
+  const LandingTopBar = () => (
+    <div className="relative z-10 flex items-center px-4 sm:px-6 lg:px-12 pt-5 sm:pt-6 pb-2 shrink-0">
+      <button
+        onClick={() => { window.location.href = "https://alpha.empowered.vote"; }}
+        className="cursor-pointer transition-opacity hover:opacity-80"
+        aria-label="Empowered Vote home"
+      >
+        <img src={evLogoSrc} alt="Empowered Vote" className="h-7 md:h-10 w-auto" />
+      </button>
+      <button
+        onClick={() => setStep("welcome")}
+        className="absolute left-1/2 -translate-x-1/2 cursor-pointer transition-opacity hover:opacity-80"
+        aria-label="Empowered Compass — back to start"
+      >
+        <img src={compassLogoSrc} alt="Empowered Compass" className="h-7 md:h-11 w-auto" />
+      </button>
+      {/* Scaled up alongside the logos in this bar */}
+      <DarkToggle
+        sizeClass="w-9 h-9 md:w-11 md:h-11"
+        iconClass="w-[1.15rem] h-[1.15rem] md:w-6 md:h-6"
+        style={{ marginLeft: "auto" }}
+      />
+    </div>
   );
 
   // Phase progress bar used in pick + answer steps
@@ -1166,142 +1776,349 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
   // STEP: WELCOME
   // ============================
   if (step === "welcome") {
+    // The three things they'll actually do ("how to build it"), kept short.
+    // All three markers share the theme accent — they are one sequence, not
+    // three separate things, so they no longer carry a colour each.
     const journeySteps = [
       {
-        num: "01",
-        title: "Choose Your Wedge Issues",
-        desc: "Pick the issues that actually shape how you vote.",
-        color: '#59B0C4',
-        active: true,
+        num: "1",
+        title: "Choose your issues",
+        desc: "Pick the topics that actually decide your vote.",
       },
       {
-        num: "02",
-        title: "Find Your Stances",
-        desc: "Tell us where you stand on each one. There are no right answers — only yours.",
-        color: '#FED12E',
-        active: false,
+        num: "2",
+        title: "Set where you stand",
+        desc: "Place yourself on each one. No right answers, only yours.",
       },
       {
-        num: "03",
-        title: "Compare & Discover",
-        desc: "Sort your leaders by your priorities.",
-        color: '#5A9A6E',
-        active: false,
+        num: "3",
+        title: "Compare & discover",
+        desc: "See which leaders line up with you, issue by issue.",
       },
     ];
 
     return (
       <div
-        className={`fixed ${overlayTop} left-0 right-0 bottom-0 z-50 overflow-y-auto flex flex-col`}
+        className={`fixed ${overlayTop} left-0 right-0 bottom-0 z-50 overflow-y-auto overflow-x-hidden flex flex-col`}
         style={{ background: t.bg }}
       >
-        {/* Dark mode toggle — top right */}
-        <div className="absolute top-4 right-4 z-10">
-          <DarkToggle />
-        </div>
+        <LandingTopBar />
 
-        <div className="flex flex-col lg:flex-row min-h-full">
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center flex-1 min-h-0">
 
-          {/* ── Left: hero copy ── */}
-          <div className="flex flex-col justify-center px-8 py-16 lg:py-24 lg:w-1/2 lg:pl-16 lg:pr-10">
+          {/* ── Left: what it is + how it helps + CTAs ── */}
+          <div className="w-full lg:w-1/2 flex flex-col justify-center px-6 sm:px-8 py-8 sm:py-10 lg:py-16 lg:pl-16 lg:pr-10">
 
             <p
-              className="text-xs font-bold tracking-widest uppercase mb-5"
+              className="text-xs font-bold tracking-widest uppercase mb-4"
               style={{ color: t.textAccent }}
             >
               Your Political Compass
             </p>
 
             <h1
-              className="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight mb-5"
+              className="text-4xl md:text-5xl lg:text-[3.4rem] font-extrabold leading-[1.05] mb-5"
               style={{ color: t.textHead, letterSpacing: '-0.03em' }}
             >
-              Let&apos;s calibrate your compass{' '}
-              <span style={{ color: t.textAccent }}>to you.</span>
+              Find where you stand,<br className="hidden md:block" />{' '}
+              <span style={{ color: t.textAccent }}>and who stands with you.</span>
             </h1>
 
             <p
-              className="text-base md:text-lg font-semibold max-w-md leading-relaxed mb-3"
+              className="text-base md:text-lg max-w-md leading-relaxed mb-6"
               style={{ color: t.textBody }}
             >
-              Three steps. Takes about 6 minutes.
-            </p>
-            <p
-              className="text-base max-w-sm leading-relaxed mb-10"
-              style={{ color: t.textBody }}
-            >
-              Have you ever got down to the bottom of your ballot, and found you didn&apos;t know a thing about any of the candidates, let alone their stances and priorities&hellip;?
-              <br /><br />
-              We hate that.
+              Pick the issues that decide your vote and mark where you stand.
+              The Compass then shows which candidates and officials actually
+              line up with you, one issue at a time.
             </p>
 
-            <div className="flex flex-col gap-3 items-start">
-              {/* Primary: Local Lens */}
+            {/* How you'll build it — horizontal numbered stepper */}
+            <div className="mb-8 max-w-md">
+              <div className="flex items-start">
+                {journeySteps.map((s, i) => (
+                  <div key={s.num} className="flex-1 flex flex-col items-center text-center relative">
+                    {i > 0 && (
+                      <span
+                        className="absolute top-4 h-0.5"
+                        style={{ left: "calc(-50% + 20px)", right: "calc(50% + 20px)", background: t.border }}
+                        aria-hidden="true"
+                      />
+                    )}
+                    <div
+                      className="relative z-10 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold"
+                      style={{ background: `${t.textAccent}22`, color: t.textAccent, border: `2px solid ${t.textAccent}` }}
+                    >
+                      {s.num}
+                    </div>
+                    <p className="text-sm font-semibold mt-2.5 leading-tight px-1" style={{ color: t.textBody }}>
+                      {s.title}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Primary: Local Lens — intro page, then onboarding, then the 8 local issues */}
               <button
                 onClick={handleStartWithLens}
-                className="flex items-center gap-2.5 px-8 py-3.5 rounded-full font-bold text-base transition-all hover:opacity-90 active:scale-95 cursor-pointer shadow-md"
-                style={{ background: '#5A9A6E', color: '#FFFFFF' }}
+                className="flex items-center gap-2.5 px-7 py-3.5 rounded-full font-bold text-base transition-all hover:opacity-90 active:scale-95 cursor-pointer shadow-md"
+                style={{ background: t.yellow, color: '#1C1C1C' }}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5 shrink-0">
                   <path fillRule="evenodd" d="M9.293 2.293a1 1 0 011.414 0l7 7A1 1 0 0117 11h-1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-3a1 1 0 00-1-1H9a1 1 0 00-1 1v3a1 1 0 01-1 1H5a1 1 0 01-1-1v-6H3a1 1 0 01-.707-1.707l7-7z" clipRule="evenodd" />
                 </svg>
-                Start with Local Lens →
+                Start with the Local Lens →
               </button>
-              <p className="text-xs pl-1" style={{ color: t.textMuted }}>
-                8 questions · most local candidates have already answered these
-              </p>
               {/* Secondary: custom */}
               <button
-                onClick={handleGetStarted}
-                className="px-6 py-2.5 rounded-full text-sm font-semibold border transition-all hover:opacity-80 cursor-pointer mt-1"
-                style={{ borderColor: t.border, color: t.textBody, background: 'transparent' }}
+                onClick={handleChooseTopics}
+                className="px-6 py-3.5 rounded-full text-sm font-semibold border-2 transition-all hover:opacity-80 active:scale-95 cursor-pointer"
+                style={{ borderColor: t.yellow, color: t.textBody, background: 'transparent' }}
               >
                 Choose my own topics →
               </button>
+            </div>
+          </div>
+
+          {/* ── Right: live compass — you vs a candidate, always moving ── */}
+          <div className="w-full lg:w-1/2 flex flex-col items-center justify-center px-6 sm:px-8 pb-10 sm:pb-16 lg:py-16 lg:pr-16 lg:pl-8">
+            <div className="w-full max-w-[18rem] sm:max-w-sm lg:max-w-lg aspect-square">
+              <LandingRadar t={t} />
+            </div>
+            <div className="flex items-center gap-5 mt-4">
+              <span className="flex items-center gap-2 text-sm font-semibold" style={{ color: t.textBody }}>
+                <span className="w-3 h-3 rounded-full" style={{ background: RADAR_YOU }} /> You
+              </span>
+              <span className="flex items-center gap-2 text-sm font-semibold" style={{ color: t.textBody }}>
+                <span className="w-3 h-3 rounded-full" style={{ background: RADAR_CAND }} /> A candidate
+              </span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    );
+  }
+
+  // ============================
+  // STEP: LEARN — educational carousel shown before calibration.
+  // Reached from either landing CTA; explains what / how / why, then hands
+  // off to the chosen build path (full compass or custom topic pick).
+  // ============================
+  if (step === "learn") {
+    // Eyebrows are numbered in the render from the slide's own position, so the
+    // heading always matches the progress dots below — no hand-kept counts.
+    const LEARN_SLIDES = [
+      {
+        title: "Your beliefs, turned into a map.",
+        body: "The Compass turns what you believe into a single clear picture. You pick the issues that actually decide your vote and mark where you stand on each one, and it draws them into a shape that is yours alone.",
+        illo: "what",
+        accent: "#59B0C4",
+      },
+      {
+        title: "Know where you stand, at a glance.",
+        body: "Lay your compass over a candidate and the overlap does the explaining. Where you agree lights up, where you split is obvious, and you can read the whole picture in seconds. No party labels, no homework.",
+        illo: "compare",
+        accent: "#FFD426",
+      },
+    ];
+    const slide = LEARN_SLIDES[learnIndex];
+    const stepLabel = `Step ${learnIndex + 1} of ${LEARN_SLIDES.length}`;
+    const isLast = learnIndex === LEARN_SLIDES.length - 1;
+    const finalLabel = learnMode === "lens"
+      ? "Start finding my stances →"
+      : learnMode === "full"
+        ? "Build my compass →"
+        : "Choose my topics →";
+
+    // Vertical swipe: forward -> current rises out the top while the next
+    // rises up from below; backward reverses it.
+    const slideVariants = {
+      enter: (dir) => ({ y: dir > 0 ? "100%" : "-100%" }),
+      center: { y: 0 },
+      exit: (dir) => ({ y: dir > 0 ? "-100%" : "100%" }),
+    };
+
+    const goToSlide = (target) => {
+      setLearnDir(target > learnIndex ? 1 : -1);
+      setLearnIndex(target);
+    };
+    const nextSlide = () => (isLast ? proceedFromLearn() : goToSlide(learnIndex + 1));
+    // Backing out of the first slide returns to whichever screen sent us here.
+    const backSlide = () =>
+      learnIndex > 0
+        ? goToSlide(learnIndex - 1)
+        : setStep(learnMode === "lens" ? "lens_intro" : "welcome");
+
+    // Gesture navigation (wheel / trackpad / drag). Bounded so a stray gesture
+    // never accidentally exits onboarding — the buttons own Skip/finish/exit.
+    const gestureNext = () => { if (learnIndex < LEARN_SLIDES.length - 1) goToSlide(learnIndex + 1); };
+    const gesturePrev = () => { if (learnIndex > 0) goToSlide(learnIndex - 1); };
+    const handleWheel = (e) => {
+      if (wheelLockRef.current || Math.abs(e.deltaY) < 12) return;
+      const forward = e.deltaY > 0;
+      if (forward && learnIndex >= LEARN_SLIDES.length - 1) return;
+      if (!forward && learnIndex <= 0) return;
+      wheelLockRef.current = true;
+      (forward ? gestureNext : gesturePrev)();
+      setTimeout(() => { wheelLockRef.current = false; }, 700);
+    };
+    const handleDragEnd = (_e, info) => {
+      if (info.offset.y < -60 || info.velocity.y < -400) gestureNext();
+      else if (info.offset.y > 60 || info.velocity.y > 400) gesturePrev();
+    };
+
+    // Ambient background: drifting blurred blobs whose color tracks the slide accent.
+    const accent = slide.accent || t.textAccent;
+    const BG_BLOBS = [
+      { cls: "w-[44rem] h-[44rem] -top-52 -left-44", dx: [0, 36, 0], dy: [0, 22, 0], dur: 24, op: isDark ? 0.16 : 0.1 },
+      { cls: "w-[36rem] h-[36rem] top-1/4 -right-48", dx: [0, -28, 0], dy: [0, 32, 0], dur: 28, op: isDark ? 0.12 : 0.07 },
+    ];
+
+    return (
+      <div
+        className={`fixed ${overlayTop} left-0 right-0 bottom-0 z-50 flex flex-col overflow-hidden`}
+        style={{ background: t.bg }}
+      >
+        {/* Ambient animated background — color shifts with each slide */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none z-0" aria-hidden="true">
+          {BG_BLOBS.map((b, i) => (
+            <motion.div
+              key={i}
+              className={`absolute rounded-full ${b.cls}`}
+              style={{ filter: "blur(110px)", opacity: b.op }}
+              animate={{ backgroundColor: accent, x: b.dx, y: b.dy }}
+              transition={{
+                backgroundColor: { duration: 0.9, ease: "easeInOut" },
+                x: { duration: b.dur, repeat: Infinity, ease: "easeInOut" },
+                y: { duration: b.dur * 1.25, repeat: Infinity, ease: "easeInOut" },
+              }}
+            />
+          ))}
+          <PulseLines accent={accent} />
+        </div>
+
+        <LandingTopBar />
+
+        {/* Content — visual (left, swaps in place) + copy (right, vertical swipe).
+            Scroll wheel / trackpad / drag anywhere moves between slides. */}
+        <motion.div
+          className="relative z-10 flex-1 flex items-center justify-center px-4 sm:px-6 py-4 sm:py-6"
+          drag="y"
+          dragConstraints={{ top: 0, bottom: 0 }}
+          dragElastic={0.12}
+          onDragEnd={handleDragEnd}
+          onWheel={handleWheel}
+        >
+          <div className="w-full max-w-4xl flex flex-col md:flex-row items-center gap-5 sm:gap-8 md:gap-12">
+            {/* Illustration (left) — swaps in place with a soft fade, no swipe */}
+            <div
+              className="relative w-full md:w-[46%] shrink-0 rounded-3xl px-4 sm:px-6 py-6 sm:py-8 md:py-10 flex items-center justify-center min-h-[14rem] sm:min-h-[16rem] md:min-h-[17rem] overflow-hidden"
+              style={{ background: t.card, border: `1px solid ${t.border}` }}
+            >
+              {/* Soft pulsing glow */}
+              <motion.div
+                aria-hidden="true"
+                className="pointer-events-none absolute w-64 h-64 rounded-full"
+                style={{ background: `radial-gradient(circle, ${t.textAccent}22 0%, transparent 70%)` }}
+                animate={{ scale: [1, 1.12, 1], opacity: [0.6, 0.9, 0.6] }}
+                transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut" }}
+              />
+              <motion.div
+                key={learnIndex}
+                initial={{ opacity: 0, scale: 0.97 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.3 }}
+                className="relative"
+              >
+                <LearnIllustration kind={slide.illo} t={t} />
+              </motion.div>
+            </div>
+
+            {/* Copy (right) — only this swipes up/down between slides */}
+            <div className="relative flex-1 w-full overflow-hidden min-h-[9rem] sm:min-h-[11rem]">
+              <AnimatePresence mode="popLayout" custom={learnDir} initial={false}>
+                <motion.div
+                  key={learnIndex}
+                  custom={learnDir}
+                  variants={slideVariants}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  transition={{ duration: 0.5, ease: [0.25, 1, 0.5, 1] }}
+                  className="flex flex-col justify-center items-center text-center md:items-start md:text-left"
+                >
+                  <p className="text-xs font-bold tracking-widest uppercase mb-3" style={{ color: t.textAccent }}>
+                    {stepLabel}
+                  </p>
+                  <h2
+                    className="text-2xl sm:text-3xl md:text-4xl font-extrabold leading-tight mb-3 sm:mb-4"
+                    style={{ color: t.textHead, letterSpacing: "-0.02em" }}
+                  >
+                    {slide.title}
+                  </h2>
+                  <p className="text-base leading-relaxed max-w-md" style={{ color: t.textBody }}>
+                    {slide.body}
+                  </p>
+                </motion.div>
+              </AnimatePresence>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Fixed bottom nav bar — Skip · Previous · dots · Next */}
+        <div
+          className="relative z-10 shrink-0"
+          style={{ background: t.stickyBg, borderTop: `1px solid ${t.border}`, backdropFilter: "blur(8px)" }}
+        >
+          <div className="max-w-3xl mx-auto flex items-center justify-between gap-3 px-4 sm:px-6 py-4">
+            {/* Left: Skip + Previous */}
+            <div className="flex items-center gap-2">
               <button
-                onClick={() => handleSkip(STEPS.WELCOME, EXIT_VIA.DISMISS)}
-                className="px-6 py-2 rounded-full text-sm font-medium transition-opacity hover:opacity-70 cursor-pointer"
+                onClick={proceedFromLearn}
+                className="px-4 py-2.5 rounded-full text-sm font-semibold transition-opacity hover:opacity-70 cursor-pointer"
                 style={{ color: t.textMuted }}
               >
-                Not now
+                Skip
+              </button>
+              <button
+                onClick={backSlide}
+                className="flex items-center gap-1 px-4 py-2.5 rounded-full text-sm font-semibold border-2 transition-all hover:opacity-80 cursor-pointer"
+                style={{ borderColor: t.yellow, color: t.textBody, background: "transparent" }}
+              >
+                <BackArrow />
+                <span className="hidden sm:inline">Previous</span>
               </button>
             </div>
-          </div>
 
-          {/* ── Right: 3-step cards ── */}
-          <div className="flex flex-col justify-center px-8 pb-16 lg:py-24 lg:w-1/2 lg:pr-16 lg:pl-8">
-            <div className="flex flex-col gap-4 max-w-md w-full mx-auto lg:mx-0">
-              {journeySteps.map((s) => (
-                <div
-                  key={s.num}
-                  className="flex items-start gap-4 p-5 rounded-2xl transition-all"
+            {/* Center: progress dots */}
+            <div className="flex items-center gap-2">
+              {LEARN_SLIDES.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => goToSlide(i)}
+                  aria-label={`Go to slide ${i + 1}`}
+                  className="h-2 rounded-full transition-all cursor-pointer"
                   style={{
-                    background: s.active ? `${s.color}18` : t.card,
-                    border: `1.5px solid ${s.active ? s.color : t.border}`,
+                    width: i === learnIndex ? 24 : 8,
+                    background: i === learnIndex ? t.textAccent : t.divider,
                   }}
-                >
-                  <div
-                    className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
-                    style={{
-                      background: s.active ? s.color : t.cardElev,
-                      color: s.active ? '#1C1C1C' : t.textMuted,
-                    }}
-                  >
-                    {s.num}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-semibold text-base mb-1" style={{ color: t.textHead }}>
-                      {s.title}
-                    </p>
-                    <p className="text-sm leading-relaxed" style={{ color: t.textBody }}>
-                      {s.desc}
-                    </p>
-                  </div>
-                </div>
+                />
               ))}
             </div>
-          </div>
 
+            {/* Right: Next */}
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={nextSlide}
+              className="px-6 py-2.5 rounded-full font-bold text-sm md:text-base transition-all hover:opacity-90 cursor-pointer shadow-md whitespace-nowrap"
+              style={{ background: t.btnBg, color: t.btnText }}
+            >
+              {isLast ? finalLabel : "Next →"}
+            </motion.button>
+          </div>
         </div>
       </div>
     );
@@ -1317,9 +2134,25 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
       .map(id => topics.find(t => t.id === id))
       .filter(Boolean);
     const lens = activeLens || LOCAL_LENS;
-    const lensColor = lens.color;
+    const lensColor = getLensColor(lens, isDark);
+    const lensInk = getLensInk(lens, isDark);
     const isJudicial = lens.key === 'judicial';
     const isFederal = lens.key === 'federal';
+    // The lens as shipped, for the "put them back" escape hatch.
+    const lensDefaultIds = lens.topicIds.filter(id => topics.some(tp => tp.id === id));
+    const canRemoveTopic = lensTopics.length > MIN_TOPICS;
+
+    const removeLensTopic = (id) => {
+      if (!canRemoveTopic) return;
+      setLensEdited(true);
+      setPickedTopics(prev => prev.filter(x => x !== id));
+    };
+
+    const reorderLensTopics = ({ active, over }) => {
+      if (!over || active.id === over.id) return;
+      setLensEdited(true);
+      handlePickDragEnd({ active, over });
+    };
 
     return (
       <div
@@ -1340,15 +2173,15 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
                 style={{ background: lensColor }}
               >
                 {isJudicial ? (
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="white" className="w-4 h-4">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill={lensInk} className="w-4 h-4">
                     <path fillRule="evenodd" d="M10 1a.75.75 0 01.75.75v1.5h2.75A2.75 2.75 0 0116.25 6v.75H18a.75.75 0 010 1.5h-1.75v5H18a.75.75 0 010 1.5h-1.75V15a2.75 2.75 0 01-2.75 2.75H6.5A2.75 2.75 0 013.75 15v-.25H2a.75.75 0 010-1.5h1.75v-5H2a.75.75 0 010-1.5h1.75V6A2.75 2.75 0 016.5 3.25h2.75v-1.5A.75.75 0 0110 1zm0 4.25H6.5A1.25 1.25 0 005.25 6.5v7A1.25 1.25 0 006.5 14.75h7A1.25 1.25 0 0014.75 13.5v-7A1.25 1.25 0 0013.5 5.25H10z" clipRule="evenodd" />
                   </svg>
                 ) : isFederal ? (
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="white" className="w-4 h-4">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke={lensInk} className="w-4 h-4">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0 0 12 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75Z" />
                   </svg>
                 ) : (
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="white" className="w-4 h-4">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill={lensInk} className="w-4 h-4">
                     <path fillRule="evenodd" d="M9.293 2.293a1 1 0 011.414 0l7 7A1 1 0 0117 11h-1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-3a1 1 0 00-1-1H9a1 1 0 00-1 1v3a1 1 0 01-1 1H5a1 1 0 01-1-1v-6H3a1 1 0 01-.707-1.707l7-7z" clipRule="evenodd" />
                   </svg>
                 )}
@@ -1375,7 +2208,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
                   whether communities get accountability or incarceration.
                 </p>
                 <p className="text-base leading-relaxed mb-10" style={{ color: t.textBody }}>
-                  These races rarely get the attention they deserve — yet a single DA or judge can
+                  These races rarely get the attention they deserve, yet a single DA or judge can
                   affect more lives than most legislators. Calibrate your judicial compass and
                   know exactly who shares your values on the bench.
                 </p>
@@ -1391,7 +2224,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
                 </h1>
                 <p className="text-base leading-relaxed mb-4" style={{ color: t.textBody }}>
                   Your U.S. House and Senate members vote on healthcare, taxes, immigration, and the
-                  climate — the issues that dominate national debate.
+                  climate: the issues that dominate national debate.
                 </p>
                 <p className="text-base leading-relaxed mb-10" style={{ color: t.textBody }}>
                   These are the 8 topics the most House and Senate members and candidates have taken a
@@ -1409,22 +2242,22 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
                   <span style={{ color: lensColor }}>Your real power.</span>
                 </h1>
                 <p className="text-base leading-relaxed mb-4" style={{ color: t.textBody }}>
-                  Most civic education focuses on federal politics — presidents, Congress, senators. But
+                  Most civic education focuses on federal politics: presidents, Congress, senators. But
                   your vote has the most impact at the local level.
                 </p>
                 <p className="text-base leading-relaxed mb-10" style={{ color: t.textBody }}>
                   City councils, mayors, and local officials make the decisions that shape your daily
                   life: housing costs, public safety, schools, and development. In local elections,
-                  turnout often falls below 20% — which means your vote here matters more than almost
+                  turnout often falls below 20%, which means your vote here matters more than almost
                   anywhere else.
                 </p>
               </>
             )}
 
             <button
-              onClick={handleContinueToAnswer}
+              onClick={handleLensLearn}
               className="flex items-center gap-2 px-8 py-3.5 rounded-full font-bold text-base transition-all hover:opacity-90 active:scale-95 cursor-pointer shadow-md self-start mb-3"
-              style={{ background: lensColor, color: '#FFFFFF' }}
+              style={{ background: t.yellow, color: '#1C1C1C' }}
             >
               Start finding my stances →
             </button>
@@ -1444,24 +2277,59 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
 
           </div>
 
-          {/* ── Right: selected topics preview ── */}
+          {/* ── Right: the topics, as an editable running order ── */}
           <div className="flex flex-col justify-center px-8 pb-16 lg:py-24 lg:w-1/2 lg:pr-16 lg:pl-8">
             <p
-              className="text-xs font-bold tracking-widest uppercase mb-4"
+              className="text-xs font-bold tracking-widest uppercase mb-1"
               style={{ color: lensColor }}
             >
-              {lensTopics.length} topics we&apos;ll ask about
+              {lensTopics.length} {lensTopics.length === 1 ? 'topic' : 'topics'} we&apos;ll ask about
             </p>
-            <div className="flex flex-col gap-2 max-w-md w-full mx-auto lg:mx-0">
-              {lensTopics.map(topic => (
-                <div
-                  key={topic.id}
-                  className="px-4 py-3 rounded-xl text-sm font-medium"
-                  style={{ background: t.card, border: `1px solid ${t.border}`, color: t.textBody }}
+            <p className="text-sm mb-4" style={{ color: t.textMuted }}>
+              This is your running order. Drag a topic to move it, or drop the ones
+              you don&apos;t care about. We&apos;ll ask them exactly like this.
+            </p>
+
+            <div className="max-w-md w-full mx-auto lg:mx-0">
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                modifiers={[restrictToVerticalAxis]}
+                onDragEnd={reorderLensTopics}
+              >
+                <SortableContext items={pickedTopics} strategy={verticalListSortingStrategy}>
+                  <div className="flex flex-col gap-2">
+                    {lensTopics.map((topic, i) => (
+                      <SortableLensTopicRow
+                        key={topic.id}
+                        id={topic.id}
+                        index={i}
+                        label={parseTensionTitle(topic).name || topic.short_title}
+                        accent={lensColor}
+                        t={t}
+                        canRemove={canRemoveTopic}
+                        onRemove={() => removeLensTopic(topic.id)}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
+
+              {lensTopics.length < lensDefaultIds.length && (
+                <button
+                  onClick={() => { setLensEdited(true); setPickedTopics(lensDefaultIds); }}
+                  className="mt-3 text-sm px-1 transition-opacity hover:opacity-70 cursor-pointer"
+                  style={{ color: t.textAccent }}
                 >
-                  {parseTensionTitle(topic).name || topic.short_title}
-                </div>
-              ))}
+                  Put back all {lensDefaultIds.length}
+                </button>
+              )}
+
+              {!canRemoveTopic && (
+                <p className="mt-3 text-xs" style={{ color: t.textMuted }}>
+                  {MIN_TOPICS} is the fewest a compass can be built from.
+                </p>
+              )}
             </div>
           </div>
 
@@ -1559,7 +2427,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
         <div className="px-4 py-4 max-w-5xl mx-auto pb-32">
           {lensApplied && (() => {
             const bannerLens = activeLens || LOCAL_LENS;
-            const bannerColor = bannerLens.color;
+            const bannerColor = getLensColor(bannerLens, isDark);
             const hexToRgb = (hex) => {
               const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
               return `rgba(${r},${g},${b},0.12)`;
@@ -1616,7 +2484,6 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
                     const isSelected = pickedTopics.includes(topic.id);
                     const atCap = pickedTopics.length >= MAX_TOPICS && !isSelected;
                     const isFirstTopic = catIdx === 0 && topicIdx === 0;
-
                     return (
                       <button
                         key={topic.id}
@@ -1727,6 +2594,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
               setTopicPickHintDismissed(true);
             }}
             show={true}
+            theme={t}
           />
         )}
       </div>
@@ -1866,7 +2734,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
               that the panel falls back to safe-centered scroll (justify-center-safe +
               overflow-y-auto), which keeps the question pinned visible at the top rather
               than clipping it off-screen the way plain justify-center did. */}
-          <div ref={stancesPanelRef} className="md:basis-1/2 flex flex-col md:justify-center-safe md:overflow-y-auto md:min-h-0 gap-1.5 md:gap-[clamp(0.25rem,0.7vh,0.375rem)] px-3 pb-4 md:pb-0 md:pr-6 max-w-md mx-auto md:mx-0">
+          <div className="md:basis-1/2 flex flex-col md:justify-center-safe md:overflow-y-auto md:min-h-0 gap-1.5 md:gap-[clamp(0.25rem,0.7vh,0.375rem)] px-3 pb-4 md:pb-0 md:pr-6 max-w-md mx-auto md:mx-0">
             <div className="mb-2 md:mb-[clamp(0.25rem,0.9vh,0.5rem)]">
               <p className="text-base md:text-[clamp(1rem,1.95vh,1.125rem)] font-semibold leading-snug" style={{ color: t.textHead }}>
                 {getQuestionText(currentTopic) || parseTensionTitle(currentTopic).name}
@@ -1912,7 +2780,6 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
                   );
                 })}
                 <button
-                  ref={writeOwnBtnRef}
                   onClick={() => {
                     setShowWriteIn(true);
                     setHasRepositioned(false);
@@ -1923,11 +2790,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
                     }
                   }}
                   className="text-left px-3 py-2.5 md:py-[clamp(0.375rem,1.05vh,0.625rem)] rounded-lg transition-all duration-200 text-sm md:text-[clamp(0.8125rem,1.5vh,0.875rem)] leading-snug font-medium cursor-pointer"
-                  style={{
-                    border: `2px dashed ${t.writeOwnColor}`,
-                    color: t.writeOwnColor,
-                    background: 'transparent',
-                  }}
+                  style={{ border: `2px dashed ${t.writeOwnColor}`, color: t.writeOwnColor, background: 'transparent' }}
                 >
                   Write your own...
                 </button>
@@ -1944,7 +2807,10 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
                 modifiers={[restrictToVerticalAxis]}
                 onDragEnd={handleDragEnd}
               >
-                <SortableContext items={orderedItems} strategy={verticalListSortingStrategy}>
+                <SortableContext
+                  items={orderedItems}
+                  strategy={verticalListSortingStrategy}
+                >
                   <div className="flex flex-col gap-1.5">
                     {orderedItems.map((itemId) =>
                       itemId === "write-in" ? (
@@ -2008,23 +2874,6 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
           </div>
         </div>
 
-        {/* Answer step 2-step tour */}
-        {answerTourStep >= 0 && currentIndex === 0 && !showWriteIn && (
-          <CoachMark
-            targetRef={answerTourStep === 0 ? stancesPanelRef : writeOwnBtnRef}
-            message={
-              answerTourStep === 0
-                ? "Pick the stance that fits you best. Stances run bottom to top — bottom is closest to the center ring, top is the outermost ring. We randomize which political direction maps to each end, so neither side always starts first."
-                : "If none of the stances quite match, write your own and drag it to where it fits best on the spectrum"
-            }
-            stepLabel={`${answerTourStep + 1} of 2`}
-            onNext={advanceAnswerTour}
-            onSkipAll={skipAnswerTour}
-            onDismiss={advanceAnswerTour}
-            show={true}
-            allowSpotlightInteraction={true}
-          />
-        )}
       </div>
     );
   }
