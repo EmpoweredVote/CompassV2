@@ -232,7 +232,10 @@ export default function InlinePoliticianPicker({
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute left-0 right-0 z-50 mt-1 bg-white dark:bg-zinc-800 rounded-xl border border-neutral-200 dark:border-zinc-700 shadow-lg overflow-hidden">
+        <div
+          data-tour="compare-search"
+          className="absolute left-0 right-0 z-50 mt-1 bg-white dark:bg-zinc-800 rounded-xl border border-neutral-200 dark:border-zinc-700 shadow-lg overflow-hidden"
+        >
           {/* Search input */}
           <div className="p-2 border-b border-neutral-100 dark:border-zinc-700">
             <input
