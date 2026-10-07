@@ -215,7 +215,7 @@ function ComparePanel({
               </div>
 
               {/* Stances */}
-              <div className="px-3 pb-3 flex flex-col gap-1.5">
+              <div data-tour="compare-stances" className="px-3 pb-3 flex flex-col gap-1.5">
                 {displayStances.map((stance) => {
                   const isUser = !isWriteIn && userValue === stance.value;
                   const isPol = polValue === stance.value;

@@ -14,6 +14,7 @@ import LibraryDrawer from "../components/LibraryDrawer";
 import ComparePanel from "../components/ComparePanel";
 import SavePromptModal from "../components/SavePromptModal";
 import CoachMark from "../components/CoachMark";
+import { DARK_THEME, LIGHT_THEME } from "../lib/calibrationTheme";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useLocation } from "react-router";
 import { useTheme } from "../ThemeProvider";
@@ -21,7 +22,7 @@ import { generateLensKey } from "../lib/userLenses";
 import { mergeFlags, flagWeight, offCompassFlags } from "../lib/recalibration";
 import { bestMatchSpokes, MIN_SPOKES } from "../lib/bestMatch";
 import { takeCalibrateKey, clearCalibrateKey, resolveCalibrateLens } from "../lib/calibrateParam";
-import { LOCAL_LENS as LOCAL_LENS_DEFAULT, JUDICIAL_LENS as JUDICIAL_LENS_DEFAULT, FEDERAL_LENS as FEDERAL_LENS_DEFAULT, orderLenses, lensShortLabel } from "../lib/lenses";
+import { LOCAL_LENS as LOCAL_LENS_DEFAULT, JUDICIAL_LENS as JUDICIAL_LENS_DEFAULT, FEDERAL_LENS as FEDERAL_LENS_DEFAULT, orderLenses, lensShortLabel, getLensColor, getLensInk } from "../lib/lenses";
 import { tierFromDistrictType } from "../hooks/useFilteredPoliticians";
 import { ENTRY_REASONS } from "../lib/calibrationEvents";
 import { getQuestionText, parseTensionTitle } from "../util/topic";
@@ -140,7 +141,7 @@ function BuildCompassPrompt({ answeredCompassCount, needsMore, onStartCalibratio
   );
 }
 
-function SortableTopicPill({ id, label, isCalibrated, onRemove, onMouseEnter, onMouseLeave, pillBg }) {
+function SortableTopicPill({ id, label, isCalibrated, onRemove, onMouseEnter, onMouseLeave, pillBg, pillInk = "#FFFFFF" }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id,
     transition: { duration: 200, easing: "ease" },
@@ -157,17 +158,18 @@ function SortableTopicPill({ id, label, isCalibrated, onRemove, onMouseEnter, on
         transition: isDragging ? undefined : transition,
         opacity: isDragging ? 0.5 : 1,
         background: pillBg ?? (isCalibrated ? CALIBRATED_TEAL : UNCALIBRATED_PURPLE),
+        color: pillInk,
         touchAction: "none",
         outline: !isCalibrated ? `2px solid ${UNCALIBRATED_PURPLE}` : undefined,
         outlineOffset: !isCalibrated ? '1px' : undefined,
       }}
-      className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold text-white cursor-grab active:cursor-grabbing select-none"
+      className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold cursor-grab active:cursor-grabbing select-none"
     >
       {label}
       <button
         onClick={(e) => { e.stopPropagation(); onRemove(); }}
         onPointerDown={(e) => e.stopPropagation()}
-        className="ml-0.5 text-white/60 hover:text-white transition-colors leading-none text-sm"
+        className="ml-0.5 opacity-60 hover:opacity-100 transition-opacity leading-none text-sm"
         aria-label={`Remove ${label}`}
       >
         ×
@@ -176,7 +178,7 @@ function SortableTopicPill({ id, label, isCalibrated, onRemove, onMouseEnter, on
   );
 }
 
-function SortableVerticalPill({ id, topic, isCalibrated, onRemove, onOpen, pillBg, recalFlag, onRecalibrate }) {
+function SortableVerticalPill({ id, topic, isCalibrated, onRemove, onOpen, pillBg, pillInk = "#FFFFFF", recalFlag, onRecalibrate }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id,
     transition: { duration: 200, easing: "ease" },
@@ -192,13 +194,14 @@ function SortableVerticalPill({ id, topic, isCalibrated, onRemove, onOpen, pillB
         opacity: isDragging ? 0.4 : 1,
         touchAction: "none",
         background: pillBg,
+        color: pillInk,
         outline: !isCalibrated ? `2px solid ${UNCALIBRATED_PURPLE}` : undefined,
         outlineOffset: !isCalibrated ? '1px' : undefined,
       }}
-      className="flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-white text-xs font-medium group select-none cursor-grab active:cursor-grabbing"
+      className="flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-xs font-medium group select-none cursor-grab active:cursor-grabbing"
     >
       {/* Drag grip (visual only) */}
-      <span className="shrink-0 text-white/30">
+      <span className="shrink-0 opacity-30">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
           <path d="M10 3a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM10 8.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM11.5 15.5a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0z" />
           <path d="M5 3a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM5 8.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM6.5 15.5a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0z" />
@@ -255,7 +258,7 @@ function SortableVerticalPill({ id, topic, isCalibrated, onRemove, onOpen, pillB
       <button
         onClick={(e) => { e.stopPropagation(); onRemove(); }}
         onPointerDown={(e) => e.stopPropagation()}
-        className="shrink-0 opacity-0 group-hover:opacity-100 w-4 h-4 flex items-center justify-center rounded-full hover:bg-white/20 text-white/60 hover:text-white transition-all cursor-pointer"
+        className="shrink-0 opacity-0 group-hover:opacity-60 w-4 h-4 flex items-center justify-center rounded-full transition-all cursor-pointer"
         aria-label={`Remove ${topic.short_title}`}
       >×</button>
     </div>
@@ -386,10 +389,6 @@ function CombinedPage() {
       <div className="flex gap-4 mt-1">
         {showChart && (
           <button
-            ref={(el) => {
-              // Only assign if this button is visible (has layout dimensions)
-              if (el && el.offsetWidth > 0) compareRef.current = el;
-            }}
             onClick={() => setCompareMode(true)}
             className="px-4 sm:px-6 py-2 text-sm sm:text-base bg-black text-white rounded-full hover:bg-ev-yellow-dark hover:text-black transition-colors cursor-pointer"
           >
@@ -797,62 +796,35 @@ function CombinedPage() {
   };
 
   // -------- Local UI State --------
-  // Post-calibration tour state
-  const [tourStep, setTourStep] = useState(-1); // -1 = not active, 0-1 = active step
-
-  // Tour target refs
-  const spokeRef = useRef(null);      // Chart container div (step 0 — "tap any spoke label")
-  const minMaxRef = useRef(null);     // Min/Max buttons (step 1 — explain Max/Min)
-  const compareRef = useRef(null);    // Compare button (step 2)
-
-  // Tour messages indexed by step (2 steps total)
-  const tourMessages = [
-    "Tap any spoke label to flip its direction — purely visual, your stance doesn't change.",
-    (
-      <>
-        The shape isn&apos;t a political score. We randomize which end of each spoke is &ldquo;strong&rdquo; so the chart doesn&apos;t encode left vs. right.{" "}
-        <a
-          href="/how-it-works#compass-positions"
-          target="_blank"
-          rel="noopener"
-          className="text-[#00657c] dark:text-ev-teal-light underline hover:text-[#ff5740]"
-          onClick={(e) => e.stopPropagation()}
-        >
-          Why?
-        </a>
-      </>
-    ),
-  ];
-
-  // Tour advancement logic
-  const finishPostCalTour = () => {
-    localStorage.setItem("onboarding_postCalTour", "1");
-    setTourStep(-1);
-    // Start compare tour now if comparePol is already set and compare tour hasn't run
-    if (comparePol && !compareTourDismissed.current) {
-      setTimeout(() => setCompareTourStep(0), 300);
-    }
-  };
-  const advanceTour = () => {
-    if (tourStep < 1) {
-      setTourStep(tourStep + 1);
-    } else {
-      finishPostCalTour();
-    }
-  };
-  const skipTour = () => {
-    finishPostCalTour();
-  };
 
   const [drawerTopic, setDrawerTopic] = useState(null);
   const [compareMode, setCompareMode] = useState(false);
   const [compareExpanded, setCompareExpanded] = useState(false);
+  // Mobile nav tab: 0 = Compare, 1 = Graph. Declared up here because the
+  // compare tour below needs it — tab 0 IS the compare screen on narrow
+  // viewports, and arriving there is what starts the tour.
+  const [selectedTab, setSelectedTab] = useState(1);
+  // Topic chosen inside ComparePanel. Up here with the other compare state
+  // because the tour auto-advances off it.
+  const [dropdownValue, setDropdownValue] = useState("");
 
   // -------- Compare deep-dive tour --------
   const [compareTourStep, setCompareTourStep] = useState(-1); // -1 = inactive, 0-1 = active
   const compareTourDismissed = useRef(!!localStorage.getItem("onboarding_compareTour"));
-  // Ref for the radar chart container — used as target for compare tour steps 2 & 3
+  // Ref for the radar chart container — target for the compare tour's chart step
   const chartContainerRef = useRef(null);
+  // Left column of vertical topic pills — target for the compare tour's last step
+  const topicPanelRef = useRef(null);
+  // Full-height compare column — target for the compare tour's first step
+  const comparePanelRef = useRef(null);
+  // Search field plus the topic results beneath it — target for the last step
+  const topicSearchRef = useRef(null);
+  // Mobile equivalent of the same column (the Compare tab's panel), so the
+  // first step has something to spotlight on a narrow viewport too.
+  const mobileCompareRef = useRef(null);
+  // getCompareTourRef resolves a DOM node fresh each call; hold it in one
+  // stable ref object so CoachMark sees a constant identity.
+  const compareTourTargetRef = useRef(null);
 
   // -------- Compare switching callbacks --------
   const handleSwitchPolitician = (newPol) => {
@@ -871,60 +843,175 @@ function CombinedPage() {
     setCompareMode(false);
   };
 
-  // -------- Compare tour trigger: fires on first compare selection --------
-  useEffect(() => {
-    if (!comparePol || compareTourDismissed.current) return;
-    if (!localStorage.getItem("onboarding_postCalTour")) return;
-    const timer = setTimeout(() => setCompareTourStep(0), 600);
-    return () => clearTimeout(timer);
-  }, [comparePol]);
-
-  // Helper: get the DOM target for each compare tour step
-  const getCompareTourRef = (step) => {
-    const el = (() => {
-      switch (step) {
-        case 0: {
-          const panel = document.querySelector('.bg-white.rounded-2xl.border.border-neutral-200');
-          return panel?.querySelector('.p-5') || panel;
-        }
-        case 1:
-          return document.getElementById('topic-dropdown');
-        case 2:
-        case 3:
-          return chartContainerRef.current;
-        default:
-          return null;
-      }
-    })();
-    return { current: el };
-  };
-
-  const compareTourMessages = [
-    "Pick a topic from the dropdown to see your stances side by side. No party labels — just the ideas.",
-    "The green overlay shows the politician's positions. Closer points on a spoke = more aligned on that issue.",
+  // -------- Compare tour: the guided walkthrough of the comparison screen --------
+  // Four steps, one per region of the screen: the compare column, the chart,
+  // the topic list, then the library search below. Each entry names the DOM
+  // node to spotlight; `advanceOn` is the state change that means the user just
+  // did the thing, so the step retires itself instead of making them press a
+  // button for something they already completed.
+  const compareTourSteps = [
+    {
+      // Whichever compare column is actually laid out — the desktop one is the
+      // right-hand panel, the mobile one is the Compare tab's panel.
+      target: () =>
+        [comparePanelRef.current, mobileCompareRef.current].find(
+          (el) => el && el.offsetWidth > 0
+        ) ?? null,
+      headline: "Compare your positions",
+      message: "Tap Compare, search for a candidate by name, and select them. Their positions load instantly alongside yours — no account needed.",
+      prefer: "left",
+      primaryLabel: "Got it",
+      advanceOn: !!comparePol,
+    },
+    {
+      target: () => chartContainerRef.current,
+      headline: "See where you align",
+      message: "The overlap between the two shapes shows shared ground. A yellow dot means a near-perfect match on that topic — the closer the shapes, the more you agree.",
+      prefer: "above",
+      primaryLabel: "Next",
+    },
+    {
+      target: () => topicPanelRef.current,
+      headline: "Make it yours",
+      message: "Drag topics to reorder them by what matters most to you. Tap the × on any topic to remove it from the comparison. Your compass, your priorities.",
+      prefer: "right",
+      primaryLabel: "Next",
+    },
+    {
+      target: () => topicSearchRef.current,
+      headline: "Add more topics",
+      message: "Search any issue below and add it to your compass. The graph updates immediately so you can keep drilling into what matters.",
+      prefer: "above",
+      primaryLabel: "Done",
+      // This region sits well below the compare screen and is taller than the
+      // viewport, so bring its top edge into view rather than centring it.
+      scrollAlign: "start",
+      // Last step — the primary button is the only way out, so no skip beside it.
+      showSkipAll: false,
+    },
   ];
 
-  const advanceCompareTour = () => {
-    if (compareTourStep < 1) {
-      setCompareTourStep(compareTourStep + 1);
-    } else {
-      localStorage.setItem("onboarding_compareTour", "1");
-      compareTourDismissed.current = true;
-      setCompareTourStep(-1);
-    }
+  // Helper: get the DOM target for a step.
+  // `vis` drops nodes that are in the DOM but laid out at zero size — the
+  // mobile and desktop compare columns are both mounted at some widths, and
+  // spotlighting the hidden one would leave an empty cutout.
+  const getCompareTourRef = (step) => {
+    const el = compareTourSteps[step]?.target() ?? null;
+    return { current: el && el.offsetWidth > 0 ? el : null };
   };
 
-  const skipCompareTour = () => {
+  // First step at or after `from` that has something on screen to point at.
+  // The chart and topic-list steps live in desktop-only columns, so on a narrow
+  // viewport this walks past them rather than leaving an invisible card the
+  // user can't dismiss. Returns -1 when nothing is left, which ends the tour.
+  const nextLiveCompareStep = (from) => {
+    for (let i = from; i < compareTourSteps.length; i++) {
+      if (getCompareTourRef(i).current) return i;
+    }
+    return -1;
+  };
+
+  // Trigger: the walkthrough opens with the screen, before any interaction.
+  // On desktop the compare column is on screen as soon as the compass renders;
+  // on mobile it is the Compare tab. Either way the user gets step 1 while the
+  // column is still empty — which is the point, since step 1 is "click Compare".
+  //
+  // `showCalibration` has to be part of this. Finishing calibration drops the
+  // user straight onto the compare screen, but while that overlay is up the
+  // compare column is not mounted at all — so the poll below would spend its
+  // frames against a DOM that cannot contain the target, give up, and never
+  // run again once the screen it describes finally appeared.
+  const onCompareScreen = !showCalibration && (showChart || selectedTab === 0);
+  useEffect(() => {
+    if (!onCompareScreen || compareTourDismissed.current || compareTourStep >= 0) return;
+    // No fixed delay — waiting a beat leaves the user looking at an
+    // unexplained screen. Start on the first frame a target is mounted.
+    let frame;
+    let tries = 0;
+    const start = () => {
+      const first = nextLiveCompareStep(0);
+      if (first !== -1) {
+        setCompareTourStep(first);
+        return;
+      }
+      if (tries++ > 60) return; // ~1s of frames; the deps below give it another go
+      frame = requestAnimationFrame(start);
+    };
+    frame = requestAnimationFrame(start);
+    return () => cancelAnimationFrame(frame);
+    // Every dep here can newly put the compare column on screen, and each one
+    // restarts the poll. `selectedTab` matters most: on mobile with a compass
+    // already built, tapping over to the Compare tab does not change
+    // onCompareScreen, so without it listed the tour would never fire there.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onCompareScreen, compareTourStep, selectedTab, showCalibration, compareMode, comparePol]);
+
+  // Auto-advance once the user performs the step's action.
+  const advanceOn = compareTourSteps[compareTourStep]?.advanceOn;
+  useEffect(() => {
+    if (compareTourStep < 0 || !advanceOn) return;
+    const immediate = compareTourStep + 1;
+    if (immediate >= compareTourSteps.length) return;
+    // Wait a few frames for the next step's own target before looking past it.
+    // Clicking Compare mounts the picker and picking a candidate mounts the
+    // topic dropdown a render or two later — jumping on the first frame would
+    // find them missing and skip the very steps we just unlocked.
+    let frame;
+    let tries = 0;
+    const step = () => {
+      if (getCompareTourRef(immediate).current) {
+        setCompareTourStep(immediate);
+        return;
+      }
+      if (tries++ < 20) {
+        frame = requestAnimationFrame(step);
+        return;
+      }
+      // It genuinely isn't rendering — e.g. the candidate has no recorded
+      // stance on this topic, so there is no stance list to point at.
+      const next = nextLiveCompareStep(immediate + 1);
+      if (next === -1) endCompareTour();
+      else setCompareTourStep(next);
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [advanceOn, compareTourStep]);
+
+  // Resolve the tour's current target into the stable ref object each render.
+  if (compareTourStep >= 0) {
+    compareTourTargetRef.current = getCompareTourRef(compareTourStep).current;
+  }
+
+  const endCompareTour = () => {
     localStorage.setItem("onboarding_compareTour", "1");
     compareTourDismissed.current = true;
     setCompareTourStep(-1);
   };
 
-  // Compare Details & Stance Explorer state
-  const [dropdownValue, setDropdownValue] = useState("");
+  // Next on a step whose action the user hasn't taken yet (they pressed Next
+  // instead of clicking Compare) skips forward to whatever IS on screen.
+  const advanceCompareTour = () => {
+    const next = nextLiveCompareStep(compareTourStep + 1);
+    if (next === -1) endCompareTour();
+    else setCompareTourStep(next);
+  };
 
-  // Nav State:
-  const [selectedTab, setSelectedTab] = useState(1);
+  const skipCompareTour = endCompareTour;
+
+  // A step's target can disappear under it — clearing the comparison unmounts
+  // the stance list, resizing drops the desktop-only columns. Rather than leave
+  // an invisible card the user cannot dismiss, move to the next live step.
+  useEffect(() => {
+    if (compareTourStep < 0) return;
+    const timer = setTimeout(() => {
+      if (!getCompareTourRef(compareTourStep).current) advanceCompareTour();
+    }, 400);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [compareTourStep]);
+
+  // Nav State: (selectedTab lives with the other compare UI state above)
   const tabRefs = [useRef(null), useRef(null)];
   const [bgStyle, setBgStyle] = useState({ left: 0, width: 0 });
 
@@ -1177,10 +1264,7 @@ function CombinedPage() {
   const [search, setSearch] = useState("");
   const [, setHoveredPillShortTitle] = useState(null);
 
-  // -------- Library coach mark tour --------
-  const [libTourStep, setLibTourStep] = useState(-1);
-  const libTourDismissed = useRef(!!localStorage.getItem("onboarding_libraryTour"));
-  const firstTileRef = useRef(null);
+  // Ref target for the lens switcher chip row (LensSwitcher forwards it).
   const localLensRef = useRef(null);
 
   // -------- DnD sensors for pill strip --------
@@ -1246,29 +1330,6 @@ function CombinedPage() {
       });
   }, [isLoggedIn, topics]);
 
-  // Library tour trigger
-  useEffect(() => {
-    if (!answeredLoaded || libTourDismissed.current) return;
-    const timer = setTimeout(() => {
-      if (firstTileRef.current) setLibTourStep(0);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [answeredLoaded]);
-
-  const advanceLibTour = () => {
-    if (libTourStep < 1) {
-      setLibTourStep(libTourStep + 1);
-    } else {
-      localStorage.setItem("onboarding_libraryTour", "1");
-      setLibTourStep(-1);
-    }
-  };
-
-  const skipLibTour = () => {
-    localStorage.setItem("onboarding_libraryTour", "1");
-    setLibTourStep(-1);
-  };
-
   // -------- Library Derived State --------
 
   const localLensTopicIds = useMemo(
@@ -1327,6 +1388,7 @@ function CombinedPage() {
     ? (allLenses.find((l) => l.key === activeLensKey) ?? null)
     : null;
   const pillBg = activeLens ? activeLens.color : (isDark ? '#52525b' : '#6B7280');
+  const pillInk = activeLens ? getLensInk(activeLens, isDark) : '#FFFFFF';
 
   // "Federal lens calibrated" = the user has a real stance on all 8 federal topics.
   // Gates the auto-default: we only surface the Federal lens for federal leaders
@@ -1717,10 +1779,6 @@ function CombinedPage() {
             setRecalibrateTopicIds(null);
             setStartResumeCalibration(false);
             setStartAllTopics(false);
-            // Start post-cal tour if not already dismissed
-            if (!localStorage.getItem("onboarding_postCalTour")) {
-              setTimeout(() => setTourStep(0), 500);
-            }
           }}
           onSkip={() => {
             setCalibrationSkipped(true);
@@ -1973,7 +2031,7 @@ function CombinedPage() {
             <div className="flex items-start gap-4 pl-2 pr-[490px]">
 
             {/* Left column: vertical topic pills */}
-            <div className="w-44 shrink-0 flex flex-col gap-1.5">
+            <div ref={topicPanelRef} className="w-44 shrink-0 flex flex-col gap-1.5">
               <div className="flex items-center justify-between mb-0.5">
                 <h2 className="text-sm font-semibold dark:text-white">
                   Your Compass
@@ -2006,8 +2064,8 @@ function CombinedPage() {
                       </div>
                       <button
                         onClick={() => doCalibrateLens(LOCAL_LENS)}
-                        style={{ background: LOCAL_LENS.color }}
-                        className="px-3 py-1.5 rounded-full text-xs font-bold text-white hover:opacity-90 cursor-pointer w-full"
+                        style={{ background: getLensColor(LOCAL_LENS, isDark), color: getLensInk(LOCAL_LENS, isDark) }}
+                        className="px-3 py-1.5 rounded-full text-xs font-bold hover:opacity-90 cursor-pointer w-full"
                       >
                         Start Local Lens →
                       </button>
@@ -2037,6 +2095,7 @@ function CombinedPage() {
                             onRemove={() => setSelectedTopics(prev => prev.filter(tid => tid !== id))}
                             onOpen={() => setDrawerTopic(topic)}
                             pillBg={pillBg}
+                            pillInk={pillInk}
                             recalFlag={flagsByTopic.get(id)}
                             onRecalibrate={() => setOpenFlagTopicId(id)}
                           />
@@ -2066,7 +2125,7 @@ function CombinedPage() {
             <div className="flex-1 min-w-0 flex flex-col items-center">
               {showChart && <Legend />}
               <div
-                ref={(el) => { chartContainerRef.current = el; spokeRef.current = el; }}
+                ref={chartContainerRef}
                 className="w-full max-w-[min(900px,calc(100dvh-160px))] mx-auto relative"
               >
                 {showChart && (
@@ -2085,10 +2144,7 @@ function CombinedPage() {
                       </svg>
                     </a>
                     {/* Stance Max / Min — top-right, below the ? button */}
-                    <div
-                      ref={minMaxRef}
-                      className="absolute top-[12%] right-0 flex flex-col gap-1.5 z-10"
-                    >
+                    <div className="absolute top-[12%] right-0 flex flex-col gap-1.5 z-10">
                       <button
                         onClick={handleStanceMax}
                         title="Stance Max — flip any spoke showing 1–2 to its strong side (4–5)"
@@ -2130,12 +2186,12 @@ function CombinedPage() {
                       darkMode={isDark}
                       replacedSpokes={compareReplacedSpokes}
                       boldOriginalSpokes={!!comparePol}
-                      onToggleInversion={(topic) =>
+                      onToggleInversion={(topic) => {
                         setInvertedSpokes((prev) => ({
                           ...prev,
                           [topic]: !prev[topic],
-                        }))
-                      }
+                        }));
+                      }}
                       onReplaceTopic={handleSpokeClick}
                     />
                   )
@@ -2153,7 +2209,7 @@ function CombinedPage() {
 
             {/* Right: compare panel (absolute, floats over library when expanded) */}
             {showChart && (
-              <div className={`absolute top-0 right-0 w-[480px] z-10 ${compareExpanded ? 'shadow-2xl' : 'bottom-0 overflow-y-auto'}`}>
+              <div ref={comparePanelRef} className={`absolute top-0 right-0 w-[480px] z-10 ${compareExpanded ? 'shadow-2xl' : 'bottom-0 overflow-y-auto'}`}>
                 {(comparePol || compareMode) ? (
                   <>
                     <ComparePanel
@@ -2186,9 +2242,7 @@ function CombinedPage() {
                       See how a candidate aligns with your compass
                     </p>
                     <button
-                      ref={(el) => {
-                        if (el && el.offsetWidth > 0) compareRef.current = el;
-                      }}
+                      data-tour="compare-cta"
                       onClick={() => setCompareMode(true)}
                       className="px-6 py-2 text-sm bg-black text-white rounded-full hover:bg-ev-yellow-dark hover:text-black transition-colors cursor-pointer"
                     >
@@ -2202,7 +2256,7 @@ function CombinedPage() {
 
           {/* -------- mobile: tab 0 (Compare) -------- */}
           {selectedTab === 0 && (
-            <div className="w-full max-w-2xl lg:hidden">
+            <div ref={mobileCompareRef} className="w-full max-w-2xl lg:hidden">
               {(comparePol || compareMode) ? (
                 <ComparePanel
                   politician={comparePol}
@@ -2218,6 +2272,7 @@ function CombinedPage() {
                   </h1>
                   {showChart && (
                     <button
+                      data-tour="compare-cta"
                       onClick={() => setCompareMode(true)}
                       className="px-6 py-2 bg-black text-white rounded-full hover:bg-opacity-90"
                     >
@@ -2252,12 +2307,12 @@ function CombinedPage() {
                       darkMode={isDark}
                       replacedSpokes={compareReplacedSpokes}
                       boldOriginalSpokes={!!comparePol}
-                      onToggleInversion={(topic) =>
+                      onToggleInversion={(topic) => {
                         setInvertedSpokes((prev) => ({
                           ...prev,
                           [topic]: !prev[topic],
-                        }))
-                      }
+                        }));
+                      }}
                       onReplaceTopic={handleSpokeClick}
                     />
                   )
@@ -2311,8 +2366,8 @@ function CombinedPage() {
                       </div>
                       <button
                         onClick={doStartLocalLens}
-                        style={{ background: LOCAL_LENS.color }}
-                        className="shrink-0 px-4 py-2 rounded-full text-xs font-bold text-white hover:opacity-90 cursor-pointer"
+                        style={{ background: getLensColor(LOCAL_LENS, isDark), color: getLensInk(LOCAL_LENS, isDark) }}
+                        className="shrink-0 px-4 py-2 rounded-full text-xs font-bold hover:opacity-90 cursor-pointer"
                       >
                         Start Local Lens →
                       </button>
@@ -2345,6 +2400,7 @@ function CombinedPage() {
                             onMouseEnter={() => setHoveredPillShortTitle(topic.short_title)}
                             onMouseLeave={() => setHoveredPillShortTitle(null)}
                             pillBg={pillBg}
+                            pillInk={pillInk}
                           />
                         );
                       })}
@@ -2353,6 +2409,13 @@ function CombinedPage() {
                 </DndContext>
               )}
             </div>
+
+            {/* Unstyled wrapper: the compare tour's last step spotlights the search
+                field and the results under it as one region. scrollMarginTop is
+                inert except when that step scrolls here — it stops the search
+                field landing flush against the top edge, leaving room for the
+                tour card, which sits above the spotlight. */}
+            <div ref={topicSearchRef} style={{ scrollMarginTop: "38vh" }}>
 
             {/* Search bar */}
             <div className="flex items-center bg-gray-100 dark:bg-zinc-800 rounded-xl px-4 py-2 mb-6 mx-4 md:mx-0">
@@ -2372,7 +2435,6 @@ function CombinedPage() {
             <div className="px-4 md:px-0">
               {answeredLoaded &&
                 (() => {
-                  let firstTileFound = false;
                   const seenTopicIds = new Set();
                   return categories.map((category, catIdx) => {
                     const visible = getVisibleTopics(category).filter(t => {
@@ -2396,11 +2458,8 @@ function CombinedPage() {
                             const isAnswered = answeredTopicIDs.includes(topic.id);
                             const isCalibrated = isTopicCalibrated(topic.id);
                             const atCap = selectedTopics.length >= MAX_TOPICS && !isOnCompass;
-                            const isFirstTile = !firstTileFound;
-                            if (isFirstTile) firstTileFound = true;
-
                             return (
-                              <div key={topic.id} className="relative" ref={isFirstTile ? firstTileRef : undefined}>
+                              <div key={topic.id} className="relative">
                                 {/* Main tile — click to toggle on/off compass */}
                                 <button
                                   onClick={() => {
@@ -2466,6 +2525,8 @@ function CombinedPage() {
                   });
                 })()}
             </div>
+
+            </div>{/* /topicSearchRef */}
           </div>
 
           {/* -------- LibraryDrawer — ONE instance with onRemoveFromCompass -------- */}
@@ -2490,46 +2551,25 @@ function CombinedPage() {
           <SavePromptModal />
 
           {/* -------- Compare deep-dive tour -------- */}
-          {compareTourStep >= 0 && comparePol && (
+          {compareTourStep >= 0 && onCompareScreen && (
             <CoachMark
-              targetRef={getCompareTourRef(compareTourStep)}
-              message={compareTourMessages[compareTourStep]}
-              stepLabel={`${compareTourStep + 1} of 2`}
+              targetRef={compareTourTargetRef}
+              headline={compareTourSteps[compareTourStep].headline}
+              message={compareTourSteps[compareTourStep].message}
+              stepLabel={`${compareTourStep + 1} of ${compareTourSteps.length}`}
+              primaryLabel={compareTourSteps[compareTourStep].primaryLabel}
+              showSkipAll={compareTourSteps[compareTourStep].showSkipAll !== false}
+              scrollAlign={compareTourSteps[compareTourStep].scrollAlign ?? "center"}
+              preferPlacement={compareTourSteps[compareTourStep].prefer}
               onNext={advanceCompareTour}
               onSkipAll={skipCompareTour}
               onDismiss={advanceCompareTour}
               show={true}
-            />
-          )}
-
-          {/* -------- Post-calibration guided tour -------- */}
-          {tourStep >= 0 && (
-            <CoachMark
-              targetRef={tourStep === 0 ? spokeRef : chartContainerRef}
-              message={tourMessages[tourStep]}
-              stepLabel={`${tourStep + 1} of 2`}
-              onNext={advanceTour}
-              onSkipAll={skipTour}
-              onDismiss={advanceTour}
-              show={true}
               allowSpotlightInteraction={true}
+              theme={isDark ? DARK_THEME : LIGHT_THEME}
             />
           )}
 
-          {/* -------- Library coach mark tour -------- */}
-          {libTourStep >= 0 && (
-            <CoachMark
-              targetRef={libTourStep === 0 ? firstTileRef : localLensRef}
-              message={libTourStep === 0
-                ? "Click any topic to add it to your compass — up to 8. Drag the pills above to reorder your spokes."
-                : "Start here — the Local Lens picks the 8 topics most local candidates have already answered, so you can compare right away."}
-              stepLabel={`${libTourStep + 1} of 2`}
-              onNext={advanceLibTour}
-              onSkipAll={skipLibTour}
-              onDismiss={advanceLibTour}
-              show={true}
-            />
-          )}
 
         </div>
       )}
