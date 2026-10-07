@@ -1,6 +1,7 @@
 import { useCompass, serializeCompassFragment } from "./CompassContext";
 import { useState, useEffect } from "react";
 import { apiFetch } from "../lib/auth";
+import { formatSourceDate } from "../lib/sourceDate";
 import Favicon from "./Favicon";
 import { getPolName } from "../util/name";
 import { getQuestionText, parseTensionTitle } from "../util/topic";
@@ -28,6 +29,8 @@ function ComparePanel({
     .filter(Boolean);
   const [selectedTopicID, setSelectedTopicID] = useState("");
   const [sources, setSources] = useState([]);
+  // source URL -> formatted date; a source with no date has no entry
+  const [sourceDates, setSourceDates] = useState({});
   const [reasoning, setReasoning] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -53,6 +56,7 @@ function ComparePanel({
           if (res.status === 404) {
             setReasoning("");
             setSources([]);
+            setSourceDates({});
             return null;
           }
           const msg = await res.text();
@@ -64,6 +68,12 @@ function ComparePanel({
         if (!data) return;
         setReasoning(data.reasoning || "");
         setSources(Array.isArray(data.sources) ? data.sources : []);
+        const dates = {};
+        for (const e of Array.isArray(data.evidence) ? data.evidence : []) {
+          const label = formatSourceDate(e.source_date, e.source_date_precision);
+          if (label) dates[e.source_url] = label;
+        }
+        setSourceDates(dates);
       })
       .catch((err) => {
         console.error("[ComparePanel] context fetch failed", err);
@@ -290,6 +300,11 @@ function ComparePanel({
                               <span className="text-sm text-[#00657c] dark:text-ev-teal-light group-hover:underline truncate">
                                 {getDisplayUrl(source)}
                               </span>
+                              {sourceDates[source] && (
+                                <span className="ml-auto pl-2 text-xs text-neutral-400 dark:text-gray-500 shrink-0">
+                                  {sourceDates[source]}
+                                </span>
+                              )}
                             </a>
                           </li>
                         ))}
