@@ -7,8 +7,7 @@ import { getPolName } from "../util/name";
 import { getQuestionText, parseTensionTitle } from "../util/topic";
 import InlinePoliticianPicker from "./InlinePoliticianPicker";
 
-const ESSENTIALS_URL =
-  import.meta.env.VITE_ESSENTIALS_URL || "https://essentials.empowered.vote";
+import { ESSENTIALS_URL } from "../lib/essentials";
 
 function ComparePanel({
   politician,

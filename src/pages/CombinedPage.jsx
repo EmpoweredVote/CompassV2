@@ -1,5 +1,7 @@
 // CombinedPage.jsx — merges Compass.jsx and Library.jsx into a single unified page.
 // Renders the radar chart with compare panel at top and the full topic library below.
+import { ESSENTIALS_URL } from '../lib/essentials';
+import { buildPlan, labelFor, nextInPlan, isLastInPlan } from '../lib/tourPlan';
 import { track } from "@empoweredvote/analytics";
 import { useCompass } from "../components/CompassContext";
 import { apiFetch, API_BASE } from "../lib/auth";
@@ -266,104 +268,6 @@ function SortableVerticalPill({ id, topic, isCalibrated, onRemove, onOpen, pillB
 
 // -------- Main Component --------
 function CombinedPage() {
-  function TabBar() {
-    const icons = [
-      /* 0 – Compare (chain-link icon) */
-      <svg
-        width="18"
-        height="22"
-        viewBox="0 0 20 15"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        className={selectedTab != 0 ? "stroke-slate-500" : "stroke-black"}
-      >
-        <g clipPath="url(#clip0_71_343)">
-          <path
-            d="M7.91675 11.2622C8.25673 11.7167 8.69049 12.0928 9.1886 12.3649C9.68671 12.6371 10.2375 12.7989 10.8037 12.8394C11.3698 12.88 11.9381 12.7983 12.4699 12.5999C13.0017 12.4015 13.4846 12.0911 13.8859 11.6897L16.2609 9.31468C16.982 8.56813 17.3809 7.56825 17.3719 6.53038C17.3629 5.49252 16.9466 4.49972 16.2127 3.76581C15.4788 3.03191 14.486 2.61561 13.4481 2.60659C12.4103 2.59758 11.4104 2.99655 10.6638 3.7176L9.30216 5.07135"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          <path
-            d="M11.0834 9.67917C10.7434 9.22466 10.3096 8.84857 9.81152 8.57643C9.31341 8.30429 8.76259 8.14246 8.19644 8.10191C7.63028 8.06136 7.06203 8.14305 6.53022 8.34143C5.99841 8.53981 5.51549 8.85024 5.1142 9.25167L2.7392 11.6267C2.01816 12.3732 1.61918 13.3731 1.6282 14.411C1.63722 15.4488 2.05351 16.4416 2.78742 17.1755C3.52133 17.9094 4.51413 18.3257 5.55199 18.3348C6.58985 18.3438 7.58974 17.9448 8.33629 17.2238L9.69004 15.87"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </g>
-        <defs>
-          <clipPath id="clip0_71_343">
-            <rect
-              width="19"
-              height="19"
-              fill="white"
-              transform="translate(0 0.970703)"
-            />
-          </clipPath>
-        </defs>
-      </svg>,
-      /* 1 – Graph  */
-      <svg
-        width="20"
-        height="20"
-        viewBox="0 0 20 20"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        className={selectedTab != 1 ? "stroke-slate-500" : "stroke-black"}
-      >
-        <path
-          d="M12 20.5V10.5"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M18 20.5V4.5"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M6 20.5V16.5"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>,
-    ];
-
-    return (
-      <div className="relative flex justify-around w-full bg-gray-300/50 dark:bg-zinc-700/50 rounded-lg p-1 mx-2 mb-4 lg:hidden border-l-4 border-ev-yellow">
-        {/* moving highlight */}
-        <div
-          className="absolute top-1 h-[calc(100%-0.5rem)] bg-white dark:bg-zinc-600 rounded-lg transition-all"
-          style={{
-            left: bgStyle.left,
-            width: bgStyle.width,
-            pointerEvents: "none",
-          }}
-        />
-        {["Compare", "Graph"].map((label, idx) => (
-          <button
-            key={label}
-            ref={tabRefs[idx]}
-            onClick={() => setSelectedTab(idx)}
-            className="relative z-10 flex items-center gap-1 px-2 py-2"
-          >
-            {icons[idx]}
-            <span
-              className={`${
-                selectedTab === idx ? "text-black dark:text-white" : "text-slate-500 dark:text-gray-400"
-              } text-base font-medium`}
-            >
-              {label}
-            </span>
-          </button>
-        ))}
-      </div>
-    );
-  }
-
   function Legend() {
     if (!comparePol) return null;
     const name =
@@ -383,17 +287,22 @@ function CombinedPage() {
     );
   }
 
-  function ActionButtons() {
+  // Comparing moved to Essentials. This is the handoff, and it only appears
+  // once there is a compass to carry across — before that there is nothing to
+  // compare and the link would be a dead end.
+  function EssentialsCta() {
+    if (!showChart) return null;
     return (
-      <div className="flex gap-4 mt-1">
-        {showChart && (
-          <button
-            onClick={() => setCompareMode(true)}
-            className="px-4 sm:px-6 py-2 text-sm sm:text-base bg-black text-white rounded-full hover:bg-ev-yellow-dark hover:text-black transition-colors cursor-pointer"
-          >
-            Compare
-          </button>
-        )}
+      <div className="flex flex-col items-center gap-2 mt-4 mb-1 px-4 text-center">
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          See how candidates line up with your compass
+        </p>
+        <a
+          href={ESSENTIALS_URL}
+          className="px-6 py-2 text-sm font-semibold rounded-full bg-black text-white hover:bg-ev-yellow-dark hover:text-black transition-colors cursor-pointer"
+        >
+          Compare on Essentials →
+        </a>
       </div>
     );
   }
@@ -797,7 +706,6 @@ function CombinedPage() {
   // Mobile nav tab: 0 = Compare, 1 = Graph. Declared up here because the
   // compare tour below needs it — tab 0 IS the compare screen on narrow
   // viewports, and arriving there is what starts the tour.
-  const [selectedTab, setSelectedTab] = useState(1);
   // Topic chosen inside ComparePanel. Up here with the other compare state
   // because the tour auto-advances off it.
   const [dropdownValue, setDropdownValue] = useState("");
@@ -805,6 +713,10 @@ function CombinedPage() {
   // -------- Compare deep-dive tour --------
   const [compareTourStep, setCompareTourStep] = useState(-1); // -1 = inactive, 0-1 = active
   const compareTourDismissed = useRef(!!localStorage.getItem("onboarding_compareTour"));
+  // The steps this run will actually show, captured when the tour starts.
+  // Numbering comes from here rather than the full step list, so a phone is not
+  // told it is on "1 of 4" of a tour that only has three cards to give it.
+  const compareTourPlan = useRef([]);
   // Ref for the radar chart container — target for the compare tour's chart step
   const chartContainerRef = useRef(null);
   // Left column of vertical topic pills — target for the compare tour's last step
@@ -816,11 +728,13 @@ function CombinedPage() {
   const comparePanelOpen = showChart && !!(comparePol || compareMode);
 
   const comparePanelRef = useRef(null);
+  // Mobile counterparts for the tour's chart and topic-list steps. Without
+  // these the walkthrough had nothing to point at on a phone, so it skipped
+  // straight from the compare column to the library search.
+  const mobileChartRef = useRef(null);
+  const mobilePillStripRef = useRef(null);
   // Search field plus the topic results beneath it — target for the last step
   const topicSearchRef = useRef(null);
-  // Mobile equivalent of the same column (the Compare tab's panel), so the
-  // first step has something to spotlight on a narrow viewport too.
-  const mobileCompareRef = useRef(null);
   // getCompareTourRef resolves a DOM node fresh each call; hold it in one
   // stable ref object so CoachMark sees a constant identity.
   const compareTourTargetRef = useRef(null);
@@ -842,6 +756,13 @@ function CombinedPage() {
     setCompareMode(false);
   };
 
+  // The first of these refs that is actually laid out. Desktop and mobile each
+  // render their own copy of a region and hide the other, so both are mounted
+  // at some widths — spotlighting the hidden one would cut an empty hole in the
+  // page. Zero width is the test, since that is what `hidden`/`lg:hidden` give.
+  const firstLaidOut = (...refs) =>
+    refs.map((r) => r.current).find((el) => el && el.offsetWidth > 0) ?? null;
+
   // -------- Compare tour: the guided walkthrough of the comparison screen --------
   // Four steps, one per region of the screen: the compare column, the chart,
   // the topic list, then the library search below. Each entry names the DOM
@@ -850,27 +771,29 @@ function CombinedPage() {
   // button for something they already completed.
   const compareTourSteps = [
     {
-      // Whichever compare column is actually laid out — the desktop one is the
-      // right-hand panel, the mobile one is the Compare tab's panel.
-      target: () =>
-        [comparePanelRef.current, mobileCompareRef.current].find(
-          (el) => el && el.offsetWidth > 0
-        ) ?? null,
-      headline: "Compare your positions",
-      message: "Tap Compare, search for a candidate by name, and select them. Their positions load instantly alongside yours — no account needed.",
+      // Self-gating: the panel only mounts while a comparison is up, and
+      // comparing now happens on Essentials, so in practice this step plans
+      // only for someone whose comparison was restored from an earlier visit.
+      target: () => firstLaidOut(comparePanelRef),
+      headline: "Your comparison",
+      message: "This panel shows a candidate's positions alongside yours, topic by topic. New comparisons now start on Essentials.",
       prefer: "left",
       primaryLabel: "Got it",
       advanceOn: !!comparePol,
     },
     {
-      target: () => chartContainerRef.current,
+      // Only with a comparison up: this step is about the overlap between two
+      // shapes, and there is exactly one until a candidate is picked. Planning
+      // it regardless would open a phone's tour on copy describing something
+      // that is not on screen.
+      target: () => (comparePol ? firstLaidOut(chartContainerRef, mobileChartRef) : null),
       headline: "See where you align",
       message: "The overlap between the two shapes shows shared ground. A yellow dot means a near-perfect match on that topic — the closer the shapes, the more you agree.",
       prefer: "above",
       primaryLabel: "Next",
     },
     {
-      target: () => topicPanelRef.current,
+      target: () => firstLaidOut(topicPanelRef, mobilePillStripRef),
       headline: "Make it yours",
       message: "Drag topics to reorder them by what matters most to you. Tap the × on any topic to remove it from the comparison. Your compass, your priorities.",
       prefer: "right",
@@ -885,8 +808,6 @@ function CombinedPage() {
       // This region sits well below the compare screen and is taller than the
       // viewport, so bring its top edge into view rather than centring it.
       scrollAlign: "start",
-      // Last step — the primary button is the only way out, so no skip beside it.
-      showSkipAll: false,
     },
   ];
 
@@ -899,16 +820,6 @@ function CombinedPage() {
     return { current: el && el.offsetWidth > 0 ? el : null };
   };
 
-  // First step at or after `from` that has something on screen to point at.
-  // The chart and topic-list steps live in desktop-only columns, so on a narrow
-  // viewport this walks past them rather than leaving an invisible card the
-  // user can't dismiss. Returns -1 when nothing is left, which ends the tour.
-  const nextLiveCompareStep = (from) => {
-    for (let i = from; i < compareTourSteps.length; i++) {
-      if (getCompareTourRef(i).current) return i;
-    }
-    return -1;
-  };
 
   // Trigger: the walkthrough opens with the screen, before any interaction.
   // On desktop the compare column is on screen as soon as the compass renders;
@@ -920,7 +831,9 @@ function CombinedPage() {
   // compare column is not mounted at all — so the poll below would spend its
   // frames against a DOM that cannot contain the target, give up, and never
   // run again once the screen it describes finally appeared.
-  const onCompareScreen = !showCalibration && (showChart || selectedTab === 0);
+  // The compass screen. There is no Compare tab to account for any more, so
+  // this is simply "a compass is on screen and the calibration overlay is not".
+  const onCompareScreen = !showCalibration && showChart;
   useEffect(() => {
     if (!onCompareScreen || compareTourDismissed.current || compareTourStep >= 0) return;
     // No fixed delay — waiting a beat leaves the user looking at an
@@ -928,17 +841,21 @@ function CombinedPage() {
     let frame;
     let tries = 0;
     const start = () => {
-      // Step 0 specifically, not nextLiveCompareStep(0). The compare column is
-      // the thing the whole walkthrough hangs off, and the later steps only
-      // make sense once it has been introduced. Walking past it here meant that
-      // on a phone sitting on the Graph tab — where showChart alone satisfies
-      // onCompareScreen but no compare column is laid out — the tour opened on
-      // the last step alone ("4 of 4"), then burned onboarding_compareTour on
-      // dismiss so the real walkthrough never ran, not even on the Compare tab.
-      // Requiring step 0 holds the tour until a compare column is actually on
-      // screen; selectedTab in the deps restarts this when they tap Compare.
-      if (getCompareTourRef(0).current) {
-        setCompareTourStep(0);
+      // Plan first, then open on its first step. Each step resolves whichever
+      // of its desktop/mobile counterparts is laid out, so a phone on the Graph
+      // tab plans [chart, topics, search] and a desktop plans all four.
+      //
+      // This replaces an earlier guard that required step 0 (the compare
+      // column) to be live. That stopped the old bug where a phone opened the
+      // tour on the last step alone, but it did so by refusing to start
+      // whenever the compare column was missing — which is every phone landing
+      // on the Graph tab, and every desktop now that the idle compare panel is
+      // gone. Planning fixes the same bug at its source: the earlier steps have
+      // mobile targets now, so the first planned step is a real opener.
+      const plan = buildPlan(compareTourSteps.map((_, i) => !!getCompareTourRef(i).current));
+      if (plan.length > 0) {
+        compareTourPlan.current = plan;
+        setCompareTourStep(plan[0]);
         return;
       }
       if (tries++ > 60) return; // ~1s of frames; the deps below give it another go
@@ -946,19 +863,17 @@ function CombinedPage() {
     };
     frame = requestAnimationFrame(start);
     return () => cancelAnimationFrame(frame);
-    // Every dep here can newly put the compare column on screen, and each one
-    // restarts the poll. `selectedTab` matters most: on mobile with a compass
-    // already built, tapping over to the Compare tab does not change
-    // onCompareScreen, so without it listed the tour would never fire there.
+    // Every dep here can newly put one of the tour's regions on screen, and
+    // each one restarts the poll.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onCompareScreen, compareTourStep, selectedTab, showCalibration, compareMode, comparePol]);
+  }, [onCompareScreen, compareTourStep, showCalibration, compareMode, comparePol]);
 
   // Auto-advance once the user performs the step's action.
   const advanceOn = compareTourSteps[compareTourStep]?.advanceOn;
   useEffect(() => {
     if (compareTourStep < 0 || !advanceOn) return;
-    const immediate = compareTourStep + 1;
-    if (immediate >= compareTourSteps.length) return;
+    const immediate = nextInPlan(compareTourPlan.current, compareTourStep);
+    if (immediate === -1) return;
     // Wait a few frames for the next step's own target before looking past it.
     // Clicking Compare mounts the picker and picking a candidate mounts the
     // topic dropdown a render or two later — jumping on the first frame would
@@ -976,7 +891,10 @@ function CombinedPage() {
       }
       // It genuinely isn't rendering — e.g. the candidate has no recorded
       // stance on this topic, so there is no stance list to point at.
-      const next = nextLiveCompareStep(immediate + 1);
+      let next = nextInPlan(compareTourPlan.current, immediate);
+      while (next !== -1 && !getCompareTourRef(next).current) {
+        next = nextInPlan(compareTourPlan.current, next);
+      }
       if (next === -1) endCompareTour();
       else setCompareTourStep(next);
     };
@@ -999,7 +917,12 @@ function CombinedPage() {
   // Next on a step whose action the user hasn't taken yet (they pressed Next
   // instead of clicking Compare) skips forward to whatever IS on screen.
   const advanceCompareTour = () => {
-    const next = nextLiveCompareStep(compareTourStep + 1);
+    // Follow the plan, but never land on a step whose target has since gone —
+    // clearing a comparison can unmount one mid-tour.
+    let next = nextInPlan(compareTourPlan.current, compareTourStep);
+    while (next !== -1 && !getCompareTourRef(next).current) {
+      next = nextInPlan(compareTourPlan.current, next);
+    }
     if (next === -1) endCompareTour();
     else setCompareTourStep(next);
   };
@@ -1018,17 +941,6 @@ function CombinedPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [compareTourStep]);
 
-  // Nav State: (selectedTab lives with the other compare UI state above)
-  const tabRefs = [useRef(null), useRef(null)];
-  const [bgStyle, setBgStyle] = useState({ left: 0, width: 0 });
-
-  useEffect(() => {
-    const tab = tabRefs[selectedTab].current;
-    if (tab) {
-      const { offsetLeft, offsetWidth } = tab;
-      setBgStyle({ left: offsetLeft, width: offsetWidth });
-    }
-  }, [selectedTab]);
 
   // -------- Load comparePol from localStorage on mount --------
   const location = useLocation();
@@ -1818,8 +1730,6 @@ function CombinedPage() {
             </div>
           )}
 
-          {/* -------- mobile nav bar -------- */}
-          <TabBar />
 
           {/* -------- lens switcher — always visible -------- */}
           <div className="w-full flex flex-col items-center lg:items-start">
@@ -2169,6 +2079,7 @@ function CombinedPage() {
                   />
                 )}
               </div>
+              <EssentialsCta />
             </div>
 
             </div>{/* end inner flex row */}
@@ -2208,84 +2119,53 @@ function CombinedPage() {
             )}
           </div>
 
-          {/* -------- mobile: tab 0 (Compare) -------- */}
-          {selectedTab === 0 && (
-            <div ref={mobileCompareRef} className="w-full max-w-2xl lg:hidden">
-              {(comparePol || compareMode) ? (
-                <ComparePanel
-                  politician={comparePol}
-                  dropdownValue={dropdownValue}
-                  setDropdownValue={setDropdownValue}
-                  onSwitchPolitician={handleSwitchPolitician}
-                  onClearComparison={handleClearComparison}
-                />
+          {/* -------- mobile: the compass graph -------- */}
+          <div className="w-full max-w-md md:max-w-lg flex flex-col items-center mx-auto lg:hidden">
+            {showChart && <Legend />}
+            <div ref={mobileChartRef} className="w-full max-h-[calc(100dvh-240px)] mx-auto relative">
+              {showChart ? (
+                comparePol && !compareHasEnoughSpokes ? (
+                  <div className="flex items-center justify-center py-12">
+                    <p className="text-center text-gray-500 dark:text-gray-400 text-sm px-6">
+                      Not enough shared topics to display a comparison compass.
+                    </p>
+                  </div>
+                ) : (
+                  <RadarChart
+                    key={(comparePol ? compareDisplayTopics?.length : selectedTopics.length) ?? selectedTopics.length}
+                    data={comparePol ? compareChartData : chartData}
+                    unansweredSpokes={comparePol ? compareUnansweredSpokesMap : unansweredSpokesMap}
+                    compareData={compareAnswers}
+                    invertedSpokes={invertedSpokes}
+                    writeIns={writeIns}
+                    darkMode={isDark}
+                    replacedSpokes={compareReplacedSpokes}
+                    boldOriginalSpokes={!!comparePol}
+                    onToggleInversion={(topic) => {
+                      setInvertedSpokes((prev) => ({
+                        ...prev,
+                        [topic]: !prev[topic],
+                      }));
+                    }}
+                    onReplaceTopic={handleSpokeClick}
+                  />
+                )
               ) : (
-                <div className="flex flex-col gap-6 w-full items-center mt-8">
-                  <h1 className="text-xl font-semibold dark:text-white">
-                    Select a politician to compare with
-                  </h1>
-                  {showChart && (
-                    <button
-                      onClick={() => setCompareMode(true)}
-                      className="px-6 py-2 bg-black text-white rounded-full hover:bg-opacity-90"
-                    >
-                      Compare
-                    </button>
-                  )}
-                </div>
+                <BuildCompassPrompt
+                  answeredCompassCount={answeredCompassCount}
+                  needsMore={needsMore}
+                  onStartCalibration={handleStartCalibrationFromBelow3}
+                />
               )}
             </div>
-          )}
-
-          {/* -------- mobile: tab 1 (Graph) -------- */}
-          {selectedTab === 1 && (
-            <div className="w-full max-w-md md:max-w-lg flex flex-col items-center mx-auto lg:hidden">
-              {showChart && <Legend />}
-              <div className="w-full max-h-[calc(100dvh-240px)] mx-auto relative">
-                {showChart ? (
-                  comparePol && !compareHasEnoughSpokes ? (
-                    <div className="flex items-center justify-center py-12">
-                      <p className="text-center text-gray-500 dark:text-gray-400 text-sm px-6">
-                        Not enough shared topics to display a comparison compass.
-                      </p>
-                    </div>
-                  ) : (
-                    <RadarChart
-                      key={(comparePol ? compareDisplayTopics?.length : selectedTopics.length) ?? selectedTopics.length}
-                      data={comparePol ? compareChartData : chartData}
-                      unansweredSpokes={comparePol ? compareUnansweredSpokesMap : unansweredSpokesMap}
-                      compareData={compareAnswers}
-                      invertedSpokes={invertedSpokes}
-                      writeIns={writeIns}
-                      darkMode={isDark}
-                      replacedSpokes={compareReplacedSpokes}
-                      boldOriginalSpokes={!!comparePol}
-                      onToggleInversion={(topic) => {
-                        setInvertedSpokes((prev) => ({
-                          ...prev,
-                          [topic]: !prev[topic],
-                        }));
-                      }}
-                      onReplaceTopic={handleSpokeClick}
-                    />
-                  )
-                ) : (
-                  <BuildCompassPrompt
-                    answeredCompassCount={answeredCompassCount}
-                    needsMore={needsMore}
-                    onStartCalibration={handleStartCalibrationFromBelow3}
-                  />
-                )}
-              </div>
-              <ActionButtons />
-            </div>
-          )}
+            <EssentialsCta />
+          </div>
 
           {/* -------- LIBRARY SECTION -------- */}
           <div className="w-full max-w-[1400px] mx-auto mt-8">
 
             {/* Pill strip — hidden on desktop (shown in left column instead) */}
-            <div className="lg:hidden mb-5 px-4 md:px-0">
+            <div ref={mobilePillStripRef} className="lg:hidden mb-5 px-4 md:px-0">
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-base font-semibold dark:text-white">
                   Your Compass Topics
@@ -2507,9 +2387,15 @@ function CombinedPage() {
               targetRef={compareTourTargetRef}
               headline={compareTourSteps[compareTourStep].headline}
               message={compareTourSteps[compareTourStep].message}
-              stepLabel={`${compareTourStep + 1} of ${compareTourSteps.length}`}
-              primaryLabel={compareTourSteps[compareTourStep].primaryLabel}
-              showSkipAll={compareTourSteps[compareTourStep].showSkipAll !== false}
+              stepLabel={labelFor(compareTourPlan.current, compareTourStep) ?? ""}
+              // "Done" and no Skip belong to whatever the plan ends on, not to
+              // step 3 — a phone's tour can finish on an earlier step.
+              primaryLabel={
+                isLastInPlan(compareTourPlan.current, compareTourStep)
+                  ? "Done"
+                  : compareTourSteps[compareTourStep].primaryLabel
+              }
+              showSkipAll={!isLastInPlan(compareTourPlan.current, compareTourStep)}
               scrollAlign={compareTourSteps[compareTourStep].scrollAlign ?? "center"}
               preferPlacement={compareTourSteps[compareTourStep].prefer}
               onNext={advanceCompareTour}
