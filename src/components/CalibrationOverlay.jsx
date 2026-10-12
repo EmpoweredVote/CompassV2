@@ -1036,6 +1036,12 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
             currentIndex: parsed.currentIndex || 0,
             lensApplied: !!lens,
             lens,
+            // Carried through, not just read above. The save effect rewrites
+            // this key from state on the next render, so dropping it here made
+            // the flag survive exactly one reload: the second one saw
+            // lensEdited:false and re-derived the list from the lens, undoing
+            // the user's reorder — the very thing the flag exists to prevent.
+            lensEdited: !!parsed.lensEdited,
           };
         }
       }
@@ -1109,6 +1115,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     setCurrentIndex(initial.currentIndex);
     if (initial.lensApplied) setLensApplied(true);
     if (initial.lens) setActiveLens(initial.lens);
+    if (initial.lensEdited) setLensEdited(true);
     if (initial.lensApplied) setPrevPickedTopics(selectedTopics.slice(0, 8));
     initializedRef.current = true;
 
@@ -1237,13 +1244,6 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
 
   // --- Handlers ---
 
-  // TODO(onboarding): defined but not yet wired to a button — kept pending review.
-  // eslint-disable-next-line no-unused-vars
-  const handleGetStarted = () => {
-    reportStart(STEPS.WELCOME);
-    setStep("pick");
-  };
-
   const handleStartWithLens = () => {
     const lensIds = LOCAL_LENS.topicIds.filter(id => topics.some(t => t.id === id));
     reportStart(STEPS.LENS_INTRO, lensIds.length);
@@ -1269,6 +1269,13 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
   };
 
   const handleChooseTopics = () => {
+    // Pressing through the welcome screen IS the start, same as the Local Lens
+    // button opposite it. Without this the custom path runs the whole flow
+    // without ever firing compass_calibration_started, and the welcome→pick
+    // step of the funnel reads as zero. totalTopics is 0 here because nothing
+    // is picked yet, which is what the welcome step reported before the
+    // redesign too.
+    reportStart(STEPS.WELCOME, 0);
     setLearnMode("custom");
     setLearnIndex(0);
     setStep("learn");
