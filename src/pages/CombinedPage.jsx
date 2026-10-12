@@ -1272,9 +1272,6 @@ function CombinedPage() {
   const [search, setSearch] = useState("");
   const [, setHoveredPillShortTitle] = useState(null);
 
-  // Ref target for the lens switcher chip row (LensSwitcher forwards it).
-  const localLensRef = useRef(null);
-
   // -------- DnD sensors for pill strip --------
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -1869,7 +1866,6 @@ function CombinedPage() {
           {/* -------- lens switcher — always visible -------- */}
           <div className="w-full flex flex-col items-center lg:items-start">
             <LensSwitcher
-              ref={localLensRef}
               // Best Match only appears while a comparison is on, because it has
               // nothing to match against otherwise. Injected here rather than
               // into allLenses: that list feeds resolveCalibrateLens, and a
@@ -2254,7 +2250,6 @@ function CombinedPage() {
                       See how a candidate aligns with your compass
                     </p>
                     <button
-                      data-tour="compare-cta"
                       onClick={() => setCompareMode(true)}
                       className="px-6 py-2 text-sm bg-black text-white rounded-full hover:bg-ev-yellow-dark hover:text-black transition-colors cursor-pointer"
                     >
@@ -2284,7 +2279,6 @@ function CombinedPage() {
                   </h1>
                   {showChart && (
                     <button
-                      data-tour="compare-cta"
                       onClick={() => setCompareMode(true)}
                       className="px-6 py-2 bg-black text-white rounded-full hover:bg-opacity-90"
                     >
