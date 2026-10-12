@@ -1,5 +1,9 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { nextTopicFrom, needsAnswer } from '../lib/calibrationQueue';
+import { buildSidebarGroups } from '../lib/calibrationSidebar';
+import { getLensColor } from '../lib/lenses';
+import { mergeFlags } from '../lib/recalibration';
+import RecalibrationPopover from '../components/RecalibrationPopover';
 import { useNavigate } from "react-router";
 import { track } from "@empoweredvote/analytics";
 import { useCompass } from "../components/CompassContext";
@@ -82,6 +86,7 @@ function CircleIcon({ color }) {
 export default function FullCalibration() {
   const {
     topics, categories, answers, setAnswers, isLoggedIn, topicsLoaded,
+    lenses, userLenses,
     invertedSpokes, setInvertedSpokes, initRandomInversions,
   } = useCompass();
   const { isDark, toggle: toggleDark } = useTheme();
@@ -108,6 +113,21 @@ export default function FullCalibration() {
       return new Set(); // unreadable handoff — just an ordinary visit
     }
   });
+  // Which lens's questions are pinned to the top of the sidebar.
+  //
+  // 🔴 LOCAL VIEW STATE ONLY — never setActiveLensKey. That key decides whether
+  // the user's selection is written to the server (shouldSyncCompass returns
+  // false while a lens is active), so routing a browsing choice through it
+  // would let "let me see what Federal asks" quietly change someone's compass,
+  // and what Essentials reads as it.
+  const [pinnedLensKey, setPinnedLensKey] = useState(null);
+
+  // Why a question is asking to be answered again. Rendered through the same
+  // RecalibrationPopover the compass uses, so editorial's publicNote reads
+  // identically on both screens.
+  const [flags, setFlags] = useState([]);
+  const [openFlagTopicId, setOpenFlagTopicId] = useState(null);
+
   const itemRefs = useRef({});
 
   // ── Dedup topics across categories ──────────────────────────────────────
@@ -138,6 +158,44 @@ export default function FullCalibration() {
     () => sidebarCategories.flatMap(cat => cat.topics),
     [sidebarCategories]
   );
+
+  // Curated lenses first, then the user's own — the order the compass uses.
+  const lensOptions = useMemo(
+    () => [...(lenses ?? []), ...(userLenses ?? [])].filter(l => l?.key && l?.name),
+    [lenses, userLenses]
+  );
+  const pinnedLens = useMemo(
+    () => lensOptions.find(l => l.key === pinnedLensKey) ?? null,
+    [lensOptions, pinnedLensKey]
+  );
+
+  // The sidebar as rendered: the pinned lens group, then the whole library.
+  const sidebarGroups = useMemo(
+    () => buildSidebarGroups({ categories: sidebarCategories, lens: pinnedLens }),
+    [sidebarCategories, pinnedLens]
+  );
+
+  // Flags keyed by topic, for the "what changed" note. Both sources, the same
+  // way the compass screen does it: the server covers a signed-in user's
+  // answers, and a saved lens carries its own snapshot — which is all a guest
+  // ever has, since their answers were never stamped against a revision.
+  // mergeFlags owns the tie-break (a suppressed record wins).
+  const flagsByTopic = useMemo(
+    () => mergeFlags({ compassFlags: flags, lensFlags: pinnedLens?.needsRecalibration }),
+    [flags, pinnedLens]
+  );
+
+  useEffect(() => {
+    if (!isLoggedIn) { setFlags([]); return; }
+    let cancelled = false;
+    apiFetch('/compass/recalibration-flags')
+      .then(r => (r && r.ok ? r.json() : []))
+      .then(data => { if (!cancelled) setFlags(Array.isArray(data) ? data : []); })
+      // A failed flag fetch must not break calibration. The worst case is the
+      // note being absent, which is where this page was before.
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [isLoggedIn]);
 
   const answeredCount = useMemo(
     () => allTopics.filter(tp => answers[tp.short_title] > 0).length,
@@ -179,7 +237,11 @@ export default function FullCalibration() {
   // ── Scroll active sidebar item into view ────────────────────────────────
   useEffect(() => {
     if (!activeTopic) return;
-    itemRefs.current[activeTopic.id]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    // A pinned topic is on screen twice — once in the lens group, once in its
+    // category. Scroll to the pinned copy when there is one, so clicking a
+    // pinned row does not jump the list down to its duplicate.
+    const el = itemRefs.current['p:' + activeTopic.id] ?? itemRefs.current[activeTopic.id];
+    el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [activeTopic?.id]);
 
   // ── Handlers ────────────────────────────────────────────────────────────
@@ -455,9 +517,53 @@ export default function FullCalibration() {
             </div>
           </div>
 
-          {/* Categories + topics */}
-          {sidebarCategories.map((cat, catI) => {
-            const color = CATEGORY_COLORS[catI % CATEGORY_COLORS.length];
+          {/* Lens picker — pins a lens's questions to the top of the list.
+              A view choice for this page only; it never touches activeLensKey,
+              so browsing by lens cannot change the user's actual compass. */}
+          {lensOptions.length > 0 && (
+            <div
+              className="px-3 py-2.5 border-b flex flex-wrap gap-1.5"
+              style={{ borderColor: th.sidebarBdr }}
+              data-testid="calibration-lens-picker"
+            >
+              <button
+                onClick={() => setPinnedLensKey(null)}
+                data-testid="calibration-lens-all"
+                className="px-2.5 py-1 rounded-full text-[11px] font-semibold transition-colors cursor-pointer"
+                style={
+                  pinnedLensKey === null
+                    ? { background: th.textAccent, color: th.sidebar }
+                    : { background: 'transparent', color: th.textMuted, border: `1px solid ${th.sidebarBdr}` }
+                }
+              >
+                All topics
+              </button>
+              {lensOptions.map(l => (
+                <button
+                  key={l.key}
+                  onClick={() => setPinnedLensKey(pinnedLensKey === l.key ? null : l.key)}
+                  data-testid={`calibration-lens-${l.key}`}
+                  className="px-2.5 py-1 rounded-full text-[11px] font-semibold transition-colors cursor-pointer"
+                  style={
+                    pinnedLensKey === l.key
+                      ? { background: th.textAccent, color: th.sidebar }
+                      : { background: 'transparent', color: th.textMuted, border: `1px solid ${th.sidebarBdr}` }
+                  }
+                >
+                  {l.name}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Categories + topics, with the pinned lens group first */}
+          {sidebarGroups.map((cat, catI) => {
+            // The pinned group wears the lens's own colour, not the
+            // recalibration violet — that violet means "this needs answering",
+            // and a lens group is not that.
+            const color = cat.pinned
+              ? (getLensColor(pinnedLens, isDark) ?? th.textAccent)
+              : CATEGORY_COLORS[catI % CATEGORY_COLORS.length];
             const catAnswered = cat.topics.filter(tp => answers[tp.short_title] > 0).length;
             return (
               <div key={cat.id}>
@@ -491,13 +597,14 @@ export default function FullCalibration() {
                   const isAnswered = !owesReanswer && answers[tp.short_title] > 0;
                   const isActive   = activeTopic?.id === tp.id;
                   const { name }   = parseTensionTitle(tp);
+                  // Editorial changed this question and said why. The note is a
+                  // sibling control, not nested in the row button.
+                  const flag = flagsByTopic.get(tp.id);
                   return (
-                    <button
+                    <div
                       key={tp.id}
-                      ref={el => { itemRefs.current[tp.id] = el; }}
-                      data-testid={owesReanswer ? `recalibrate-pending-${tp.id}` : undefined}
-                      onClick={() => { setActiveTopic(tp); setSelectedValue(null); }}
-                      className="w-full text-left flex items-start gap-2.5 px-3 py-2 text-xs leading-snug transition-colors duration-100 cursor-pointer"
+                      ref={el => { itemRefs.current[(cat.pinned ? 'p:' : '') + tp.id] = el; }}
+                      className="flex items-start"
                       style={{
                         background: isActive
                           ? th.activeItem
@@ -505,25 +612,67 @@ export default function FullCalibration() {
                         borderLeft: isActive
                           ? `3px solid ${color}`
                           : owesReanswer ? `3px solid ${RECALIBRATE_ACCENT}` : '3px solid transparent',
-                        color: isAnswered && !isActive ? th.textMuted : th.textBody,
                       }}
                     >
-                      <span className="mt-0.5">
-                        {isAnswered
-                          ? <CheckIcon color={isActive ? color : th.checkColor} />
-                          : <CircleIcon color={isActive ? color : owesReanswer ? RECALIBRATE_ACCENT : th.border} />
-                        }
-                      </span>
-                      <span className={`${isAnswered && !isActive ? 'opacity-50' : ''} ${isActive || owesReanswer ? 'font-semibold' : ''}`}>
-                        {name}
-                      </span>
-                    </button>
+                      <button
+                        data-testid={owesReanswer ? `recalibrate-pending-${tp.id}` : undefined}
+                        onClick={() => { setActiveTopic(tp); setSelectedValue(null); }}
+                        className="flex-1 min-w-0 text-left flex items-start gap-2.5 px-3 py-2 text-xs leading-snug transition-colors duration-100 cursor-pointer"
+                        style={{ color: isAnswered && !isActive ? th.textMuted : th.textBody }}
+                      >
+                        <span className="mt-0.5">
+                          {isAnswered
+                            ? <CheckIcon color={isActive ? color : th.checkColor} />
+                            : <CircleIcon color={isActive ? color : owesReanswer ? RECALIBRATE_ACCENT : th.border} />
+                          }
+                        </span>
+                        <span className={`${isAnswered && !isActive ? 'opacity-50' : ''} ${isActive || owesReanswer ? 'font-semibold' : ''}`}>
+                          {name}
+                        </span>
+                      </button>
+                      {flag && (
+                        <button
+                          onClick={() => setOpenFlagTopicId(tp.id)}
+                          data-testid={`change-note-${tp.id}`}
+                          aria-label={`What changed about ${name}`}
+                          title="What changed"
+                          className="flex-none mr-2 mt-2 w-4 h-4 rounded-full text-[10px] font-bold leading-none flex items-center justify-center transition-opacity hover:opacity-80 cursor-pointer"
+                          style={{ background: RECALIBRATE_ACCENT, color: '#FFFFFF' }}
+                        >
+                          i
+                        </button>
+                      )}
+                    </div>
                   );
                 })}
               </div>
             );
           })}
         </aside>
+
+        {/* What editorial changed, and why. Same component the compass uses, so
+            the publicNote reads identically on both screens. "Answer it again"
+            brings the question up here rather than navigating anywhere. */}
+        {openFlagTopicId && flagsByTopic.has(openFlagTopicId) && (
+          <RecalibrationPopover
+            flag={flagsByTopic.get(openFlagTopicId)}
+            topicTitle={
+              parseTensionTitle(
+                allTopics.find(tp => tp.id === openFlagTopicId) ?? {}
+              ).name
+            }
+            onClose={() => setOpenFlagTopicId(null)}
+            onRecalibrate={() => {
+              const tp = allTopics.find(t => t.id === openFlagTopicId);
+              if (tp) {
+                setMustReanswer(prev => new Set(prev).add(tp.id));
+                setActiveTopic(tp);
+                setSelectedValue(null);
+              }
+              setOpenFlagTopicId(null);
+            }}
+          />
+        )}
 
         {/* ── Question panel ── */}
         <main className="flex-1 overflow-y-auto">

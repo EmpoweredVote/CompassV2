@@ -1123,6 +1123,113 @@ const scenarios = [
   },
 
   {
+    name: "calibration-page-pins-a-lens-and-explains-changes",
+    // Two things the full calibration page gained so it can be the place you
+    // re-answer: a lens picker that pins that lens's questions above the
+    // library, and an "i" on any question editorial revised, carrying their
+    // own note verbatim.
+    //
+    // The lens here is a saved custom one, because that is the only flag source
+    // a guest has — the server stamps answers, and a guest's never were.
+    async run(b, baseUrl) {
+      const topics = await (await fetch(`${baseUrl}${API}/topics`)).json();
+      if (topics.length < 6) throw new Skip("needs at least 6 topics");
+      const lensTopics = topics.slice(0, 4);
+      const changed = lensTopics[1];
+      const NOTE = "We split this into two questions after reader feedback.";
+
+      await b.navigate(`${baseUrl}/results`, { settleMs: 4000 });
+      await b.evaluate(`(() => {
+        localStorage.clear();
+        sessionStorage.clear();
+        const answers = {};
+        ${JSON.stringify(lensTopics.map((t) => t.short_title))}
+          .forEach((s, i) => { answers[s] = (i % 5) + 1; });
+        localStorage.setItem('answers', JSON.stringify(answers));
+        localStorage.setItem('selectedTopics', ${JSON.stringify(JSON.stringify(lensTopics.map((t) => t.id)))});
+        localStorage.setItem('calibration_completed', 'true');
+        localStorage.setItem('customLenses', JSON.stringify([{
+          key: 'u_pin01', name: 'Pinned Lens', visibility: 'private',
+          topicIds: JSON.parse(${JSON.stringify(JSON.stringify(lensTopics.map((t) => t.id)))}),
+          needsRecalibration: [{
+            topicId: ${JSON.stringify(changed.id)},
+            reason: 'question_revised',
+            disposition: 'reworded',
+            currentValue: 3,
+            publicNote: ${JSON.stringify(NOTE)},
+            answeredVersion: 1,
+            effectiveVersion: 2,
+          }],
+        }]));
+      })()`);
+
+      await b.navigate(`${baseUrl}/calibrate`, { settleMs: 9000 });
+
+      const picker = await b.evaluate(
+        `!!document.querySelector('[data-testid="calibration-lens-picker"]')`
+      );
+      assert(picker, "no lens picker on the calibration page");
+
+      const groupsBefore = await b.evaluate(`(() => {
+        const h = [...document.querySelectorAll('aside .sticky span:first-child')]
+          .map(x => (x.textContent || '').trim()).filter(Boolean);
+        return h[0] || null;
+      })()`);
+      assert(
+        groupsBefore !== "Pinned Lens",
+        "the lens group should only appear once a lens is picked"
+      );
+
+      const picked = await b.evaluate(`(() => {
+        const el = document.querySelector('[data-testid="calibration-lens-u_pin01"]');
+        if (!el) return 'NOT_FOUND';
+        el.click();
+        return 'OK';
+      })()`);
+      assert(picked === "OK", "the saved custom lens is missing from the picker");
+      await b.sleep(1400);
+
+      const groupsAfter = await b.evaluate(`(() => {
+        const h = [...document.querySelectorAll('aside .sticky span:first-child')]
+          .map(x => (x.textContent || '').trim()).filter(Boolean);
+        return JSON.stringify(h.slice(0, 3));
+      })()`);
+      const headers = JSON.parse(groupsAfter);
+      assert(headers[0] === "Pinned Lens", `lens group not pinned first: ${groupsAfter}`);
+      assert(
+        headers.length > 1,
+        "the library should still be below the pinned group, not replaced by it"
+      );
+
+      // The change note, and editorial's wording rendered verbatim.
+      const noteBtn = await b.evaluate(`(() => {
+        const el = document.querySelector('[data-testid="change-note-${changed.id}"]');
+        if (!el) return 'NOT_FOUND';
+        el.click();
+        return 'OK';
+      })()`);
+      assert(noteBtn === "OK", `no change note on the revised question`);
+      await b.sleep(800);
+
+      const text = await b.evaluate(
+        `(document.querySelector('[data-testid="recalibration-popover"]') || {}).textContent || ''`
+      );
+      assert(
+        text.includes(NOTE),
+        `publicNote must render verbatim, got ${JSON.stringify(text.slice(0, 140))}`
+      );
+
+      // Picking a lens must never be mistaken for changing the compass.
+      const stillMine = await b.evaluate(
+        `JSON.parse(localStorage.getItem('selectedTopics') || '[]').length`
+      );
+      assert(stillMine === 4, `pinning a lens changed the compass: ${stillMine} topics`);
+
+      return `lens pinned above ${headers.length - 1}+ categories, change note verbatim, compass untouched`;
+    },
+  },
+
+  {
     name: "calibrate-param-opens-the-named-lens",
     // Essentials has linked here as /?calibrate=<key>&return=<url> since the
     // Federal Lens shipped, and this app never read the param — App.jsx parsed
