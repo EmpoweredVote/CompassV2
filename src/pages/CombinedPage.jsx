@@ -929,9 +929,17 @@ function CombinedPage() {
     let frame;
     let tries = 0;
     const start = () => {
-      const first = nextLiveCompareStep(0);
-      if (first !== -1) {
-        setCompareTourStep(first);
+      // Step 0 specifically, not nextLiveCompareStep(0). The compare column is
+      // the thing the whole walkthrough hangs off, and the later steps only
+      // make sense once it has been introduced. Walking past it here meant that
+      // on a phone sitting on the Graph tab — where showChart alone satisfies
+      // onCompareScreen but no compare column is laid out — the tour opened on
+      // the last step alone ("4 of 4"), then burned onboarding_compareTour on
+      // dismiss so the real walkthrough never ran, not even on the Compare tab.
+      // Requiring step 0 holds the tour until a compare column is actually on
+      // screen; selectedTab in the deps restarts this when they tap Compare.
+      if (getCompareTourRef(0).current) {
+        setCompareTourStep(0);
         return;
       }
       if (tries++ > 60) return; // ~1s of frames; the deps below give it another go
@@ -1387,7 +1395,11 @@ function CombinedPage() {
   const activeLens = activeLensKey
     ? (allLenses.find((l) => l.key === activeLensKey) ?? null)
     : null;
-  const pillBg = activeLens ? activeLens.color : (isDark ? '#52525b' : '#6B7280');
+  // getLensColor, not the raw color: pillInk below resolves to the near-black
+  // dark ink whenever the lens has a darkColor, which only reads against that
+  // lighter dark-mode background. Pairing it with the raw deep color put black
+  // on deep teal for the Local Lens.
+  const pillBg = activeLens ? getLensColor(activeLens, isDark) : (isDark ? '#52525b' : '#6B7280');
   const pillInk = activeLens ? getLensInk(activeLens, isDark) : '#FFFFFF';
 
   // "Federal lens calibrated" = the user has a real stance on all 8 federal topics.
