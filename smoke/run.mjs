@@ -44,10 +44,32 @@ const clickButton = async (b, text) => {
   await b.sleep(900);
 };
 
+/** Click the first <button> starting with `text` if one is present. */
+const clickButtonIfPresent = async (b, text) => {
+  const result = await b.evaluate(`(() => {
+    const el = [...document.querySelectorAll('button')]
+      .find(x => (x.textContent || '').trim().startsWith(${JSON.stringify(text)}));
+    if (!el) return 'NOT_FOUND';
+    el.click();
+    return 'OK';
+  })()`);
+  if (result === "OK") await b.sleep(900);
+  return result === "OK";
+};
+
 // Stance buttons carry data-testid="stance-option" in both the calibration
 // overlay and /calibrate, so the suite survives restyling. Do not swap these for
 // class-based selectors — a brittle suite gets disabled, which is how #65 shipped.
 const STANCE_BUTTONS = `[...document.querySelectorAll('[data-testid="stance-option"]')]`;
+
+// The welcome screen's primary CTA. Named once because guest-onboarding both
+// waits on it and clicks it — the onboarding redesign relabelled this from
+// "Start with Local Lens" and the two uses must not drift apart again.
+const WELCOME_LENS_CTA = "Start with the Local Lens";
+
+// Shown twice on the Local Lens path: once on the lens intro, then again on the
+// last slide of the learn carousel.
+const LENS_START_CTA = "Start finding my stances";
 
 const answeredCount = (b) =>
   b.evaluate(`Object.keys(JSON.parse(localStorage.getItem('answers') || '{}')).length`);
@@ -145,14 +167,29 @@ const scenarios = [
     async run(b, baseUrl) {
       await b.navigate(`${baseUrl}/results`, { settleMs: 9000 });
 
+      // Keyed to the CTA rather than the headline copy. The welcome screen is
+      // marketing surface and its prose gets rewritten; the button the test
+      // clicks next is the functional affordance. Keeping the gate and the
+      // click on the same string means a relabel fails here, pointing at the
+      // cause, instead of timing out on a headline that simply got reworded.
       const sawWelcome = await b.waitFor(
-        `document.body.innerText.includes('calibrate your compass')`,
+        `[...document.querySelectorAll('button')]
+           .some(el => (el.textContent || '').trim().startsWith(${JSON.stringify(WELCOME_LENS_CTA)}))`,
         { label: "calibration welcome screen" }
       );
       assert(sawWelcome, "fresh guest never saw the calibration welcome screen");
 
-      await clickButton(b, "Start with Local Lens");
-      await clickButton(b, "Start finding my stances");
+      await clickButton(b, WELCOME_LENS_CTA);
+
+      // welcome → lens intro → learn carousel → answer. The carousel sits
+      // between the lens intro and the first question, and its last slide
+      // repeats the lens intro's label, so this walks the "Next →" slides
+      // rather than assuming how many there are, then presses through.
+      await clickButton(b, LENS_START_CTA);
+      for (let i = 0; i < 10; i++) {
+        if (!(await clickButtonIfPresent(b, "Next →"))) break;
+      }
+      await clickButton(b, LENS_START_CTA);
 
       await b.waitFor(`${STANCE_BUTTONS}.length > 0`, { label: "stance buttons" });
 
