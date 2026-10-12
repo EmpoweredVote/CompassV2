@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { nextTopicFrom } from '../lib/calibrationQueue';
 import { useNavigate } from "react-router";
 import { track } from "@empoweredvote/analytics";
 import { useCompass } from "../components/CompassContext";
@@ -83,6 +84,9 @@ export default function FullCalibration() {
   const [activeTopic, setActiveTopic] = useState(null);
   const [selectedValue, setSelectedValue] = useState(null);
   const [done, setDone] = useState(false);
+  // The compass was already complete when this page opened, so there are no
+  // gaps to chase and the session must not auto-end after a single change.
+  const [reviewMode, setReviewMode] = useState(false);
   const itemRefs = useRef({});
 
   // ── Dedup topics across categories ──────────────────────────────────────
@@ -125,13 +129,15 @@ export default function FullCalibration() {
   useEffect(() => {
     if (!topicsLoaded || allTopics.length === 0) return;
 
+    // Opening with nothing left to answer is a revision pass, not a finish.
+    // It used to land on the "Fully Calibrated" screen, whose only exits are
+    // Library and the compass — so the one thing the button promises, choosing
+    // your stances, was the one thing you could not do. Start on the first
+    // topic instead; the sidebar already targets any of them.
     const firstUnanswered = allTopics.find(tp => !(answers[tp.short_title] > 0));
-    if (!firstUnanswered) {
-      setDone(true);
-    } else {
-      setActiveTopic(firstUnanswered);
-      track('compass_calibration_started', { total_topics: allTopics.length, surface: 'full' });
-    }
+    setReviewMode(!firstUnanswered);
+    setActiveTopic(firstUnanswered ?? allTopics[0]);
+    track('compass_calibration_started', { total_topics: allTopics.length, surface: 'full' });
 
     // Shared, deterministic (guestId + topicId hash) so the order a topic is
     // shown in here is stable across reloads and matches the rest of the app.
@@ -170,12 +176,12 @@ export default function FullCalibration() {
 
     setTimeout(() => {
       setSelectedValue(null);
-      const curIdx = allTopics.findIndex(tp => tp.id === activeTopic.id);
-      const nextAfter = allTopics.slice(curIdx + 1).find(tp => !(updatedAnswers[tp.short_title] > 0));
-      const nextAny   = allTopics.find(tp => !(updatedAnswers[tp.short_title] > 0));
-      const next = nextAfter || nextAny;
+      const next = nextTopicFrom(allTopics, activeTopic.id, updatedAnswers, reviewMode);
       if (next) {
         setActiveTopic(next);
+      } else if (reviewMode) {
+        // End of a revision pass. Stay on the last topic — the compass was
+        // already complete, so there is nothing to announce as finished.
       } else {
         setDone(true);
         localStorage.setItem("calibration_completed", "true");
@@ -196,12 +202,9 @@ export default function FullCalibration() {
       total_topics: allTopics.length,
       surface: 'full',
     });
-    const curIdx = allTopics.findIndex(tp => tp.id === activeTopic.id);
-    const next =
-      allTopics.slice(curIdx + 1).find(tp => !(answers[tp.short_title] > 0)) ||
-      allTopics.find(tp => tp.id !== activeTopic.id && !(answers[tp.short_title] > 0));
+    const next = nextTopicFrom(allTopics, activeTopic.id, answers, reviewMode);
     if (next) setActiveTopic(next);
-  }, [activeTopic, allTopics, answeredCount, answers]);
+  }, [activeTopic, allTopics, answeredCount, answers, reviewMode]);
 
   const handleFlip = useCallback(() => {
     if (!activeTopic) return;

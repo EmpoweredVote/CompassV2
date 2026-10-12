@@ -12,7 +12,6 @@ import SaveLensModal from "../components/SaveLensModal";
 import RecalibrationPopover from "../components/RecalibrationPopover";
 import LibraryDrawer from "../components/LibraryDrawer";
 import ComparePanel from "../components/ComparePanel";
-import SavePromptModal from "../components/SavePromptModal";
 import CoachMark from "../components/CoachMark";
 import { DARK_THEME, LIGHT_THEME } from "../lib/calibrationTheme";
 import { useState, useEffect, useRef, useMemo } from "react";
@@ -538,11 +537,6 @@ function CombinedPage() {
     if (flag) sessionStorage.removeItem("start_federal_lens");
     return flag;
   });
-  // Post-calibration "Set up the Federal Lens →" offer — dismissible, shown until
-  // the user either calibrates the Federal lens or dismisses it.
-  const [federalOfferDismissed, setFederalOfferDismissed] = useState(
-    () => localStorage.getItem("federal_offer_dismissed") === "1"
-  );
   const [startResumeCalibration, setStartResumeCalibration] = useState(() => {
     const flag = sessionStorage.getItem("start_resume_calibration") === "1";
     if (flag) sessionStorage.removeItem("start_resume_calibration");
@@ -1689,8 +1683,8 @@ function CombinedPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [comparePol, federalLensCalibrated, localLensActive, judicialLensActive, federalLensActive, topicsLoaded, topics]);
 
-  // Full calibration overlay entry points (used by the empty-state "Start Local Lens →"
-  // CTA and the post-calibration "Set up the Federal Lens →" offer).
+  // Full calibration overlay entry point (used by the empty-state
+  // "Start Local Lens →" CTA).
   const doCalibrateLens = (lens = LOCAL_LENS) => {
     setSelectedTopics([]);
     localStorage.removeItem("calibration_skipped");
@@ -1816,47 +1810,6 @@ function CombinedPage() {
                 status={promoteCompassStatus}
                 error={promoteCompassError}
               />
-            </div>
-          )}
-
-          {/* -------- post-calibration Federal Lens offer -------- */}
-          {calibrationCompleted && !federalLensCalibrated && !federalOfferDismissed && !activeLens && (
-            <div className="w-full max-w-6xl mx-auto lg:px-4 mb-3">
-              <div
-                className="flex items-center gap-3 rounded-xl px-4 py-3 border"
-                style={{ background: isDark ? '#1b2637' : '#eef2f8', borderColor: FEDERAL_LENS.color }}
-              >
-                <div
-                  className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
-                  style={{ background: FEDERAL_LENS.color, color: '#fff' }}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0 0 12 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75Z" />
-                  </svg>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-900 dark:text-white">Set up the Federal Lens</p>
-                  <p className="text-xs text-gray-600 dark:text-gray-300">
-                    The 8 issues most U.S. House &amp; Senate members have answered — compare your positions with Congress.
-                  </p>
-                </div>
-                <button
-                  onClick={() => doCalibrateLens(FEDERAL_LENS)}
-                  className="shrink-0 px-4 py-2 rounded-full text-sm font-bold text-white transition-opacity hover:opacity-90 active:scale-95 cursor-pointer"
-                  style={{ background: FEDERAL_LENS.color }}
-                >
-                  Calibrate →
-                </button>
-                <button
-                  onClick={() => { setFederalOfferDismissed(true); localStorage.setItem("federal_offer_dismissed", "1"); }}
-                  className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors cursor-pointer"
-                  aria-label="Dismiss"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                    <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
-                  </svg>
-                </button>
-              </div>
             </div>
           )}
 
@@ -2553,8 +2506,6 @@ function CombinedPage() {
             compassTopicCount={selectedTopics.length}
           />
 
-          {/* -------- save prompt for guests -------- */}
-          <SavePromptModal />
 
           {/* -------- Compare deep-dive tour -------- */}
           {compareTourStep >= 0 && onCompareScreen && (
