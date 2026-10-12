@@ -112,7 +112,10 @@ function radarPolygon(values, R, cx, cy) {
     .join(" ");
 }
 
-function LearnRadar({ t, shapes, labels, strokeWidth = 2.5, loop = false, alignColor = null }) {
+// dotRadius is its own prop because the landing hero draws the radar smaller
+// and thinner than the carousel does. It used to ride along on `loop`, which
+// meant you could not stop the redraw without also resizing the vertex dots.
+function LearnRadar({ t, shapes, labels, strokeWidth = 2.5, dotRadius = 3.4, alignColor = null }) {
   const cx = 120, cy = 120, R = 64, N = 8, LR = 86;
 
   // Topics where every series lands on the same value — the points of
@@ -170,7 +173,7 @@ function LearnRadar({ t, shapes, labels, strokeWidth = 2.5, loop = false, alignC
           );
         })}
 
-      {/* Each shape draws its outline, then fills. `loop` redraws continuously. */}
+      {/* Each shape draws its outline, then fills, once and settles. */}
       {shapes.map((s, idx) => {
         const delay = 0.3 + idx * 0.45;
         return (
@@ -184,9 +187,7 @@ function LearnRadar({ t, shapes, labels, strokeWidth = 2.5, loop = false, alignC
             initial={{ pathLength: 0, opacity: 0 }}
             animate={{ pathLength: 1, opacity: 1 }}
             transition={{
-              pathLength: loop
-                ? { duration: 1.1, delay, ease: "easeInOut", repeat: Infinity, repeatDelay: 0.9 }
-                : { duration: 0.9, delay, ease: "easeInOut" },
+              pathLength: { duration: 0.9, delay, ease: "easeInOut" },
               opacity: { duration: 0.4, delay },
             }}
           />
@@ -204,7 +205,7 @@ function LearnRadar({ t, shapes, labels, strokeWidth = 2.5, loop = false, alignC
                   key={`${idx}-${i}`}
                   cx={cx + R * v * Math.sin(a)}
                   cy={cy - R * v * Math.cos(a)}
-                  r={loop ? 2.5 : 3.4}
+                  r={dotRadius}
                   fill={s.color}
                   initial={{ scale: 0, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
@@ -268,7 +269,7 @@ function LandingRadar({ t }) {
       t={t}
       labels={TOPICS}
       strokeWidth={1.8}
-      loop
+      dotRadius={2.5}
       shapes={[
         { values: CAND, color: RADAR_CAND, fill: true },
         { values: YOU, color: RADAR_YOU, fill: true },
@@ -1889,7 +1890,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
             </div>
           </div>
 
-          {/* ── Right: live compass — you vs a candidate, always moving ── */}
+          {/* ── Right: live compass — you vs a candidate, drawn once ── */}
           <div className="w-full lg:w-1/2 flex flex-col items-center justify-center px-6 sm:px-8 pb-10 sm:pb-16 lg:py-16 lg:pr-16 lg:pl-8">
             <div className="w-full max-w-[18rem] sm:max-w-sm lg:max-w-lg aspect-square">
               <LandingRadar t={t} />
