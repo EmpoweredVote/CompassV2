@@ -810,6 +810,11 @@ function CombinedPage() {
   // Left column of vertical topic pills — target for the compare tour's last step
   const topicPanelRef = useRef(null);
   // Full-height compare column — target for the compare tour's first step
+  // Whether the desktop compare column is on screen. The 3-column layout
+  // reserves its width with a right padding, so the two must agree — otherwise
+  // removing the panel just leaves a 490px hole and the chart stays squeezed.
+  const comparePanelOpen = showChart && !!(comparePol || compareMode);
+
   const comparePanelRef = useRef(null);
   // Search field plus the topic results beneath it — target for the last step
   const topicSearchRef = useRef(null);
@@ -1989,7 +1994,7 @@ function CombinedPage() {
 
           {/* -------- desktop 3-column layout: pills | chart | compare -------- */}
           <div className="hidden lg:block w-full relative">
-            <div className="flex items-start gap-4 pl-2 pr-[490px]">
+            <div className={`flex items-start gap-4 pl-2 ${comparePanelOpen ? 'pr-[490px]' : 'pr-2'}`}>
 
             {/* Left column: vertical topic pills */}
             <div ref={topicPanelRef} className="w-44 shrink-0 flex flex-col gap-1.5">
@@ -2168,48 +2173,37 @@ function CombinedPage() {
 
             </div>{/* end inner flex row */}
 
-            {/* Right: compare panel (absolute, floats over library when expanded) */}
-            {showChart && (
+            {/* Right: compare panel (absolute, floats over library when expanded).
+                Only while a comparison is actually up — comparing is being moved
+                to Essentials, so there is no longer an idle invitation to start
+                one here. A comparison can still be restored from localStorage,
+                and the mobile Compare tab still starts one, so the panel itself
+                stays. */}
+            {comparePanelOpen && (
               <div ref={comparePanelRef} className={`absolute top-0 right-0 w-[480px] z-10 ${compareExpanded ? 'shadow-2xl' : 'bottom-0 overflow-y-auto'}`}>
-                {(comparePol || compareMode) ? (
-                  <>
-                    <ComparePanel
-                      politician={comparePol}
-                      dropdownValue={dropdownValue}
-                      setDropdownValue={setDropdownValue}
-                      onSwitchPolitician={handleSwitchPolitician}
-                      onClearComparison={handleClearComparison}
-                      defaultLevel={localLensActive ? "Local" : (federalLensActive ? "Federal" : "All")}
-                    />
-                    <div className="sticky bottom-0 flex justify-center pb-2 pt-6 bg-gradient-to-t from-white dark:from-zinc-800 to-transparent pointer-events-none">
-                      <button
-                        onClick={() => setCompareExpanded(v => !v)}
-                        className="pointer-events-auto w-7 h-7 rounded-full bg-white dark:bg-zinc-700 border border-neutral-200 dark:border-zinc-600 shadow-sm flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors cursor-pointer"
-                        title={compareExpanded ? "Collapse compare panel" : "Expand compare panel"}
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
-                          {compareExpanded ? (
-                            <path fillRule="evenodd" d="M14.77 12.79a.75.75 0 01-1.06-.02L10 8.832 6.29 12.77a.75.75 0 11-1.08-1.04l4.25-4.5a.75.75 0 011.08 0l4.25 4.5a.75.75 0 01-.02 1.06z" clipRule="evenodd" />
-                          ) : (
-                            <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
-                          )}
-                        </svg>
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <div className="bg-white dark:bg-zinc-800 rounded-2xl border border-neutral-200 dark:border-zinc-700 shadow-sm p-8 flex flex-col items-center gap-4 h-full">
-                    <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
-                      See how a candidate aligns with your compass
-                    </p>
+                  <ComparePanel
+                    politician={comparePol}
+                    dropdownValue={dropdownValue}
+                    setDropdownValue={setDropdownValue}
+                    onSwitchPolitician={handleSwitchPolitician}
+                    onClearComparison={handleClearComparison}
+                    defaultLevel={localLensActive ? "Local" : (federalLensActive ? "Federal" : "All")}
+                  />
+                  <div className="sticky bottom-0 flex justify-center pb-2 pt-6 bg-gradient-to-t from-white dark:from-zinc-800 to-transparent pointer-events-none">
                     <button
-                      onClick={() => setCompareMode(true)}
-                      className="px-6 py-2 text-sm bg-black text-white rounded-full hover:bg-ev-yellow-dark hover:text-black transition-colors cursor-pointer"
+                      onClick={() => setCompareExpanded(v => !v)}
+                      className="pointer-events-auto w-7 h-7 rounded-full bg-white dark:bg-zinc-700 border border-neutral-200 dark:border-zinc-600 shadow-sm flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors cursor-pointer"
+                      title={compareExpanded ? "Collapse compare panel" : "Expand compare panel"}
                     >
-                      Compare
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
+                        {compareExpanded ? (
+                          <path fillRule="evenodd" d="M14.77 12.79a.75.75 0 01-1.06-.02L10 8.832 6.29 12.77a.75.75 0 11-1.08-1.04l4.25-4.5a.75.75 0 011.08 0l4.25 4.5a.75.75 0 01-.02 1.06z" clipRule="evenodd" />
+                        ) : (
+                          <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                        )}
+                      </svg>
                     </button>
                   </div>
-                )}
               </div>
             )}
           </div>
