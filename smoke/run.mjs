@@ -900,6 +900,131 @@ const scenarios = [
   },
 
   {
+    name: "reviewing-updated-questions-keeps-the-compass",
+    // Reviewing questions a season revised must not change WHICH topics are on
+    // the compass. The prompt promises "your answers still stand"; the flagged
+    // questions here are deliberately ones the user has NOT put on their
+    // compass, which is exactly what the off-compass "Review" button offers.
+    //
+    // The bug: finishing that run replaced selectedTopics with every question
+    // reviewed, uncapped. After a season published a batch of revisions, an
+    // 8-topic compass came back as all the reviewed questions — the user's own
+    // compass silently discarded and the chart rendered unreadably wide.
+    //
+    // ⚠ READ BEFORE TRUSTING THIS AS A REGRESSION GUARD. It passes against the
+    // broken code too. A guest can only be given flags through an active custom
+    // lens (mergeFlags takes lensFlags from activeUserLens), and an active lens
+    // re-applies its own topicIds to the selection on the next render, which
+    // puts the compass back before anything can observe the damage.
+    //
+    // The unmasked path is a signed-in user, whose flags come from the server
+    // (compassFlags) and need no lens — nothing restores the selection there.
+    // Reproducing that needs an account with genuinely stale answers, which
+    // cannot be seeded from the client. So this scenario pins the invariant and
+    // covers the lens path; it is not proof the unlensed path is fixed.
+    async run(b, baseUrl) {
+      const topics = await (await fetch(`${baseUrl}${API}/topics`)).json();
+      if (topics.length < 14) throw new Skip("needs at least 14 topics");
+      const mine = topics.slice(0, 8);          // the compass
+      const offCompass = topics.slice(8, 14);   // revised, NOT on the compass
+      const myIds = mine.map((t) => t.id);
+
+      await b.navigate(`${baseUrl}/results`, { settleMs: 4000 });
+      await b.evaluate(`(() => {
+        localStorage.clear();
+        sessionStorage.clear();
+        const answers = {};
+        ${JSON.stringify([...mine, ...offCompass].map((t) => t.short_title))}
+          .forEach((s, i) => { answers[s] = (i % 5) + 1; });
+        localStorage.setItem('answers', JSON.stringify(answers));
+        localStorage.setItem('selectedTopics', ${JSON.stringify(JSON.stringify(myIds))});
+        localStorage.setItem('calibration_completed', 'true');
+        localStorage.setItem('customLenses', JSON.stringify([{
+          key: 'u_offc01', name: 'Off compass', visibility: 'private',
+          topicIds: JSON.parse(${JSON.stringify(JSON.stringify(myIds))}),
+          needsRecalibration: ${JSON.stringify(
+            offCompass.map((t) => ({
+              topicId: t.id,
+              reason: "question_revised",
+              // offCompassFlags sorts on disposition: "reworded" is the
+              // "updated, your answer still stands" group behind the Review
+              // button. Without it the flag exists but no prompt offers it.
+              disposition: "reworded",
+              currentValue: 3,
+              publicNote: "Wording updated for the new season.",
+              answeredVersion: 1,
+              effectiveVersion: 2,
+            }))
+          )},
+        }]));
+      })()`);
+      await b.navigate(`${baseUrl}/results`, { settleMs: 9000 });
+
+      // Lens flags only count while that lens is open (activeUserLens), and a
+      // guest has no server flags, so the lens has to be active for the
+      // off-compass prompt to exist at all. Its topicIds are the compass, so
+      // opening it does not change which topics are selected.
+      const chip = await b.evaluate(`(() => {
+        const el = document.querySelector('[data-testid="lens-chip-u_offc01"]');
+        if (!el) return 'NOT_FOUND';
+        el.click();
+        return 'OK';
+      })()`);
+      if (chip !== "OK") throw new Skip("custom lens chip did not render");
+      await b.sleep(1500);
+
+      const before = await b.evaluate(
+        `JSON.parse(localStorage.getItem('selectedTopics') || '[]')`
+      );
+      assert(before.length === 8, `setup: expected 8 topics on the compass, got ${before.length}`);
+
+      // The off-compass prompt's own button. Skip rather than fail if this
+      // build renders no off-compass group — the flags are server-driven.
+      const opened = await clickButtonIfPresent(b, "Review");
+      if (!opened) throw new Skip("no off-compass Review prompt rendered");
+
+      await b.waitFor(`${STANCE_BUTTONS}.length > 0`, { label: "recalibration stances" });
+
+      // Answer every revised question, pressing through to the end.
+      for (let i = 0; i < offCompass.length; i++) {
+        const picked = await b.evaluate(`(() => {
+          const btns = ${STANCE_BUTTONS};
+          if (!btns.length) return false;
+          btns[${i} % btns.length].click();
+          return true;
+        })()`);
+        if (!picked) break;
+        await b.sleep(500);
+        if (!(await clickButtonIfPresent(b, "Next"))) {
+          await clickButtonIfPresent(b, "Finish");
+          break;
+        }
+      }
+      await b.sleep(1500);
+
+      const after = await b.evaluate(
+        `JSON.parse(localStorage.getItem('selectedTopics') || '[]')`
+      );
+      const offIds = offCompass.map((t) => t.id);
+      assert(
+        after.length <= 8,
+        `compass grew past the 8-topic cap: ${after.length} topics`
+      );
+      assert(
+        !after.some((id) => offIds.includes(id)),
+        "a reviewed off-compass question was added to the compass"
+      );
+      assert(
+        after.length === 8 && myIds.every((id) => after.includes(id)),
+        `the compass was replaced by the reviewed questions: ${after.length} topics, ` +
+        `${myIds.filter((id) => !after.includes(id)).length} of the original 8 lost`
+      );
+
+      return `${offCompass.length} revised questions reviewed, all 8 compass topics intact`;
+    },
+  },
+
+  {
     name: "calibrate-param-opens-the-named-lens",
     // Essentials has linked here as /?calibrate=<key>&return=<url> since the
     // Federal Lens shipped, and this app never read the param — App.jsx parsed
