@@ -17,7 +17,7 @@ import ComparePanel from "../components/ComparePanel";
 import CoachMark from "../components/CoachMark";
 import { DARK_THEME, LIGHT_THEME } from "../lib/calibrationTheme";
 import { useState, useEffect, useRef, useMemo } from "react";
-import { useLocation } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { useTheme } from "../ThemeProvider";
 import { generateLensKey } from "../lib/userLenses";
 import { mergeFlags, flagWeight, offCompassFlags } from "../lib/recalibration";
@@ -944,6 +944,7 @@ function CombinedPage() {
 
   // -------- Load comparePol from localStorage on mount --------
   const location = useLocation();
+  const navigate = useNavigate();
   useEffect(() => {
     if (location.state?.clearCompare) {
       setComparePol(null);
@@ -1426,10 +1427,20 @@ function CombinedPage() {
   // did not. At the changeover that is 5 against 79 — summing them would announce
   // "84 answers need attention" when 79 are intact.
   const offCompass = offCompassFlags(flagsByTopic, selectedTopics);
+  // Re-asking happens on the full calibration page, not in the overlay. The
+  // overlay asked only the flagged questions in a bare queue, and because a
+  // reworded question keeps its old answer it treated every one as already
+  // done — "Finish" on the first screen, nothing re-answered, nothing
+  // re-stamped, and the prompt back on the next reload. The full page shows
+  // them in the context of the whole library, highlighted, and actually asks.
+  //
+  // Handed over through sessionStorage to match start_all_topics and
+  // start_federal_lens, the other two cross-page calibration handoffs.
   const startRecalibration = (flags) => {
-    setRecalibrateTopicIds(flags.map((f) => f.topicId));
-    setCalibrationEntryReason(ENTRY_REASONS.USER_REQUESTED);
-    setCalibrationActive(true);
+    const ids = flags.map((f) => f.topicId).filter(Boolean);
+    if (ids.length === 0) return;
+    sessionStorage.setItem("recalibrate_topic_ids", JSON.stringify(ids));
+    navigate("/calibrate");
   };
 
   // Dirty = the spokes on screen differ from what the lens stores. Order counts:

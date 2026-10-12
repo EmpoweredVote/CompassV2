@@ -1025,6 +1025,104 @@ const scenarios = [
   },
 
   {
+    name: "review-routes-to-full-calibration-and-asks",
+    // Review used to open the overlay over just the flagged questions. Because
+    // a reworded question keeps the answer given against the OLD wording, the
+    // overlay counted every one as already answered, offered "Finish" on its
+    // first screen, and re-answered nothing — so the prompt came back on the
+    // next reload and could never be satisfied by using it.
+    //
+    // Now it hands off to the full calibration page, where the flagged
+    // questions are highlighted and actually asked.
+    async run(b, baseUrl) {
+      const topics = await (await fetch(`${baseUrl}${API}/topics`)).json();
+      if (topics.length < 14) throw new Skip("needs at least 14 topics");
+      const mine = topics.slice(0, 8);
+      const flagged = topics.slice(8, 11);
+      const myIds = mine.map((t) => t.id);
+
+      await b.navigate(`${baseUrl}/results`, { settleMs: 4000 });
+      await b.evaluate(`(() => {
+        localStorage.clear();
+        sessionStorage.clear();
+        const answers = {};
+        // Every one of them already answered — that is the whole point.
+        ${JSON.stringify([...mine, ...flagged].map((t) => t.short_title))}
+          .forEach((s, i) => { answers[s] = (i % 5) + 1; });
+        localStorage.setItem('answers', JSON.stringify(answers));
+        localStorage.setItem('selectedTopics', ${JSON.stringify(JSON.stringify(myIds))});
+        localStorage.setItem('calibration_completed', 'true');
+        localStorage.setItem('customLenses', JSON.stringify([{
+          key: 'u_route01', name: 'Routing', visibility: 'private',
+          topicIds: JSON.parse(${JSON.stringify(JSON.stringify(myIds))}),
+          needsRecalibration: ${JSON.stringify(
+            flagged.map((t) => ({
+              topicId: t.id,
+              reason: "question_revised",
+              disposition: "reworded",
+              currentValue: 3,
+              publicNote: "Wording updated for the new season.",
+              answeredVersion: 1,
+              effectiveVersion: 2,
+            }))
+          )},
+        }]));
+      })()`);
+      await b.navigate(`${baseUrl}/results`, { settleMs: 9000 });
+
+      const chip = await b.evaluate(`(() => {
+        const el = document.querySelector('[data-testid="lens-chip-u_route01"]');
+        if (!el) return 'NOT_FOUND';
+        el.click();
+        return 'OK';
+      })()`);
+      if (chip !== "OK") throw new Skip("custom lens chip did not render");
+      await b.sleep(1500);
+
+      const clicked = await b.evaluate(`(() => {
+        const el = document.querySelector('[data-testid="off-compass-updated-action"]');
+        if (!el) return 'NOT_FOUND';
+        el.click();
+        return 'OK';
+      })()`);
+      if (clicked !== "OK") throw new Skip("no off-compass Review prompt rendered");
+      await b.sleep(3000);
+
+      const url = await b.evaluate(`window.location.pathname`);
+      assert(url === "/calibrate", `Review should land on /calibrate, got ${url}`);
+
+      // The flagged questions are marked as still owing an answer...
+      const pending = await b.evaluate(
+        `document.querySelectorAll('[data-testid^="recalibrate-pending-"]').length`
+      );
+      assert(
+        pending === flagged.length,
+        `expected ${flagged.length} highlighted questions, got ${pending}`
+      );
+
+      // ...and the page is ASKING, not sitting on a completion screen.
+      await b.waitFor(`${STANCE_BUTTONS}.length > 0`, { label: "stance options" });
+      const fullyCalibrated = await b.evaluate(
+        `(document.body.innerText || '').includes('Fully Calibrated')`
+      );
+      assert(!fullyCalibrated, "landed on the completion screen instead of a question");
+
+      // Answering one retires it from the highlighted set.
+      await b.evaluate(`${STANCE_BUTTONS}[0].click()`);
+      await b.sleep(1600);
+      const after = await b.evaluate(
+        `document.querySelectorAll('[data-testid^="recalibrate-pending-"]').length`
+      );
+      assert(
+        after === pending - 1,
+        `answering should retire one flag: ${pending} -> ${after}`
+      );
+
+      return `Review routed to /calibrate, ${pending} questions highlighted, 1 retired on answer`;
+    },
+  },
+
+  {
     name: "calibrate-param-opens-the-named-lens",
     // Essentials has linked here as /?calibrate=<key>&return=<url> since the
     // Federal Lens shipped, and this app never read the param — App.jsx parsed
