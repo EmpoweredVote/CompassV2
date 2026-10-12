@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { nextTopicFrom } from '../lib/calibrationQueue';
+import { nextTopicFrom, needsAnswer } from '../lib/calibrationQueue';
 import { useNavigate } from "react-router";
 import { track } from "@empoweredvote/analytics";
 import { useCompass } from "../components/CompassContext";
@@ -10,6 +10,13 @@ import { getQuestionText, parseTensionTitle } from "../util/topic";
 const CATEGORY_COLORS = [
   '#00657C', '#FF5740', '#59B0C4', '#5A9A6E', '#7C6B9E', '#D4940B', '#FED12E',
 ];
+
+// The same violet the compass uses for "this needs calibrating" (the pill
+// markers and the recalibration prompt). Reused rather than reinvented so a
+// question flagged on one screen looks flagged on the other. The background is
+// translucent so it reads on both themes without a second pair of tokens.
+const RECALIBRATE_ACCENT = '#7C3AED';
+const RECALIBRATE_BG = 'rgba(124,58,237,0.12)';
 
 const DARK = {
   bg:           '#131416',
@@ -87,6 +94,20 @@ export default function FullCalibration() {
   // The compass was already complete when this page opened, so there are no
   // gaps to chase and the session must not auto-end after a single change.
   const [reviewMode, setReviewMode] = useState(false);
+  // Topics the user arrived to re-answer, handed over by the recalibration
+  // prompt. Read once on mount and cleared from sessionStorage immediately, so
+  // a later reload is an ordinary visit rather than a second re-ask.
+  const [mustReanswer, setMustReanswer] = useState(() => {
+    try {
+      const raw = sessionStorage.getItem("recalibrate_topic_ids");
+      if (!raw) return new Set();
+      sessionStorage.removeItem("recalibrate_topic_ids");
+      const ids = JSON.parse(raw);
+      return new Set(Array.isArray(ids) ? ids.filter(Boolean) : []);
+    } catch {
+      return new Set(); // unreadable handoff — just an ordinary visit
+    }
+  });
   const itemRefs = useRef({});
 
   // ── Dedup topics across categories ──────────────────────────────────────
@@ -129,15 +150,25 @@ export default function FullCalibration() {
   useEffect(() => {
     if (!topicsLoaded || allTopics.length === 0) return;
 
+    // Arriving to re-answer revised questions: open on the first of them, so
+    // the thing the prompt asked for is the thing on screen.
+    const firstFlagged = mustReanswer.size > 0
+      ? allTopics.find(tp => mustReanswer.has(tp.id))
+      : null;
+
     // Opening with nothing left to answer is a revision pass, not a finish.
     // It used to land on the "Fully Calibrated" screen, whose only exits are
     // Library and the compass — so the one thing the button promises, choosing
     // your stances, was the one thing you could not do. Start on the first
     // topic instead; the sidebar already targets any of them.
-    const firstUnanswered = allTopics.find(tp => !(answers[tp.short_title] > 0));
-    setReviewMode(!firstUnanswered);
-    setActiveTopic(firstUnanswered ?? allTopics[0]);
-    track('compass_calibration_started', { total_topics: allTopics.length, surface: 'full' });
+    const firstUnanswered = allTopics.find(tp => needsAnswer(tp, answers, null));
+    setReviewMode(!firstUnanswered && !firstFlagged);
+    setActiveTopic(firstFlagged ?? firstUnanswered ?? allTopics[0]);
+    track('compass_calibration_started', {
+      total_topics: allTopics.length,
+      surface: 'full',
+      ...(mustReanswer.size > 0 ? { recalibrating: mustReanswer.size } : {}),
+    });
 
     // Shared, deterministic (guestId + topicId hash) so the order a topic is
     // shown in here is stable across reloads and matches the rest of the app.
@@ -174,9 +205,14 @@ export default function FullCalibration() {
       }).catch(() => {});
     }
 
+    // Re-answered, so it no longer owes one: drop it from the set before
+    // looking for the next topic, and the sidebar highlight clears with it.
+    const stillOwed = new Set(mustReanswer);
+    if (stillOwed.delete(activeTopic.id)) setMustReanswer(stillOwed);
+
     setTimeout(() => {
       setSelectedValue(null);
-      const next = nextTopicFrom(allTopics, activeTopic.id, updatedAnswers, reviewMode);
+      const next = nextTopicFrom(allTopics, activeTopic.id, updatedAnswers, reviewMode, stillOwed);
       if (next) {
         setActiveTopic(next);
       } else if (reviewMode) {
@@ -192,7 +228,7 @@ export default function FullCalibration() {
         });
       }
     }, 420);
-  }, [activeTopic, allTopics, answers, isLoggedIn, selectedValue]);
+  }, [activeTopic, allTopics, answers, isLoggedIn, selectedValue, reviewMode, mustReanswer]);
 
   const handleSkip = useCallback(() => {
     if (!activeTopic) return;
@@ -202,7 +238,7 @@ export default function FullCalibration() {
       total_topics: allTopics.length,
       surface: 'full',
     });
-    const next = nextTopicFrom(allTopics, activeTopic.id, answers, reviewMode);
+    const next = nextTopicFrom(allTopics, activeTopic.id, answers, reviewMode, mustReanswer);
     if (next) setActiveTopic(next);
   }, [activeTopic, allTopics, answeredCount, answers, reviewMode]);
 
@@ -448,28 +484,37 @@ export default function FullCalibration() {
                 </div>
 
                 {cat.topics.map(tp => {
-                  const isAnswered = answers[tp.short_title] > 0;
+                  // Owing a re-answer outranks having one: a reworded question
+                  // still holds the user's old value, so a plain tick would say
+                  // "done" about the very thing they came here to redo.
+                  const owesReanswer = mustReanswer.has(tp.id);
+                  const isAnswered = !owesReanswer && answers[tp.short_title] > 0;
                   const isActive   = activeTopic?.id === tp.id;
                   const { name }   = parseTensionTitle(tp);
                   return (
                     <button
                       key={tp.id}
                       ref={el => { itemRefs.current[tp.id] = el; }}
+                      data-testid={owesReanswer ? `recalibrate-pending-${tp.id}` : undefined}
                       onClick={() => { setActiveTopic(tp); setSelectedValue(null); }}
                       className="w-full text-left flex items-start gap-2.5 px-3 py-2 text-xs leading-snug transition-colors duration-100 cursor-pointer"
                       style={{
-                        background: isActive ? th.activeItem : 'transparent',
-                        borderLeft: isActive ? `3px solid ${color}` : '3px solid transparent',
+                        background: isActive
+                          ? th.activeItem
+                          : owesReanswer ? RECALIBRATE_BG : 'transparent',
+                        borderLeft: isActive
+                          ? `3px solid ${color}`
+                          : owesReanswer ? `3px solid ${RECALIBRATE_ACCENT}` : '3px solid transparent',
                         color: isAnswered && !isActive ? th.textMuted : th.textBody,
                       }}
                     >
                       <span className="mt-0.5">
                         {isAnswered
                           ? <CheckIcon color={isActive ? color : th.checkColor} />
-                          : <CircleIcon color={isActive ? color : th.border} />
+                          : <CircleIcon color={isActive ? color : owesReanswer ? RECALIBRATE_ACCENT : th.border} />
                         }
                       </span>
-                      <span className={`${isAnswered && !isActive ? 'opacity-50' : ''} ${isActive ? 'font-semibold' : ''}`}>
+                      <span className={`${isAnswered && !isActive ? 'opacity-50' : ''} ${isActive || owesReanswer ? 'font-semibold' : ''}`}>
                         {name}
                       </span>
                     </button>
