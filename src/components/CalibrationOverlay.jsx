@@ -1,4 +1,5 @@
 // CalibrationOverlay.jsx
+import { isRecalibrationRun, nextCompassSelection } from '../lib/calibrationFinish';
 import { useState, useEffect, useMemo, useRef } from "react";
 import { track } from "@empoweredvote/analytics";
 import {
@@ -913,6 +914,11 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     lenses,
   } = useCompass();
 
+  // A re-ask run: opened from the "questions were updated … Review" prompt with
+  // an explicit list of questions to revisit. These are not the user's compass
+  // — some are not even on it — so finishing one must not rewrite the selection.
+  const isRecalibration = isRecalibrationRun(startWithTopicIds);
+
   // Determine quiz lens type for analytics
   const lensType = startWithLocalLens ? 'local_lens'
     : startWithJudicialLens ? 'judicial_lens'
@@ -1460,9 +1466,15 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
       return !(val != null && val > 0);
     });
     const answeredIds = pickedTopics.filter((id) => !unansweredIds.includes(id));
-    // Replace selectedTopics entirely — don't merge with prior full-quiz topics
-    setSelectedTopics(answeredIds);
-    if (unansweredIds.length > 0) {
+    // Null on a re-ask run: those questions are not the compass, so finishing
+    // one must not rewrite the selection. Otherwise this replaces it entirely,
+    // capped — see lib/calibrationFinish.
+    const nextSelection = nextCompassSelection({ answeredIds, isRecalibration });
+    if (nextSelection) setSelectedTopics(nextSelection);
+    // Spoke inversions are per compass topic. A re-ask leaves the compass as it
+    // was, so there is nothing to prune — and the skipped questions may not be
+    // on it at all.
+    if (!isRecalibration && unansweredIds.length > 0) {
       setInvertedSpokes((prev) => {
         const updated = { ...prev };
         for (const id of unansweredIds) {
@@ -1474,7 +1486,10 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     }
     localStorage.removeItem(STORAGE_KEY);
 
-    if (answeredIds.length < MIN_TOPICS) {
+    // "Too few topics to build a compass" is a statement about the compass. On
+    // a re-ask the compass is untouched, so the count of questions reviewed
+    // says nothing about it.
+    if (!isRecalibration && answeredIds.length < MIN_TOPICS) {
       handleComplete();
       return;
     }
@@ -1490,7 +1505,10 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
       const val = answers[topic.short_title];
       return !(val != null && val > 0);
     });
-    if (unansweredIds.length > 0) {
+    // Only a normal run can cost the user topics by leaving early. On a re-ask
+    // nothing is dropped from the compass, so the warning would be untrue — the
+    // skipped questions keep whatever answer they already had.
+    if (!isRecalibration && unansweredIds.length > 0) {
       if (!window.confirm("You have unanswered topics. They'll be removed from your compass. Continue?")) return;
       setInvertedSpokes((prev) => {
         const updated = { ...prev };
@@ -1502,8 +1520,8 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
       });
     }
     const answeredIds = pickedTopics.filter((id) => !unansweredIds.includes(id));
-    // Replace selectedTopics entirely — don't merge with prior full-quiz topics
-    setSelectedTopics(answeredIds);
+    const nextSelection = nextCompassSelection({ answeredIds, isRecalibration });
+    if (nextSelection) setSelectedTopics(nextSelection);
     localStorage.removeItem(STORAGE_KEY);
     setStep("complete");
   };
