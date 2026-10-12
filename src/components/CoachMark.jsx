@@ -4,6 +4,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { inkOn } from "../lib/calibrationTheme";
 
 /**
  * useCoachMark — persists dismiss state to localStorage.
@@ -415,7 +416,9 @@ export default function CoachMark({
   const primaryCls = theme
     ? "px-5 py-2 text-sm font-bold rounded-full transition-all hover:opacity-90 active:scale-95 cursor-pointer shadow-md"
     : "px-5 py-2 bg-black text-white text-sm font-semibold rounded-full hover:opacity-80 transition-opacity cursor-pointer";
-  const primaryStyle = theme ? { background: tint, color: "#FFFFFF" } : undefined;
+  // Ink follows the tint's lightness. The dark theme's accent is a light blue,
+  // so a fixed white label on it was the least readable thing in the tour.
+  const primaryStyle = theme ? { background: tint, color: inkOn(tint) } : undefined;
 
   const overlay = (
     <AnimatePresence>
