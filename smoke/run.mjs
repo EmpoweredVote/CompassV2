@@ -1137,6 +1137,8 @@ const scenarios = [
       const lensTopics = topics.slice(0, 4);
       const changed = lensTopics[1];
       const NOTE = "We split this into two questions after reader feedback.";
+      const WAS = "Expanding services while keeping current enforcement rules.";
+      const NOW = "Expanding services, with no change to enforcement.";
 
       await b.navigate(`${baseUrl}/results`, { settleMs: 4000 });
       await b.evaluate(`(() => {
@@ -1159,6 +1161,8 @@ const scenarios = [
             publicNote: ${JSON.stringify(NOTE)},
             answeredVersion: 1,
             effectiveVersion: 2,
+            answeredText: ${JSON.stringify(WAS)},
+            effectiveText: ${JSON.stringify(NOW)},
           }],
         }]));
       })()`);
@@ -1217,6 +1221,22 @@ const scenarios = [
       assert(
         text.includes(NOTE),
         `publicNote must render verbatim, got ${JSON.stringify(text.slice(0, 140))}`
+      );
+
+      // The words, not the option number. Editorial's note says "option 4" and
+      // the reader has no way to know which that is; these two show it.
+      const words = await b.evaluate(`JSON.stringify({
+        before: (document.querySelector('[data-testid="option-before"]') || {}).textContent || '',
+        after: (document.querySelector('[data-testid="option-after"]') || {}).textContent || '',
+      })`);
+      const shown = JSON.parse(words);
+      assert(
+        shown.before.includes(WAS),
+        `the option they picked is missing, got ${JSON.stringify(shown.before)}`
+      );
+      assert(
+        shown.after.includes(NOW),
+        `the replacement wording is missing, got ${JSON.stringify(shown.after)}`
       );
 
       // The chip wears the lens the way the compass switcher does: its own

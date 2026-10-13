@@ -55,6 +55,19 @@ const COPY = {
     body: "Your answer is kept. It just isn't one of the questions being asked right now.",
     action: null,
   },
+  // 🔴 NOT A DISPOSITION — a reworded flag whose OWN option did not move. 16 of
+  // the 68 reworded flags in production are this: the revision rewrote some
+  // other option on the question, and the one this person picked is
+  // byte-identical. The plain reworded copy tells them their answer "was given
+  // against the earlier wording", which is false here and sends them to re-read
+  // a sentence that has not changed a character.
+  reworded_elsewhere: {
+    title: "A different option on this question changed",
+    body:
+      "The option you picked reads exactly as it did. One of the others was rewritten, " +
+      "so it's worth a look in case it fits you better now.",
+    action: "Review",
+  },
 };
 
 /**
@@ -68,6 +81,13 @@ export function copyFor(flag) {
 
   // The one case reason wins: it carries disposition 'fresh' but is not silent.
   if (flag.reason === "not_asked_this_season") return COPY.not_asked_this_season;
+
+  // Their own option survived the rewrite untouched. Only knowable since the
+  // server started sending the two wordings; without them this falls through to
+  // the plain reworded copy, which is where it has always been.
+  if (flag.disposition === "reworded" && optionChange(flag).kind === "unchanged") {
+    return COPY.reworded_elsewhere;
+  }
 
   return COPY[flag.disposition] ?? COPY.reworded;
 }
@@ -151,4 +171,42 @@ export function offCompassFlags(flagsByTopic, selectedTopics) {
   }
 
   return { setAside, updated };
+}
+
+/**
+ * What actually happened to the option this person picked.
+ *
+ * 🔴 WHY THIS EXISTS. Editorial's note names what changed by POSITION —
+ * "reworded option 4" is the exact wording on ten of the revised topics — so
+ * reading it means counting options to find which one moved, and it never says
+ * what the old one said. The server now sends the sentence they picked and the
+ * sentence at that value today; this turns the pair into the one of four things
+ * it can mean.
+ *
+ * ⚠ `after` IS ONLY EVER SET FOR `reworded`. For `moved` and `invalidated` the
+ * user's rung is precisely what did not survive, so the text at that value now
+ * is a DIFFERENT POSITION, not their answer restated. Showing it as "it now
+ * reads" would assert the equivalence the disposition exists to deny — the same
+ * mistake as keying copy on `reason`.
+ *
+ * Returns { kind, before, after }:
+ *   'none'      — nothing to show (an older server, or a write-in between rungs)
+ *   'unchanged' — their own option is byte-identical; some other one changed
+ *   'changed'   — reworded, and their option is the one that was rewritten
+ *   'gone'      — their rung did not survive; we show what they picked, no more
+ */
+export function optionChange(flag) {
+  const before = typeof flag?.answeredText === "string" ? flag.answeredText.trim() : "";
+  const after = typeof flag?.effectiveText === "string" ? flag.effectiveText.trim() : "";
+
+  if (!before) return { kind: "none", before: "", after: "" };
+
+  if (isSuppressed(flag?.disposition)) return { kind: "gone", before, after: "" };
+
+  // Not asked this season: there is no current wording, and nothing replaced it.
+  if (flag?.reason === "not_asked_this_season") return { kind: "gone", before, after: "" };
+
+  if (!after || after === before) return { kind: "unchanged", before, after: "" };
+
+  return { kind: "changed", before, after };
 }
