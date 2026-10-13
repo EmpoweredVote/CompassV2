@@ -1,4 +1,58 @@
-import { copyFor, flagWeight } from "../lib/recalibration";
+import { copyFor, flagWeight, optionChange } from "../lib/recalibration";
+
+/**
+ * The option they picked, and — when it is the one that was rewritten — the
+ * sentence that replaced it.
+ *
+ * 🔴 THIS IS THE ANSWER TO "WHICH ONE IS OPTION 4?". Editorial's note names what
+ * changed by position, so without this the reader has to go count the options,
+ * and is still never told what the old one said. Showing the words makes the
+ * note's prose a gloss on something concrete rather than the only account.
+ */
+function WhatChanged({ change, loud }) {
+  if (change.kind === "none") return null;
+
+  const label = {
+    changed: "You chose",
+    unchanged: "You chose — and it still reads",
+    gone: "You chose",
+  }[change.kind];
+
+  const rule = loud ? "border-amber-400" : "border-violet-400";
+
+  return (
+    <div className="mt-3 space-y-2" data-testid="what-changed">
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-zinc-400">
+          {label}
+        </p>
+        <p
+          data-testid="option-before"
+          className={
+            "mt-0.5 border-l-2 pl-3 text-sm text-gray-700 dark:text-zinc-300 " + rule
+          }
+        >
+          {change.before}
+        </p>
+      </div>
+      {change.after && (
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-zinc-400">
+            It now reads
+          </p>
+          <p
+            data-testid="option-after"
+            className={
+              "mt-0.5 border-l-2 pl-3 text-sm font-medium text-gray-900 dark:text-white " + rule
+            }
+          >
+            {change.after}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
 
 /**
  * Why a question is asking to be recalibrated.
@@ -18,6 +72,7 @@ import { copyFor, flagWeight } from "../lib/recalibration";
  */
 export default function RecalibrationPopover({ flag, topicTitle, onRecalibrate, onClose }) {
   const copy = copyFor(flag);
+  const change = optionChange(flag);
   // A suppressed answer is the one whose spoke is already blank, so its heading
   // carries the same amber the marker does. A reworded one has not lost
   // anything and is deliberately calmer.
@@ -40,15 +95,24 @@ export default function RecalibrationPopover({ flag, topicTitle, onRecalibrate, 
           {topicTitle}
         </p>
         <h2 className="mt-1 text-base font-semibold dark:text-white">{copy.title}</h2>
+        {/* The words first, then editorial's account of them. Reading the note
+            before knowing which option it means is the problem being fixed. */}
+        <WhatChanged change={change} loud={loud} />
         {flag.publicNote && (
-          <blockquote
-            className={
-              "mt-3 border-l-2 pl-3 text-sm italic text-gray-700 dark:text-zinc-300 " +
-              (loud ? "border-amber-400" : "border-violet-400")
-            }
-          >
-            {flag.publicNote}
-          </blockquote>
+          <div className="mt-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-zinc-400">
+              Why we changed it
+            </p>
+            <blockquote
+              data-testid="public-note"
+              className={
+                "mt-0.5 border-l-2 pl-3 text-sm italic text-gray-700 dark:text-zinc-300 " +
+                (loud ? "border-amber-400" : "border-violet-400")
+              }
+            >
+              {flag.publicNote}
+            </blockquote>
+          </div>
         )}
         <p className="mt-3 text-sm text-gray-600 dark:text-zinc-400">{copy.body}</p>
         <div className="mt-4 flex justify-end gap-2">

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { copyFor, flagWeight, mergeFlags, isSuppressed, offCompassFlags } from "./recalibration";
+import { copyFor, flagWeight, mergeFlags, isSuppressed, offCompassFlags, optionChange } from "./recalibration";
 
 /**
  * The server decides WHAT is flagged (CC_0061, via /compass/recalibration-flags
@@ -244,5 +244,115 @@ describe("offCompassFlags — the flags with no spoke to hang on", () => {
   it("copes with no selection and no flags", () => {
     expect(offCompassFlags(new Map(), undefined)).toEqual({ setAside: [], updated: [] });
     expect(offCompassFlags(undefined, [])).toEqual({ setAside: [], updated: [] });
+  });
+});
+
+describe("optionChange — the words, not the option number", () => {
+  // The whole point: editorial's note says "reworded option 4", so the reader
+  // has to count options to find which one moved and is never told what the old
+  // one said. These two fields answer both at once.
+  const flag = (over = {}) => ({
+    topicId: "t1",
+    reason: "question_revised",
+    disposition: "reworded",
+    ...over,
+  });
+
+  it("pairs the old wording with the new one", () => {
+    const got = optionChange(flag({
+      answeredText: "Keep current gun laws, adding no new restrictions.",
+      effectiveText: "Add no new restrictions, and at most loosen rules on carrying.",
+    }));
+    expect(got.kind).toBe("changed");
+    expect(got.before).toBe("Keep current gun laws, adding no new restrictions.");
+    expect(got.after).toBe("Add no new restrictions, and at most loosen rules on carrying.");
+  });
+
+  it("says 'unchanged' when their own option is identical", () => {
+    // 16 of the 68 reworded flags in production. The revision rewrote some
+    // OTHER option; this person's answer did not move a character.
+    const same = "Establishing publicly funded universal childcare.";
+    const got = optionChange(flag({ answeredText: same, effectiveText: same }));
+    expect(got.kind).toBe("unchanged");
+    expect(got.before).toBe(same);
+    expect(got.after).toBe("");
+  });
+
+  it("ignores whitespace-only differences", () => {
+    const got = optionChange(flag({ answeredText: " Same text ", effectiveText: "Same text" }));
+    expect(got.kind).toBe("unchanged");
+  });
+
+  it("never claims a replacement for a suppressed answer", () => {
+    // 🔴 The regression this guards. For `moved` the user's rung is exactly what
+    // did not survive, so the text at that value now is a DIFFERENT position.
+    // Rendering it as "it now reads" asserts the equivalence the disposition
+    // exists to deny.
+    for (const disposition of ["moved", "invalidated"]) {
+      const got = optionChange(flag({
+        disposition,
+        answeredText: "What they picked.",
+        effectiveText: "Something else entirely, at the same number.",
+      }));
+      expect(got.kind).toBe("gone");
+      expect(got.before).toBe("What they picked.");
+      expect(got.after).toBe("");
+    }
+  });
+
+  it("claims no replacement for a question this season does not ask", () => {
+    const got = optionChange(flag({
+      reason: "not_asked_this_season",
+      disposition: "fresh",
+      answeredText: "What they picked.",
+      effectiveText: null,
+    }));
+    expect(got.kind).toBe("gone");
+    expect(got.before).toBe("What they picked.");
+  });
+
+  it("shows nothing when the server sends nothing", () => {
+    // An older server has no such fields, and a write-in sits between rungs so
+    // it matches no option on either side. Both must render as silence, not as
+    // an empty quote box.
+    expect(optionChange(flag()).kind).toBe("none");
+    expect(optionChange(flag({ answeredText: null, effectiveText: null })).kind).toBe("none");
+    expect(optionChange(flag({ answeredText: "   " })).kind).toBe("none");
+    expect(optionChange(undefined).kind).toBe("none");
+  });
+});
+
+describe("copyFor — a rewrite that missed their option", () => {
+  it("stops telling them their answer was given against earlier wording", () => {
+    // The plain reworded copy says exactly that, and it is false when the
+    // option they picked is byte-identical.
+    const same = "Publicly funded universal childcare.";
+    const copy = copyFor({
+      topicId: "t1",
+      reason: "question_revised",
+      disposition: "reworded",
+      answeredText: same,
+      effectiveText: same,
+    });
+    expect(copy.title).toBe("A different option on this question changed");
+    expect(copy.body).not.toContain("earlier wording");
+    expect(copy.action).toBe("Review");
+  });
+
+  it("still gives the plain reworded copy when their option did move", () => {
+    const copy = copyFor({
+      topicId: "t1",
+      reason: "question_revised",
+      disposition: "reworded",
+      answeredText: "Old.",
+      effectiveText: "New.",
+    });
+    expect(copy.title).toBe("This question was updated");
+  });
+
+  it("is unchanged against a server that sends no wording at all", () => {
+    // The fields ship separately from this client; the old copy is the floor.
+    const copy = copyFor({ topicId: "t1", reason: "question_revised", disposition: "reworded" });
+    expect(copy.title).toBe("This question was updated");
   });
 });
