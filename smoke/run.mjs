@@ -1266,6 +1266,172 @@ const scenarios = [
   },
 
   {
+    name: "the-question-explains-itself",
+    // Three things the question panel gained, all of which fail SILENTLY —
+    // a missing line looks like a design choice, not a bug — so each is
+    // asserted on the real rendered page rather than trusted.
+    //
+    //   guidance        the line saying what the question tells apart (CC_0231)
+    //   flip explainer  why the options are not in the same order for everyone
+    //   lens rings      each lens chip's own fraction, not the global 23%
+    async run(b, baseUrl) {
+      const topics = await (await fetch(`${baseUrl}${API}/topics`)).json();
+      if (topics.length < 3) throw new Skip("needs at least 3 topics");
+
+      // The guidance seed covers every promoted topic, so a page with none at
+      // all means the API stopped sending it — which is the regression this
+      // scenario is for, and must not pass as "no topic happened to have one".
+      const withGuidance = topics.filter((t) => t && t.guidance);
+      if (withGuidance.length === 0) {
+        throw new Error("no promoted topic carries guidance — CC_0231 is not reaching /compass/topics");
+      }
+
+      await b.navigate(`${baseUrl}/results`, { settleMs: 4000 });
+      await b.evaluate(`(() => { localStorage.clear(); sessionStorage.clear(); })()`);
+      await b.navigate(`${baseUrl}/calibrate`, { settleMs: 9000 });
+      await b.waitFor(`${STANCE_BUTTONS}.length > 0`, { label: "stance options" });
+
+      const shown = await b.evaluate(`(() => {
+        const el = document.querySelector('[data-testid="topic-guidance"]');
+        return JSON.stringify({ present: !!el, text: el ? (el.textContent || '').trim() : null });
+      })()`);
+      const g = JSON.parse(shown);
+      assert(g.present, "no guidance line under the question");
+      // The slot it replaced rendered the short_title — the heading again, in
+      // grey. A guidance that merely echoes the heading has not fixed anything.
+      const heading = await b.evaluate(
+        `(() => { const h = document.querySelector('main h2'); return h ? (h.textContent||'').trim() : ''; })()`
+      );
+      assert(g.text && g.text.length > 20, `guidance is too short to be a sentence: ${g.text}`);
+      assert(g.text !== heading, "guidance is just the heading repeated");
+
+      // The explainer behind Flip. "Flip stance order" says what the control
+      // does to the list and nothing about why the order varies between people,
+      // which is the part that costs trust when a voter notices it.
+      const opened = await b.evaluate(`(() => {
+        const btn = document.querySelector('[data-testid="flip-explainer-open"]');
+        if (!btn) return 'NO_BUTTON';
+        btn.click();
+        return 'OK';
+      })()`);
+      assert(opened === "OK", "no 'i' beside the Flip control");
+      await b.sleep(600);
+      const explainer = await b.evaluate(`(() => {
+        const el = document.querySelector('[data-testid="flip-explainer"]');
+        return JSON.stringify({ present: !!el, text: el ? (el.textContent || '') : '' });
+      })()`);
+      const ex = JSON.parse(explainer);
+      assert(ex.present, "the Flip explainer did not open");
+      assert(/order/i.test(ex.text), "the Flip explainer never mentions the order");
+      await b.evaluate(`document.querySelector('[data-testid="flip-explainer-close"]').click()`);
+      await b.sleep(400);
+      const closed = await b.evaluate(`!document.querySelector('[data-testid="flip-explainer"]')`);
+      assert(closed, "the Flip explainer would not close");
+
+      // Each lens chip carries its own progress ring. A chip with no svg means
+      // lensProgress found nothing served and the fraction silently vanished.
+      // ⚠ `button[...]`, NOT `[data-testid^="calibration-lens-"]` ALONE. The
+      // picker's own container is `calibration-lens-picker`, which matches that
+      // prefix — so the bare selector counted the wrapper as a chip. It passed
+      // the ring check (the wrapper contains the chips' svgs) and failed the
+      // title check by exactly one, which reads like a real lens with no
+      // fraction and is not.
+      const rings = await b.evaluate(`(() => {
+        const chips = [...document.querySelectorAll('button[data-testid^="calibration-lens-"]')]
+          .filter(el => el.getAttribute('data-testid') !== 'calibration-lens-all');
+        return JSON.stringify({
+          chips: chips.length,
+          withRing: chips.filter(c => c.querySelector('svg circle')).length,
+          titled: chips.filter(c => /\\d+ of \\d+ answered/.test(c.getAttribute('title') || '')).length,
+        });
+      })()`);
+      const r = JSON.parse(rings);
+      if (r.chips === 0) throw new Skip("no lenses served to this guest");
+      assert(r.withRing === r.chips, `${r.chips - r.withRing} of ${r.chips} lens chips have no progress ring`);
+      // The ring is aria-hidden, so the fraction has to reach a screen reader
+      // some other way or the information is sighted-only.
+      assert(r.titled === r.chips, `${r.chips - r.titled} lens chips state no fraction in their title`);
+
+      return `guidance + flip explainer + ${r.chips} lens rings`;
+    },
+  },
+
+  {
+    name: "answering-says-what-the-officials-said",
+    // The payoff loop the page never had: answer a question, and the one thing
+    // nobody else has — thousands of real officials' answers to that same
+    // question — finally says something back.
+    //
+    // 🔴 THE ORDER IS THE ASSERTION. A crowd figure shown ABOVE five unanswered
+    // options is an anchor on a product whose claim is that it does not push.
+    // So this checks the line is ABSENT before the click and present after it;
+    // asserting only that it appears would pass on the version that leans.
+    async run(b, baseUrl) {
+      const stats = await (await fetch(`${baseUrl}${API}/topic-stats`)).json();
+      if (!Array.isArray(stats) || stats.length === 0) {
+        throw new Error("/compass/topic-stats returned nothing — the endpoint is not live");
+      }
+      // Pick a topic that clears the sample floor, or there is deliberately
+      // nothing to show and the scenario would be asserting the wrong thing.
+      const loud = stats.filter((s) => s && s.total >= 25 && s.byValue);
+      if (loud.length === 0) throw new Skip("no topic clears the sample floor");
+
+      // The loudest one, so the assertion is about the feature and not about
+      // whether this particular question happened to clear the floor.
+      const best = loud.sort((a, c) => c.total - a.total)[0];
+      const topics = await (await fetch(`${baseUrl}${API}/topics`)).json();
+      const target = topics.find((t) => t.id === best.topicId);
+      if (!target) throw new Skip("the busiest topic is not in the served set");
+
+      await b.navigate(`${baseUrl}/results`, { settleMs: 4000 });
+      await b.evaluate(`(() => { localStorage.clear(); sessionStorage.clear(); })()`);
+      await b.navigate(`${baseUrl}/calibrate`, { settleMs: 9000 });
+      await b.waitFor(`${STANCE_BUTTONS}.length > 0`, { label: "stance options" });
+
+      // ⚠ `selectedTopics` DOES NOT CHOOSE THE OPENING QUESTION — it is the
+      // compass's spokes. The page opens on the first UNANSWERED topic in the
+      // sidebar, so seeding it left this landing on an arbitrary question,
+      // 17 of which are deliberately below the floor and show nothing. Drive
+      // the sidebar to the one being tested instead.
+      const picked = await b.evaluate(`(() => {
+        const want = ${JSON.stringify(JSON.stringify(target.short_title))};
+        const btn = [...document.querySelectorAll('aside button')]
+          .find(el => (el.textContent || '').trim() === JSON.parse(want));
+        if (!btn) return 'NOT_FOUND';
+        btn.click();
+        return 'OK';
+      })()`);
+      assert(picked === "OK", `no sidebar row for ${target.short_title}`);
+      await b.sleep(900);
+
+      const before = await b.evaluate(
+        `!!document.querySelector('[data-testid="answer-reveal"]')`
+      );
+      assert(!before, "the crowd figure is on screen BEFORE anyone has answered");
+
+      await b.evaluate(`${STANCE_BUTTONS}[0].click()`);
+      await b.sleep(1600);
+
+      const after = await b.evaluate(`(() => {
+        const el = document.querySelector('[data-testid="answer-reveal"]');
+        return JSON.stringify({ present: !!el, text: el ? (el.textContent || '').trim() : null });
+      })()`);
+      const a = JSON.parse(after);
+      assert(a.present, "no line about the officials after answering");
+      // Either shape is legitimate — a share when the ladder is comparable, a
+      // bare count when the server withheld byValue — but a line with no number
+      // in it at all means the text was built from something undefined.
+      assert(/\d/.test(a.text), `the reveal carries no number: ${a.text}`);
+      assert(
+        /officials/.test(a.text),
+        `the reveal does not say whose answers these are: ${a.text}`
+      );
+
+      return `silent before the click; after it: ${a.text.replace(/\s*✕\s*$/, "")}`;
+    },
+  },
+
+  {
     name: "finishing-calibration-stays-on-the-page",
     // Answering the last question used to replace the whole page with a "Fully
     // Calibrated" screen whose only exits were the Library and the compass — so
