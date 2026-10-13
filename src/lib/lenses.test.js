@@ -9,6 +9,8 @@ import {
   orderLenses,
   lensShortLabel,
   normalizeApiLens,
+  displayLenses,
+  CUSTOM_LENS_COLOR,
 } from "./lenses.js";
 
 /**
@@ -175,5 +177,68 @@ describe("lensShortLabel", () => {
 
   it("leaves a name that does not end in Lens alone", () => {
     expect(lensShortLabel({ name: "Best Match" })).toBe("Best Match");
+  });
+});
+
+describe("displayLenses", () => {
+  // The compass switcher and the calibration sidebar both draw this row. It
+  // lived inside CombinedPage, which is why the calibration page's own chips
+  // had no colours and no short labels.
+  const TOPICS = [{ id: "t1" }, { id: "t2" }, { id: "t3" }];
+  const CURATED = [
+    { key: "local", name: "Local Lens", color: "#00657C", topicIds: ["t1"] },
+    { key: "federal", name: "Federal Lens", color: "#1E3A5F", topicIds: ["t2"] },
+  ];
+
+  it("orders the curated lenses and gives each its chip label", () => {
+    const row = displayLenses({ lenses: CURATED, userLenses: [], topics: TOPICS });
+    expect(row.map((l) => l.key)).toEqual(["federal", "local"]);
+    expect(row.map((l) => l.shortLabel)).toEqual(["Federal", "Local"]);
+  });
+
+  it("drops a curated lens the open season does not serve", () => {
+    // An Education chip before Season 2 opens a calibration with no questions
+    // in it. Dropping it here is what makes the lens appear by itself when the
+    // season opens, with no flag to flip.
+    const row = displayLenses({
+      lenses: [...CURATED, { key: "education", name: "Education Lens", topicIds: ["nope"] }],
+      topics: TOPICS,
+    });
+    expect(row.map((l) => l.key)).toEqual(["federal", "local"]);
+  });
+
+  it("gives a user lens the custom colour and its flag count", () => {
+    const row = displayLenses({
+      lenses: [],
+      userLenses: [{ key: "u_abc123", name: "My ballot", needsRecalibration: [{ topicId: "t1" }] }],
+      topics: TOPICS,
+    });
+    expect(row).toHaveLength(1);
+    expect(row[0].color).toBe(CUSTOM_LENS_COLOR);
+    expect(row[0].flagCount).toBe(1);
+  });
+
+  it("keeps a user lens whose topics have aged out", () => {
+    // Unlike a curated lens: this is the user's own work, and it has to stay
+    // reachable to be renamed or deleted rather than silently disappearing.
+    const row = displayLenses({
+      lenses: CURATED,
+      userLenses: [{ key: "u_stale", name: "Old", topicIds: ["gone"] }],
+      topics: TOPICS,
+    });
+    expect(row.map((l) => l.key)).toEqual(["federal", "local", "u_stale"]);
+  });
+
+  it("returns an empty row rather than throwing on missing input", () => {
+    expect(displayLenses()).toEqual([]);
+    expect(displayLenses({})).toEqual([]);
+    expect(displayLenses({ lenses: null, userLenses: null, topics: null })).toEqual([]);
+  });
+
+  it("does not mutate the lenses it was handed", () => {
+    const mine = [{ key: "u_1", name: "Mine" }];
+    displayLenses({ lenses: CURATED, userLenses: mine, topics: TOPICS });
+    expect(mine[0].color).toBeUndefined();
+    expect(CURATED[0].shortLabel).toBeUndefined();
   });
 });

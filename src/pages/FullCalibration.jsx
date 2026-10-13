@@ -1,7 +1,9 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { nextTopicFrom, needsAnswer } from '../lib/calibrationQueue';
 import { buildSidebarGroups } from '../lib/calibrationSidebar';
-import { getLensColor } from '../lib/lenses';
+import { displayLenses, getLensColor, getLensInk } from '../lib/lenses';
+import { readableOn } from '../lib/lensColors';
+import LensIcon from '../components/LensIcon';
 import { mergeFlags } from '../lib/recalibration';
 import RecalibrationPopover from '../components/RecalibrationPopover';
 import { useNavigate } from "react-router";
@@ -95,7 +97,11 @@ export default function FullCalibration() {
 
   const [activeTopic, setActiveTopic] = useState(null);
   const [selectedValue, setSelectedValue] = useState(null);
-  const [done, setDone] = useState(false);
+  // The last gap just closed. A note above the question, not a destination:
+  // finishing used to swap the whole page for a "Fully Calibrated" screen whose
+  // only exits were the Library and the compass, so the moment you completed the
+  // set you lost the thing you were using to refine it.
+  const [justCompleted, setJustCompleted] = useState(false);
   // The compass was already complete when this page opened, so there are no
   // gaps to chase and the session must not auto-end after a single change.
   const [reviewMode, setReviewMode] = useState(false);
@@ -159,10 +165,12 @@ export default function FullCalibration() {
     [sidebarCategories]
   );
 
-  // Curated lenses first, then the user's own — the order the compass uses.
+  // The same row the compass switcher draws — same order, same short labels,
+  // same colours, same season filter. Built by the same helper so a lens cannot
+  // look like one thing here and another thing there.
   const lensOptions = useMemo(
-    () => [...(lenses ?? []), ...(userLenses ?? [])].filter(l => l?.key && l?.name),
-    [lenses, userLenses]
+    () => displayLenses({ lenses, userLenses, topics }).filter(l => l?.key && l?.name),
+    [lenses, userLenses, topics]
   );
   const pinnedLens = useMemo(
     () => lensOptions.find(l => l.key === pinnedLensKey) ?? null,
@@ -281,7 +289,12 @@ export default function FullCalibration() {
         // End of a revision pass. Stay on the last topic — the compass was
         // already complete, so there is nothing to announce as finished.
       } else {
-        setDone(true);
+        // Completed. Stay exactly where we are and say so in a banner; the
+        // sidebar is still live, so any answer can be reconsidered on the spot.
+        // Dropping into review mode is what stops the next change from trying
+        // to finish the run a second time.
+        setJustCompleted(true);
+        setReviewMode(true);
         localStorage.setItem("calibration_completed", "true");
         track('compass_calibration_completed', {
           answered_count: newAnsweredCount,
@@ -317,43 +330,6 @@ export default function FullCalibration() {
     return (
       <div className="h-screen flex items-center justify-center" style={{ background: th.bg }}>
         <p className="text-sm" style={{ color: th.textMuted }}>Loading topics…</p>
-      </div>
-    );
-  }
-
-  // ── Done screen ──────────────────────────────────────────────────────────
-  if (done) {
-    return (
-      <div
-        className="h-screen flex flex-col items-center justify-center px-6 text-center"
-        style={{ background: th.bg }}
-      >
-        <div className="text-5xl mb-5">🎯</div>
-        <h1 className="text-2xl font-bold mb-2" style={{ color: th.textHead }}>
-          Fully Calibrated
-        </h1>
-        <p className="text-base mb-2" style={{ color: th.textBody }}>
-          You've answered all {totalCount} topics.
-        </p>
-        <p className="text-sm mb-8 max-w-sm" style={{ color: th.textMuted }}>
-          Your positions are saved. You can refine any answer from the Library at any time.
-        </p>
-        <div className="flex flex-col sm:flex-row gap-3">
-          <button
-            onClick={() => navigate('/library')}
-            className="px-7 py-3 rounded-full font-semibold text-sm transition-all hover:opacity-90 active:scale-95 cursor-pointer shadow-sm"
-            style={{ background: th.yellow, color: '#1C1C1C' }}
-          >
-            Go to Library →
-          </button>
-          <button
-            onClick={() => navigate('/results')}
-            className="px-7 py-3 rounded-full font-semibold text-sm border transition-all hover:opacity-90 active:scale-95 cursor-pointer"
-            style={{ borderColor: th.border, color: th.textBody, background: th.card }}
-          >
-            View My Compass
-          </button>
-        </div>
       </div>
     );
   }
@@ -529,30 +505,44 @@ export default function FullCalibration() {
               <button
                 onClick={() => setPinnedLensKey(null)}
                 data-testid="calibration-lens-all"
-                className="px-2.5 py-1 rounded-full text-[11px] font-semibold transition-colors cursor-pointer"
+                title="Show the whole library, unpinned"
+                className="px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-colors cursor-pointer"
                 style={
                   pinnedLensKey === null
-                    ? { background: th.textAccent, color: th.sidebar }
-                    : { background: 'transparent', color: th.textMuted, border: `1px solid ${th.sidebarBdr}` }
+                    ? { background: th.textAccent, color: th.sidebar, borderColor: th.textAccent }
+                    : { background: 'transparent', color: th.textMuted, borderColor: th.sidebarBdr }
                 }
               >
                 All topics
               </button>
-              {lensOptions.map(l => (
-                <button
-                  key={l.key}
-                  onClick={() => setPinnedLensKey(pinnedLensKey === l.key ? null : l.key)}
-                  data-testid={`calibration-lens-${l.key}`}
-                  className="px-2.5 py-1 rounded-full text-[11px] font-semibold transition-colors cursor-pointer"
-                  style={
-                    pinnedLensKey === l.key
-                      ? { background: th.textAccent, color: th.sidebar }
-                      : { background: 'transparent', color: th.textMuted, border: `1px solid ${th.sidebarBdr}` }
-                  }
-                >
-                  {l.name}
-                </button>
-              ))}
+              {lensOptions.map(l => {
+                const pinned = pinnedLensKey === l.key;
+                const color = getLensColor(l, isDark) ?? th.textAccent;
+                // Only the UNPINNED chip needs adjusting: it paints the lens
+                // colour as text and border straight onto the sidebar, where
+                // the stored colours — chosen for a light background — fall
+                // below the contrast floor on dark. The pinned chip uses the
+                // colour as a background under getLensInk, so lightening it
+                // there would cost contrast rather than gain it.
+                const outline = readableOn(color, th.sidebar);
+                return (
+                  <button
+                    key={l.key}
+                    onClick={() => setPinnedLensKey(pinned ? null : l.key)}
+                    data-testid={`calibration-lens-${l.key}`}
+                    title={pinned ? `${l.name} pinned — click to unpin` : `Pin ${l.name} to the top`}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-colors cursor-pointer"
+                    style={
+                      pinned
+                        ? { background: color, color: getLensInk(l, isDark), borderColor: color }
+                        : { background: 'transparent', color: outline, borderColor: outline }
+                    }
+                  >
+                    <LensIcon lensKey={l.key} className="w-3 h-3" />
+                    {l.shortLabel || l.name}
+                  </button>
+                );
+              })}
             </div>
           )}
 
@@ -575,11 +565,22 @@ export default function FullCalibration() {
                     borderBottom: `1px solid ${th.sidebarBdr}`,
                   }}
                 >
-                  <span
-                    className="text-[10px] font-bold uppercase tracking-wider truncate"
-                    style={{ color: th.textMuted }}
-                  >
-                    {cat.title}
+                  <span className="flex items-center gap-1.5 min-w-0">
+                    {/* The lens wears its own mark here too, so the pinned
+                        group reads as the chip that produced it rather than as
+                        one more category that happens to be first. */}
+                    {cat.pinned && (
+                      <span className="flex-none" style={{ color: readableOn(color, th.sidebar) }}>
+                        <LensIcon lensKey={cat.lensKey} className="w-3 h-3" />
+                      </span>
+                    )}
+                    <span
+                      data-testid="sidebar-group-title"
+                      className="text-[10px] font-bold uppercase tracking-wider truncate"
+                      style={{ color: cat.pinned ? readableOn(color, th.sidebar) : th.textMuted }}
+                    >
+                      {cat.title}
+                    </span>
                   </span>
                   <span
                     className="text-[10px] font-bold ml-2 flex-none tabular-nums"
@@ -678,6 +679,51 @@ export default function FullCalibration() {
         <main className="flex-1 overflow-y-auto">
           {activeTopic ? (
             <div className="max-w-xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+
+              {/* Finished the set. Said here rather than on a screen of its own
+                  so the question you just answered, and every other one, stays
+                  one click away. */}
+              {justCompleted && (
+                <div
+                  data-testid="calibration-complete-banner"
+                  className="mb-6 rounded-xl px-4 py-3 flex items-start gap-3"
+                  style={{ background: th.selBg, border: `1px solid ${th.selBorder}` }}
+                >
+                  <span className="text-lg leading-none mt-0.5 flex-none">🎯</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold" style={{ color: th.textAccent }}>
+                      Fully calibrated — all {totalCount} answered
+                    </p>
+                    <p className="text-xs mt-0.5" style={{ color: th.textBody }}>
+                      Your positions are saved. Keep refining any of them from the list, or move on.
+                    </p>
+                    <div className="flex flex-wrap gap-3 mt-2">
+                      <button
+                        onClick={() => navigate('/results')}
+                        className="text-xs font-semibold underline underline-offset-2 transition-opacity hover:opacity-70 cursor-pointer"
+                        style={{ color: th.textAccent }}
+                      >
+                        View my compass
+                      </button>
+                      <button
+                        onClick={() => navigate('/library')}
+                        className="text-xs font-semibold underline underline-offset-2 transition-opacity hover:opacity-70 cursor-pointer"
+                        style={{ color: th.textAccent }}
+                      >
+                        Go to Library
+                      </button>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setJustCompleted(false)}
+                    aria-label="Dismiss"
+                    className="flex-none text-sm leading-none px-1 transition-opacity hover:opacity-60 cursor-pointer"
+                    style={{ color: th.textMuted }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
 
               {/* Category + flip row */}
               <div className="flex items-center justify-between mb-5">
