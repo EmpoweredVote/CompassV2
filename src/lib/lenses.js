@@ -190,3 +190,43 @@ export function getTopicsForLens(lens, allTopics) {
     .map(id => allTopics.find(t => t.id === id))
     .filter(Boolean);
 }
+
+// A user lens has no colour of its own: /compass/my-lenses does not store one.
+// The same hex Essentials gives them, and deliberately NOT the uncalibrated
+// violet — that violet already means "this needs calibrating" on the topic pills
+// and the Calibrate button sitting right beside the lens row, so a custom lens
+// wearing it read as a warning. Same collision Essentials removed.
+export const CUSTOM_LENS_COLOR = '#00657C';
+
+/**
+ * The lens row, ready to draw: curated lenses then the user's own.
+ *
+ * Shared by the compass switcher and the calibration sidebar so the two cannot
+ * drift. The calibration page previously rendered `lenses` and `userLenses`
+ * raw, which is why a custom lens there had no colour to wear and a curated one
+ * showed its full "Federal Lens" name where the compass shows "Federal".
+ *
+ * ⚠ A curated lens whose topics the open season does not serve is DROPPED, not
+ * shown empty. Every consumer already filters lens topics against the loaded
+ * set, so an unfiltered chip opens a calibration — or pins a sidebar group —
+ * with nothing in it. This is what keeps the Education Lens hidden until
+ * Season 2 opens, with no feature flag to remember to flip.
+ *
+ * User lenses are NOT filtered that way: they are built from the user's own
+ * topics, and one whose questions have all aged out should still be visible to
+ * be renamed or deleted rather than vanishing without explanation.
+ */
+export function displayLenses({ lenses, userLenses, topics } = {}) {
+  const served = Array.isArray(topics) ? topics : [];
+  const curated = orderLenses(lenses)
+    .filter((l) => (l?.topicIds || []).some((id) => served.some((t) => t?.id === id)))
+    .map((l) => ({ ...l, shortLabel: lensShortLabel(l) }));
+
+  const mine = (Array.isArray(userLenses) ? userLenses : []).map((l) => ({
+    ...l,
+    color: CUSTOM_LENS_COLOR,
+    flagCount: (l?.needsRecalibration || []).length,
+  }));
+
+  return [...curated, ...mine];
+}

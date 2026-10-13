@@ -23,7 +23,7 @@ import { generateLensKey } from "../lib/userLenses";
 import { mergeFlags, flagWeight, offCompassFlags } from "../lib/recalibration";
 import { bestMatchSpokes, MIN_SPOKES } from "../lib/bestMatch";
 import { takeCalibrateKey, clearCalibrateKey, resolveCalibrateLens } from "../lib/calibrateParam";
-import { LOCAL_LENS as LOCAL_LENS_DEFAULT, JUDICIAL_LENS as JUDICIAL_LENS_DEFAULT, FEDERAL_LENS as FEDERAL_LENS_DEFAULT, orderLenses, lensShortLabel, getLensColor, getLensInk } from "../lib/lenses";
+import { LOCAL_LENS as LOCAL_LENS_DEFAULT, JUDICIAL_LENS as JUDICIAL_LENS_DEFAULT, FEDERAL_LENS as FEDERAL_LENS_DEFAULT, displayLenses, getLensColor, getLensInk } from "../lib/lenses";
 import { tierFromDistrictType } from "../hooks/useFilteredPoliticians";
 import { ENTRY_REASONS } from "../lib/calibrationEvents";
 import { getQuestionText, parseTensionTitle } from "../util/topic";
@@ -58,11 +58,6 @@ const CATEGORY_COLORS = [
 
 const UNCALIBRATED_PURPLE = "#7C3AED";
 const CALIBRATED_TEAL = "#00657C";
-// Custom lens chips. Same hex as Essentials uses for them, and deliberately NOT
-// UNCALIBRATED_PURPLE: that violet already means "this needs calibrating" on the
-// topic pills and the Calibrate button right next to the lens row, so a custom
-// lens wearing it read as a warning. Same collision Essentials removed.
-const CUSTOM_LENS_TEAL = "#00657C";
 // Best Match is a comparison display mode, not a lens — see lib/bestMatch.js for
 // why it must never become an activeLensKey. Gold ties it to the yellow "Match"
 // marker already used in the compare legend.
@@ -1272,28 +1267,11 @@ function CombinedPage() {
   // fetches on mount, falling back to the bundled constants) means the next lens
   // added to the DB shows up with no frontend change at all.
   //
-  // Order and label are derived rather than hardcoded: see LENS_DISPLAY_ORDER
-  // and lensShortLabel in lib/lenses.js for why each is a client concern.
-  //
-  // ⚠ A lens whose topics the open season does not serve is DROPPED, not shown
-  // empty. Every downstream consumer already filters lens topics against the
-  // loaded set — resolveCalibrateLens returns null, getInitialState picks zero
-  // topics — so an unfiltered chip here would open a calibration with nothing in
-  // it. This is what keeps the Education Lens hidden until Season 2 opens, with
-  // no feature flag to remember to flip.
-  const curatedLenses = orderLenses(lenses)
-    .filter((l) => (l.topicIds || []).some((id) => topics.some((t) => t.id === id)))
-    .map((l) => ({ ...l, shortLabel: lensShortLabel(l) }));
-  const allLenses = [
-    ...curatedLenses,
-    // User lenses share the row with the curated set. They are given a colour
-    // here because the API does not store one for them.
-    ...userLenses.map((l) => ({
-      ...l,
-      color: CUSTOM_LENS_TEAL,
-      flagCount: (l.needsRecalibration || []).length,
-    })),
-  ];
+  // Order, label, colour and the season filter all live in displayLenses, which
+  // the full calibration sidebar draws from too — see lib/lenses.js for why each
+  // is a client concern, and why a lens the open season cannot serve is dropped
+  // rather than shown empty.
+  const allLenses = displayLenses({ lenses, userLenses, topics });
   // Activation is the explicit key, never a property of the topic set — a user
   // lens is built from the user's own topics, so "these topics all belong to a
   // lens" stops meaning "a lens is showing". See lib/compassSync.js.

@@ -1171,7 +1171,7 @@ const scenarios = [
       assert(picker, "no lens picker on the calibration page");
 
       const groupsBefore = await b.evaluate(`(() => {
-        const h = [...document.querySelectorAll('aside .sticky span:first-child')]
+        const h = [...document.querySelectorAll('aside [data-testid="sidebar-group-title"]')]
           .map(x => (x.textContent || '').trim()).filter(Boolean);
         return h[0] || null;
       })()`);
@@ -1190,7 +1190,7 @@ const scenarios = [
       await b.sleep(1400);
 
       const groupsAfter = await b.evaluate(`(() => {
-        const h = [...document.querySelectorAll('aside .sticky span:first-child')]
+        const h = [...document.querySelectorAll('aside [data-testid="sidebar-group-title"]')]
           .map(x => (x.textContent || '').trim()).filter(Boolean);
         return JSON.stringify(h.slice(0, 3));
       })()`);
@@ -1219,6 +1219,22 @@ const scenarios = [
         `publicNote must render verbatim, got ${JSON.stringify(text.slice(0, 140))}`
       );
 
+      // The chip wears the lens the way the compass switcher does: its own
+      // mark, and its own colour filled in when pinned. A custom lens takes the
+      // shared custom teal, #00657C -> rgb(0, 101, 124).
+      const chip = await b.evaluate(`(() => {
+        const el = document.querySelector('[data-testid="calibration-lens-u_pin01"]');
+        if (!el) return JSON.stringify({ missing: true });
+        const cs = getComputedStyle(el);
+        return JSON.stringify({ icon: !!el.querySelector('svg'), bg: cs.backgroundColor });
+      })()`);
+      const chipStyle = JSON.parse(chip);
+      assert(chipStyle.icon, "the lens chip has no icon");
+      assert(
+        chipStyle.bg === "rgb(0, 101, 124)",
+        `pinned chip should be filled in the lens colour, got ${chipStyle.bg}`
+      );
+
       // Picking a lens must never be mistaken for changing the compass.
       const stillMine = await b.evaluate(
         `JSON.parse(localStorage.getItem('selectedTopics') || '[]').length`
@@ -1226,6 +1242,72 @@ const scenarios = [
       assert(stillMine === 4, `pinning a lens changed the compass: ${stillMine} topics`);
 
       return `lens pinned above ${headers.length - 1}+ categories, change note verbatim, compass untouched`;
+    },
+  },
+
+  {
+    name: "finishing-calibration-stays-on-the-page",
+    // Answering the last question used to replace the whole page with a "Fully
+    // Calibrated" screen whose only exits were the Library and the compass — so
+    // the moment you completed the set, the tool you were using to refine it
+    // was taken away. The completion is now a banner over the same page.
+    //
+    // Drives the real last answer rather than asserting on state: the takeover
+    // was a render branch, and only a real click proves the branch is gone.
+    async run(b, baseUrl) {
+      // The sidebar is built from the CATEGORIES, so seeding from /topics alone
+      // can leave a second gap behind and the run never reaches its last answer.
+      const topics = await (await fetch(`${baseUrl}${API}/topics`)).json();
+      const categories = await (await fetch(`${baseUrl}${API}/categories`)).json();
+      const everything = [
+        ...topics,
+        ...(Array.isArray(categories) ? categories : []).flatMap((c) => c.topics || []),
+      ].filter((t) => t && t.short_title);
+      if (everything.length < 3) throw new Skip("needs at least 3 topics");
+
+      const last = topics[topics.length - 1];
+      const preAnswered = everything.filter((t) => t.short_title !== last.short_title);
+
+      await b.navigate(`${baseUrl}/results`, { settleMs: 4000 });
+      await b.evaluate(`(() => {
+        localStorage.clear();
+        sessionStorage.clear();
+        const answers = {};
+        ${JSON.stringify(preAnswered.map((t) => t.short_title))}
+          .forEach((s, i) => { answers[s] = (i % 5) + 1; });
+        localStorage.setItem('answers', JSON.stringify(answers));
+        localStorage.setItem('selectedTopics', ${JSON.stringify(JSON.stringify(topics.slice(0, 8).map((t) => t.id)))});
+      })()`);
+
+      // Every question but one answered, so the page opens on the gap.
+      await b.navigate(`${baseUrl}/calibrate`, { settleMs: 9000 });
+      const opensOnGap = await b.evaluate(
+        `(document.body.innerText || '').includes(${JSON.stringify(last.short_title)})`
+      );
+      await b.waitFor(`${STANCE_BUTTONS}.length > 0`, { label: "stance options" });
+
+      await b.evaluate(`${STANCE_BUTTONS}[0].click()`);
+      await b.sleep(1800);
+
+      const after = await b.evaluate(`JSON.stringify({
+        path: location.pathname,
+        banner: !!document.querySelector('[data-testid="calibration-complete-banner"]'),
+        stances: document.querySelectorAll('[data-testid="stance-option"]').length,
+        sidebar: document.querySelectorAll('aside [data-testid="sidebar-group-title"]').length,
+        takeover: (document.body.innerText || '').includes('Fully Calibrated'),
+        completed: localStorage.getItem('calibration_completed'),
+      })`);
+      const s = JSON.parse(after);
+
+      assert(s.path === "/calibrate", `finishing navigated away to ${s.path}`);
+      assert(!s.takeover, "the full-page completion screen is back");
+      assert(s.banner, "no completion banner after the last answer");
+      assert(s.stances > 0, "the question panel went away on completion");
+      assert(s.sidebar > 0, "the sidebar went away on completion");
+      // The banner is presentation; the flag downstream screens read is not.
+      assert(s.completed === "true", "calibration_completed was not written");
+
+      return `completed in place: banner up, ${s.stances} stances and ${s.sidebar} groups still on screen${opensOnGap ? "" : " (opened off-gap)"}`;
     },
   },
 
