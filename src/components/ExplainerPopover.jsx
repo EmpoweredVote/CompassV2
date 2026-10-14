@@ -1,7 +1,7 @@
 /**
  * A plain "here is why this works the way it does" panel.
  *
- * Deliberately NOT RecalibrationPopover. That one is keyed on a flag's
+ * Deliberately NOT QuestionNotes. That one is keyed on a flag's
  * disposition, carries editorial's note verbatim and offers an action that
  * changes the user's answer. This one explains a control and offers nothing but
  * Close. Sharing a component would have meant a flag-shaped prop bag with every

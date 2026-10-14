@@ -9,7 +9,8 @@ import LensIcon from '../components/LensIcon';
 import ProgressRing from '../components/ProgressRing';
 import ExplainerPopover from '../components/ExplainerPopover';
 import { mergeFlags } from '../lib/recalibration';
-import RecalibrationPopover from '../components/RecalibrationPopover';
+import { indexJournal, showsThread, markAffected } from '../lib/journal';
+import QuestionNotes from '../components/QuestionNotes';
 import { useNavigate } from "react-router";
 import { track } from "@empoweredvote/analytics";
 import { useCompass } from "../components/CompassContext";
@@ -133,10 +134,20 @@ export default function FullCalibration() {
   const [pinnedLensKey, setPinnedLensKey] = useState(null);
 
   // Why a question is asking to be answered again. Rendered through the same
-  // RecalibrationPopover the compass uses, so editorial's publicNote reads
+  // QuestionNotes panel the compass uses, so editorial's publicNote reads
   // identically on both screens.
   const [flags, setFlags] = useState([]);
   const [openFlagTopicId, setOpenFlagTopicId] = useState(null);
+  // Which topics have a design-diary thread, and the threads already fetched.
+  //
+  // 🔴 THE INDEX IS WHAT MAKES THE ⓘ DECIDABLE. 60 sidebar rows are drawn
+  // before anybody clicks anything, and asking per topic would be 60 requests
+  // for 60 answers that are nearly all "no". The thread itself is fetched when
+  // the panel opens, once per topic, and kept.
+  const [journalIndex, setJournalIndex] = useState(() => new Map());
+  const [threads, setThreads] = useState(() => new Map());
+  const [loadingThread, setLoadingThread] = useState(null);
+  const fetchedThreads = useRef(new Set());
   // "Why do the options move around?" — the Flip control's own explainer.
   const [showFlipExplainer, setShowFlipExplainer] = useState(false);
 
@@ -215,6 +226,14 @@ export default function FullCalibration() {
   // opens, surfaced where the reader's eye already is.
   const activeFlag = activeTopic ? flagsByTopic.get(activeTopic.id) : undefined;
 
+  // And whether that question has a diary worth offering. Same rule as the
+  // sidebar's: entries exist, and this reader has answered it.
+  const activeThread = showsThread({
+    index: journalIndex,
+    topicId: activeTopic?.id,
+    answered: activeTopic ? answers[activeTopic.short_title] > 0 : false,
+  });
+
   useEffect(() => {
     if (!isLoggedIn) { setFlags([]); return; }
     let cancelled = false;
@@ -246,6 +265,45 @@ export default function FullCalibration() {
       .then(rows => { if (!cancelled) setStatsByTopic(indexStats(rows)); })
       .catch(() => {});
     return () => { cancelled = true; };
+  }, []);
+
+  // Which questions have something written about them. Public, tiny, and the
+  // same for everyone, so it is fetched once alongside the stats.
+  //
+  // 🔴 publicFetch, FOR THE REASON SPELLED OUT ABOVE. A public read must never
+  // be able to end a session, and this endpoint deployed after the client that
+  // calls it — exactly the window in which it answers 401 to everybody.
+  //
+  // Failing silently leaves no ⓘ, which is where this page was yesterday.
+  useEffect(() => {
+    let cancelled = false;
+    publicFetch('/compass/journal/index')
+      .then(r => (r && r.ok ? r.json() : []))
+      .then(rows => { if (!cancelled) setJournalIndex(indexJournal(rows)); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  // Open the notes for a topic, fetching its thread the first time.
+  //
+  // ⚠ THE PANEL OPENS IMMEDIATELY, NOT WHEN THE FETCH LANDS. The flag note is
+  // already in hand and is the urgent half; making the reader wait on a diary
+  // they may not have come for would be a slower panel for a worse reason.
+  const openNotes = useCallback((topicId) => {
+    setOpenFlagTopicId(topicId);
+    // A ref rather than a check against `threads`, because this must be exactly
+    // once per topic: a state updater can be called twice for one event and a
+    // fetch started inside one would run twice with it.
+    if (fetchedThreads.current.has(topicId)) return;
+    fetchedThreads.current.add(topicId);
+    setLoadingThread(topicId);
+    publicFetch(`/compass/topics/${topicId}/journal`)
+      .then(r => (r && r.ok ? r.json() : []))
+      .then(rows => setThreads(m => new Map(m).set(topicId, Array.isArray(rows) ? rows : [])))
+      // An empty thread, cached: a reader who clicks again gets the panel
+      // straight away rather than a second spinner over the same failure.
+      .catch(() => setThreads(m => new Map(m).set(topicId, [])))
+      .finally(() => setLoadingThread(t => (t === topicId ? null : t)));
   }, []);
 
   const answeredCount = useMemo(
@@ -678,6 +736,21 @@ export default function FullCalibration() {
                   // Editorial changed this question and said why. The note is a
                   // sibling control, not nested in the row button.
                   const flag = flagsByTopic.get(tp.id);
+                  // And what the team has written about it, flagged or not.
+                  //
+                  // 🔴 ONLY ON A QUESTION THIS READER HAS ANSWERED. A flag
+                  // carried that rule for free — it exists only against a
+                  // stored answer — but a journal entry does not, so somebody
+                  // building their first compass would meet the change history
+                  // of a question they have not answered yet. `answers` is read
+                  // rather than `isAnswered`: owing a re-answer does not mean
+                  // they never answered, and the diary is exactly what that
+                  // reader came for.
+                  const hasThread = showsThread({
+                    index: journalIndex,
+                    topicId: tp.id,
+                    answered: answers[tp.short_title] > 0,
+                  });
                   return (
                     <div
                       key={tp.id}
@@ -708,14 +781,26 @@ export default function FullCalibration() {
                           {name}
                         </span>
                       </button>
-                      {flag && (
+                      {(flag || hasThread) && (
                         <button
-                          onClick={() => setOpenFlagTopicId(tp.id)}
+                          onClick={() => openNotes(tp.id)}
                           data-testid={`change-note-${tp.id}`}
-                          aria-label={`What changed about ${name}`}
-                          title="What changed"
+                          aria-label={
+                            flag ? `What changed about ${name}` : `Why ${name} is asked this way`
+                          }
+                          title={flag ? "What changed" : "What we've said about this question"}
                           className="flex-none mr-2 mt-2 w-4 h-4 rounded-full text-[10px] font-bold leading-none flex items-center justify-center transition-opacity hover:opacity-80 cursor-pointer"
-                          style={{ background: RECALIBRATE_ACCENT, color: '#FFFFFF' }}
+                          style={
+                            // 🔴 A THREAD IS NOT A WARNING. A flagged question
+                            // is asking for something back and wears the solid
+                            // violet; a question with only a diary behind it is
+                            // an invitation to read, and borrows the row's own
+                            // muted ink. Giving both the same mark would spend
+                            // the flag's urgency on questions that need nothing.
+                            flag
+                              ? { background: RECALIBRATE_ACCENT, color: '#FFFFFF' }
+                              : { border: `1px solid ${th.border}`, color: th.textMuted }
+                          }
                         >
                           i
                         </button>
@@ -728,12 +813,23 @@ export default function FullCalibration() {
           })}
         </aside>
 
-        {/* What editorial changed, and why. Same component the compass uses, so
-            the publicNote reads identically on both screens. "Answer it again"
-            brings the question up here rather than navigating anywhere. */}
-        {openFlagTopicId && flagsByTopic.has(openFlagTopicId) && (
-          <RecalibrationPopover
+        {/* What editorial changed and why, and the diary for the question.
+            Same component the compass uses, so the publicNote reads identically
+            on both screens. "Answer it again" brings the question up here
+            rather than navigating anywhere.
+
+            ⚠ THE PANEL NO LONGER REQUIRES A FLAG. It used to open only on
+            `flagsByTopic.has(...)`, which is the condition that made a note
+            vanish the moment its question was answered. A topic reaches here
+            with a flag, a thread, or both. */}
+        {openFlagTopicId && (
+          <QuestionNotes
             flag={flagsByTopic.get(openFlagTopicId)}
+            entries={markAffected(
+              threads.get(openFlagTopicId),
+              flagsByTopic.get(openFlagTopicId)
+            )}
+            loadingEntries={loadingThread === openFlagTopicId}
             topicTitle={
               parseTensionTitle(
                 allTopics.find(tp => tp.id === openFlagTopicId) ?? {}
@@ -862,32 +958,47 @@ export default function FullCalibration() {
                     <span style={{ width: 5, height: 5, borderRadius: '50%', background: catColor, display: 'inline-block' }} />
                     {catName}
                   </div>
-                  {/* What changed this season, where the person is actually
-                      looking. The same note the sidebar's dot opens — this is
-                      not a second copy, only a second way in.
+                  {/* What changed this season, and what the team has said about
+                      this question, where the person is actually looking. The
+                      same panel the sidebar's dot opens — not a second copy,
+                      only a second way in.
 
-                      🔴 NO EXTRA GATE FOR FIRST-TIMERS, AND NONE IS NEEDED. A
-                      flag exists only against a STORED answer given under an
-                      earlier revision, so somebody building their first compass
-                      has none and this never renders for them. Change history
-                      reaches a person the first time they come back to
-                      recalibrate, which is the only point at which it means
-                      anything. */}
-                  {activeFlag && (
+                      🔴 THE FIRST-TIMER GATE USED TO BE FREE AND IS NOT ANY
+                      MORE. A flag exists only against a STORED answer given
+                      under an earlier revision, so somebody building their
+                      first compass never had one and this never rendered for
+                      them. A journal entry exists whether or not they have
+                      answered, so `activeThread` carries the rule explicitly:
+                      change history reaches a person the first time they come
+                      back to a question they have answered, which is the only
+                      point at which it means anything. */}
+                  {(activeFlag || activeThread) && (
                     <button
-                      onClick={() => setOpenFlagTopicId(activeTopic.id)}
+                      onClick={() => openNotes(activeTopic.id)}
                       data-testid="question-change-note"
-                      aria-label="What changed about this question"
+                      aria-label={
+                        activeFlag
+                          ? "What changed about this question"
+                          : "What we've said about this question"
+                      }
                       className="flex-none inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-semibold transition-opacity hover:opacity-80 cursor-pointer"
-                      style={{ background: RECALIBRATE_BG, color: RECALIBRATE_ACCENT }}
+                      style={
+                        activeFlag
+                          ? { background: RECALIBRATE_BG, color: RECALIBRATE_ACCENT }
+                          : { background: th.flipBtn, color: th.textBody }
+                      }
                     >
                       <span
                         className="w-3.5 h-3.5 rounded-full text-[9px] leading-none flex items-center justify-center"
-                        style={{ background: RECALIBRATE_ACCENT, color: '#FFFFFF' }}
+                        style={
+                          activeFlag
+                            ? { background: RECALIBRATE_ACCENT, color: '#FFFFFF' }
+                            : { border: `1px solid ${th.textMuted}`, color: th.textMuted }
+                        }
                       >
                         i
                       </span>
-                      What changed
+                      {activeFlag ? "What changed" : "Why we ask this"}
                     </button>
                   )}
                 </div>
