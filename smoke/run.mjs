@@ -1581,6 +1581,125 @@ const scenarios = [
       return `federal lens applied and calibrating, return url preserved`;
     },
   },
+
+  {
+    name: "the-journal-outlives-the-flag-that-used-to-carry-it",
+    // Phase 2 of the topic journal. Two halves, and the first runs whether or
+    // not anything has been published yet.
+    //
+    // 🔴 HALF ONE IS THE DEPLOY CHECK. compassAdmin.ts gates PATH-LESSLY, so a
+    // public router mounted after it answers 401 to everybody — which is how
+    // the journal routes shipped live and broken for an hour. An unknown
+    // /api/compass/* path answers 401 rather than 404 for the same reason, so
+    // "the endpoint is 401" is easy to misread as "not deployed yet". This
+    // asserts the index answers 200 with an array, from a real browser, against
+    // the real API.
+    //
+    // Half two needs content. While the table is empty it SKIPS rather than
+    // passing quietly, because a check that cannot fail is not coverage.
+    async run(b, baseUrl) {
+      // The dev proxy's first request can lose a race with its own startup —
+      // this check is the only one that opens with a bare fetch, so it is the
+      // only one that ever sees it. Retried on a THROWN error only: a status is
+      // an answer, and retrying a 401 would hide the thing being asserted.
+      let res;
+      for (let attempt = 0; ; attempt++) {
+        try {
+          res = await fetch(`${baseUrl}${API}/journal/index`);
+          break;
+        } catch (err) {
+          if (attempt === 2) throw err;
+          await b.sleep(500);
+        }
+      }
+      assert(
+        res.status === 200,
+        `/compass/journal/index answered ${res.status} — a 401 here means the ` +
+        `router is mounted after compassAdminRouter's path-less auth gate, not ` +
+        `that it is undeployed`
+      );
+      const index = await res.json();
+      assert(Array.isArray(index), `/compass/journal/index did not return an array`);
+
+      const withEntries = index.filter((r) => r?.topicId && r.entryCount > 0);
+      if (withEntries.length === 0) {
+        throw new Skip("the index answers, but nothing is published to open yet");
+      }
+
+      const topics = await (await fetch(`${baseUrl}${API}/topics`)).json();
+      const subject = topics.find((t) => t.id === withEntries[0].topicId);
+      if (!subject) throw new Skip("the topic with entries is not in the open season");
+      const others = topics.filter((t) => t.id !== subject.id).slice(0, 4);
+      if (others.length < 4) throw new Skip("needs at least 5 topics");
+
+      // Arrive with a compass that answers everything EXCEPT the topic with a
+      // thread. No flag anywhere — the point is that the ⓘ no longer needs one.
+      await b.navigate(`${baseUrl}/results`, { settleMs: 4000 });
+      const seed = (answered) => `(() => {
+        localStorage.clear();
+        sessionStorage.clear();
+        const answers = {};
+        ${JSON.stringify(others.map((t) => t.short_title))}
+          .forEach((s, i) => { answers[s] = (i % 5) + 1; });
+        if (${answered}) answers[${JSON.stringify(subject.short_title)}] = 3;
+        localStorage.setItem('answers', JSON.stringify(answers));
+        localStorage.setItem('selectedTopics', ${JSON.stringify(
+          JSON.stringify(others.map((t) => t.id))
+        )});
+        localStorage.setItem('calibration_completed', 'true');
+      })()`;
+
+      // 🔴 THE INITIAL-BUILD EXCLUSION. Change history must not reach somebody
+      // who has not answered the question — Chris's ruling, and the half of the
+      // rule that used to hold by accident because a flag needs a stored answer.
+      await b.evaluate(seed(false));
+      await b.navigate(`${baseUrl}/calibrate`, { settleMs: 9000 });
+      const premature = await b.evaluate(
+        `!!document.querySelector('[data-testid="change-note-${subject.id}"]')`
+      );
+      assert(
+        !premature,
+        `an ⓘ appeared on "${subject.short_title}", which this reader has not ` +
+        `answered — the initial-build exclusion is not holding`
+      );
+
+      // Same reader, same question, now answered. The thread is the thing that
+      // used to disappear at exactly this moment.
+      await b.evaluate(seed(true));
+      await b.navigate(`${baseUrl}/calibrate`, { settleMs: 9000 });
+      const opened = await b.evaluate(`(() => {
+        const el = document.querySelector('[data-testid="change-note-${subject.id}"]');
+        if (!el) return 'NOT_FOUND';
+        el.click();
+        return 'OK';
+      })()`);
+      assert(
+        opened === "OK",
+        `no ⓘ on "${subject.short_title}" after answering it, though the index ` +
+        `reports ${withEntries[0].entryCount} published entr(y/ies)`
+      );
+      await b.sleep(1200);
+
+      const thread = await b.evaluate(`(() => {
+        const el = document.querySelector('[data-testid="topic-thread"]');
+        return el ? el.textContent : null;
+      })()`);
+      assert(thread, "the ⓘ opened but no thread rendered");
+      const rendered = await b.evaluate(
+        `document.querySelectorAll('[data-testid^="journal-entry-"]').length`
+      );
+      assert(rendered > 0, "the thread rendered with no entries in it");
+
+      // No flag was seeded, so the panel must offer nothing that changes an
+      // answer — only a way out.
+      const action = await b.evaluate(
+        `!!document.querySelector('[data-testid="recalibrate-confirm"]')`
+      );
+      assert(!action, "an unflagged question offered a Recalibrate action");
+
+      return `${rendered} entr(y/ies) on "${subject.short_title}", and none before it was answered`;
+    },
+  },
 ];
 
 // --------------------------------------------------------------------- runner

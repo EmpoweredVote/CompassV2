@@ -11,7 +11,7 @@ import RadarChart from "../components/RadarChart";
 import CalibrationOverlay from "../components/CalibrationOverlay";
 import LensSwitcher from "../components/LensSwitcher";
 import SaveLensModal from "../components/SaveLensModal";
-import RecalibrationPopover from "../components/RecalibrationPopover";
+import QuestionNotes from "../components/QuestionNotes";
 import LibraryDrawer from "../components/LibraryDrawer";
 import ComparePanel from "../components/ComparePanel";
 import CoachMark from "../components/CoachMark";
@@ -1847,7 +1847,7 @@ function CombinedPage() {
           )}
 
           {openFlagTopicId && flagsByTopic.has(openFlagTopicId) && (
-            <RecalibrationPopover
+            <QuestionNotes
               flag={flagsByTopic.get(openFlagTopicId)}
               topicTitle={topics.find((t) => t.id === openFlagTopicId)?.short_title || ""}
               onRecalibrate={() => {
