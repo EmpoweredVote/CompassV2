@@ -21,9 +21,14 @@ import {
  */
 
 describe("EDUCATION_LENS", () => {
-  it("carries the eight school-board topics in lens order", () => {
-    expect(EDUCATION_LENS.topicIds).toHaveLength(8);
-    expect(new Set(EDUCATION_LENS.topicIds).size).toBe(8);
+  it("carries the six school-board topics in lens order", () => {
+    expect(EDUCATION_LENS.topicIds).toHaveLength(6);
+    expect(new Set(EDUCATION_LENS.topicIds).size).toBe(6);
+  });
+
+  it("leaves out the two topics CA_0313 removed (gender identity, school budget)", () => {
+    expect(EDUCATION_LENS.topicIds).not.toContain("d96f987e-3404-4667-909d-5889116ba6e5");
+    expect(EDUCATION_LENS.topicIds).not.toContain("49f0b171-2ddf-4e68-887f-0ba78a2562f1");
   });
 
   it("is in the LENSES fallback so an offline client still resolves it", () => {
