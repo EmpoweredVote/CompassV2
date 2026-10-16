@@ -57,10 +57,13 @@ export const FEDERAL_LENS = {
   ],
 };
 
-// The 8 school-board questions, in the order inform.compass_lens_topics stores
-// them (sort_order 0..7). Auto-applies on SCHOOL and STATE_BOARD_EDUCATION.
+// The 6 school-board questions, in the order inform.compass_lens_topics stores
+// them. Auto-applies on SCHOOL and STATE_BOARD_EDUCATION. Student Gender Identity
+// and School Budget left the lens in ev-accounts CA_0313 (2026-10-16): a topic is
+// in a level's lens only if people at that level can be seated on it, and a lens
+// may run below 8 topics.
 //
-// ⚠ ALL EIGHT TOPICS ARE SEASON-2-ONLY. Until Season 2 opens they are not in the
+// ⚠ THESE TOPICS ARE SEASON-2-ONLY. Until Season 2 opens they are not in the
 // promoted set, so every consumer that filters lens topics against the loaded
 // topics — resolveCalibrateLens, getInitialState, the switcher — resolves this
 // lens to ZERO topics and hides it. That is the intended behaviour and it needs
@@ -68,16 +71,14 @@ export const FEDERAL_LENS = {
 export const EDUCATION_LENS = {
   key: 'education',
   name: 'Education Lens',
-  description: '8 questions for school board and state board of education candidates',
+  description: '6 questions for school board and state board of education candidates',
   color: '#C2185B',
   topicIds: [
     '6c43fdec-d084-415d-a15d-d78f48d4fb34', // Curriculum Content
     '1fcff1e8-c913-4d97-91da-1145952d7c65', // School Library Books
-    'd96f987e-3404-4667-909d-5889116ba6e5', // Student Gender Identity
     '66b389c7-86fc-45e9-bf34-964bb747f27b', // School Equity Programs
     '15d7e730-119b-43a2-a351-1efb7352b86b', // Police in Schools
     'c8807d3d-4264-47ce-b8c4-08c6c9c33ce3', // Charter Schools
-    '49f0b171-2ddf-4e68-887f-0ba78a2562f1', // School Budget
     '61269f44-9c7f-4b27-818a-3508009f6ae2', // AI in Schools
   ],
 };
