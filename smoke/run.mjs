@@ -22,6 +22,9 @@ class Skip extends Error {}
 
 const API = "/api/compass";
 const BROKER_ORIGIN = "https://ev-context.empowered.vote";
+// Where the compare links must point. Production Essentials, unless a run sets
+// VITE_ESSENTIALS_URL the same way the app reads it.
+const ESSENTIALS_ORIGIN = process.env.VITE_ESSENTIALS_URL || "https://essentials.empowered.vote";
 // Absolute API base, for calls that must bypass the dev-server proxy.
 const AUTH_API = "https://accounts-api.empowered.vote/api";
 
@@ -1494,6 +1497,53 @@ const scenarios = [
       assert(s.completed === "true", "calibration_completed was not written");
 
       return `completed in place: banner up, ${s.stances} stances and ${s.sidebar} groups still on screen${opensOnGap ? "" : " (opened off-gap)"}`;
+    },
+  },
+
+  {
+    name: "compare-links-reach-essentials",
+    // Comparing happens on Essentials now (#111), so these links are the whole
+    // compare feature from this side. Both are plain hrefs a build can quietly
+    // break (a wrong Essentials address, a dropped fragment) while every page
+    // still renders. ev-qa follows them on the live sites daily; this catches
+    // a break before merge.
+    async run(b, baseUrl) {
+      await b.navigate(`${baseUrl}/results`, { settleMs: 5000 });
+      const seeded = await seedBuiltCompass(b, 8);
+      assert(seeded === 8, `seeding failed, got ${seeded} answers`);
+
+      const pols = await (await fetch(`${baseUrl}${API}/politicians`)).json();
+      const pol = (Array.isArray(pols) ? pols : []).find((p) => p.is_active);
+      assert(pol, "no active politician from /compass/politicians");
+      // A saved comparison is the one way the compare panel still opens on desktop.
+      await b.evaluate(`localStorage.setItem('comparePolitician', ${JSON.stringify(JSON.stringify(pol))})`);
+      await b.navigate(`${baseUrl}/results`, { settleMs: 8000 });
+
+      const hrefOf = (text) => b.evaluate(`(() => {
+        const a = [...document.querySelectorAll('a')]
+          .find(x => (x.textContent || '').trim().startsWith(${JSON.stringify(text)}));
+        return a ? a.href : null;
+      })()`);
+
+      await b.waitFor(`[...document.querySelectorAll('a')].some(a => (a.textContent || '').includes('Compare on Essentials'))`,
+        { label: "Compare on Essentials link" });
+      const cta = await hrefOf("Compare on Essentials");
+      assert(
+        cta && new URL(cta).origin === ESSENTIALS_ORIGIN,
+        `"Compare on Essentials" links to ${JSON.stringify(cta)}, not ${ESSENTIALS_ORIGIN}`
+      );
+
+      await b.waitFor(`[...document.querySelectorAll('a')].some(a => (a.textContent || '').includes('View full profile on Essentials'))`,
+        { label: "compare panel's Essentials link" });
+      const profile = await hrefOf("View full profile on Essentials");
+      assert(
+        profile && profile.startsWith(`${ESSENTIALS_ORIGIN}/politician/${pol.id}#`),
+        `compare panel links to ${JSON.stringify(profile)}, not ${ESSENTIALS_ORIGIN}/politician/${pol.id}#…`
+      );
+      const fragment = new URL(profile).hash;
+      assert(/^#compass=.+/.test(fragment), `compare link carries no compass: ${JSON.stringify(fragment)}`);
+
+      return `both links reach ${ESSENTIALS_ORIGIN}; profile link carries the compass`;
     },
   },
 
