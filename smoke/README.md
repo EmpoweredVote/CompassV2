@@ -63,6 +63,7 @@ Two properties of that bug shaped this suite:
 | `remote-clear-propagates` | Reset Compass in one tab clears the others — and, the harder half, an unhydrated tab publishing empty content does NOT wipe a populated one. |
 | `authed-hydrates-server-answers` | A signed-in user with one stray local answer still loads their server answers, and does not lose the local one. Runs on `/calibrate` on purpose (see below). |
 | `authed-answer-reaches-server` | An answer given while signed in actually persists server-side. Those POSTs are fire-and-forget, so a failure is otherwise silent. |
+| `compare-links-reach-essentials` | "Compare on Essentials" points at Essentials, and a saved comparison's "View full profile on Essentials" link goes to `/politician/<id>#compass=…`. Comparing lives on Essentials now (#111), so these links are the whole compare feature from here. |
 
 ### Authed scenarios
 
