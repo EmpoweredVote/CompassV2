@@ -48,7 +48,28 @@
     <meta property="og:image" content="https://compass.empowered.vote/og-image.png" />
     <meta name="twitter:card" content="summary_large_image" />
     <script>
-      (function(){var s=localStorage.getItem('ev:color-scheme');if(s==='dark'||(!s&&!window.matchMedia('(prefers-color-scheme: light)').matches))document.documentElement.classList.add('dark')})();
+      // Resolve the theme before first paint, in the same order as ThemeProvider — the cookie
+      // is the cross-app truth (.empowered.vote) and must be read here too, or the first paint
+      // ignores the choice the visitor made in the app they arrived from and flashes.
+      (function () {
+        var m = document.cookie.match(/(?:^|;\s*)ev_theme=([^;]+)/);
+        var s = m ? m[1] : null;
+        try {
+          if (!s) {
+            s = localStorage.getItem('ev:color-scheme');
+            if (!s) {
+              var legacy = localStorage.getItem('compass_dark_mode');
+              if (legacy !== null) s = legacy === 'true' ? 'dark' : 'light';
+            }
+            if (s) {
+              var d = new Date();
+              d.setFullYear(d.getFullYear() + 1);
+              document.cookie = 'ev_theme=' + s + '; domain=.empowered.vote; path=/; expires=' + d.toUTCString() + '; SameSite=Lax';
+            }
+          }
+        } catch (err) { /* best-effort: storage is unavailable, fall through to the OS preference */ }
+        if (s === 'dark' || (!s && !window.matchMedia('(prefers-color-scheme: light)').matches)) document.documentElement.classList.add('dark');
+      })();
     </script>
   </head>
   <body>
