@@ -32,6 +32,47 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
+/**
+ * The open season's topics, for a scenario that seeds a compass out of them.
+ *
+ * 🔴 WHY THIS IS NOT `(await fetch(...)).json()` INLINE. When the API is having a
+ * moment, /compass/topics answers with an error OBJECT rather than a list, and a
+ * `topics.length < N` guard does not catch it: `.length` on that object is
+ * undefined, and `undefined < 14` is FALSE, so the guard waves it through and the
+ * next line dies with "topics.slice is not a function". That is what failed three
+ * scenarios on 2026-10-23 within twelve seconds of each other, and it reads like a
+ * code defect in the change under test — it cost a day deciding whether an ev-ui
+ * bump had broken the Compass. It had not; the API had blinked.
+ *
+ * So: anything short of a usable list is a Skip that says what came back instead.
+ * The minimum is the scenario's own, because a list too short to seed from cannot
+ * exercise it either. Entries missing id or short_title are dropped rather than
+ * seeded — they would produce a compass the app quietly refuses to render, which
+ * surfaces much later as an assertion about something unrelated.
+ */
+async function fetchTopics(baseUrl, minimum) {
+  const res = await fetch(`${baseUrl}${API}/topics`);
+  let body;
+  try {
+    body = await res.json();
+  } catch {
+    throw new Skip(`/compass/topics answered ${res.status} with a body that is not JSON`);
+  }
+  if (!Array.isArray(body)) {
+    throw new Skip(
+      `/compass/topics answered ${res.status} with ${JSON.stringify(body).slice(0, 120)}, not a list`
+    );
+  }
+  const usable = body.filter((t) => t?.id && t?.short_title);
+  if (usable.length < minimum) {
+    throw new Skip(
+      `needs at least ${minimum} topics, the open season served ${usable.length}` +
+      (usable.length === body.length ? "" : ` usable of ${body.length}`)
+    );
+  }
+  return usable;
+}
+
 // ---------------------------------------------------------------- page helpers
 
 /** Click the first <button> whose trimmed text starts with `text`. */
@@ -832,7 +873,7 @@ const scenarios = [
     // staleness; it renders what the server decided, so a seeded flag exercises
     // exactly the code that will run.
     async run(b, baseUrl) {
-      const topics = await (await fetch(`${baseUrl}${API}/topics`)).json();
+      const topics = await fetchTopics(baseUrl, 8);
       const eight = topics.slice(0, 8);
       const flagged = eight[2];
       const NOTE = "Rewrote the five options in plainer language.";
@@ -926,8 +967,7 @@ const scenarios = [
     // cannot be seeded from the client. So this scenario pins the invariant and
     // covers the lens path; it is not proof the unlensed path is fixed.
     async run(b, baseUrl) {
-      const topics = await (await fetch(`${baseUrl}${API}/topics`)).json();
-      if (topics.length < 14) throw new Skip("needs at least 14 topics");
+      const topics = await fetchTopics(baseUrl, 14);
       const mine = topics.slice(0, 8);          // the compass
       const offCompass = topics.slice(8, 14);   // revised, NOT on the compass
       const myIds = mine.map((t) => t.id);
@@ -1038,8 +1078,7 @@ const scenarios = [
     // Now it hands off to the full calibration page, where the flagged
     // questions are highlighted and actually asked.
     async run(b, baseUrl) {
-      const topics = await (await fetch(`${baseUrl}${API}/topics`)).json();
-      if (topics.length < 14) throw new Skip("needs at least 14 topics");
+      const topics = await fetchTopics(baseUrl, 14);
       const mine = topics.slice(0, 8);
       const flagged = topics.slice(8, 11);
       const myIds = mine.map((t) => t.id);
