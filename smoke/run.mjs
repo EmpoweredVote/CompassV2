@@ -32,6 +32,47 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
+/**
+ * The open season's topics, for a scenario that seeds a compass out of them.
+ *
+ * 🔴 WHY THIS IS NOT `(await fetch(...)).json()` INLINE. When the API is having a
+ * moment, /compass/topics answers with an error OBJECT rather than a list, and a
+ * `topics.length < N` guard does not catch it: `.length` on that object is
+ * undefined, and `undefined < 14` is FALSE, so the guard waves it through and the
+ * next line dies with "topics.slice is not a function". That is what failed three
+ * scenarios on 2026-10-23 within twelve seconds of each other, and it reads like a
+ * code defect in the change under test — it cost a day deciding whether an ev-ui
+ * bump had broken the Compass. It had not; the API had blinked.
+ *
+ * So: anything short of a usable list is a Skip that says what came back instead.
+ * The minimum is the scenario's own, because a list too short to seed from cannot
+ * exercise it either. Entries missing id or short_title are dropped rather than
+ * seeded — they would produce a compass the app quietly refuses to render, which
+ * surfaces much later as an assertion about something unrelated.
+ */
+async function fetchTopics(baseUrl, minimum) {
+  const res = await fetch(`${baseUrl}${API}/topics`);
+  let body;
+  try {
+    body = await res.json();
+  } catch {
+    throw new Skip(`/compass/topics answered ${res.status} with a body that is not JSON`);
+  }
+  if (!Array.isArray(body)) {
+    throw new Skip(
+      `/compass/topics answered ${res.status} with ${JSON.stringify(body).slice(0, 120)}, not a list`
+    );
+  }
+  const usable = body.filter((t) => t?.id && t?.short_title);
+  if (usable.length < minimum) {
+    throw new Skip(
+      `needs at least ${minimum} topics, the open season served ${usable.length}` +
+      (usable.length === body.length ? "" : ` usable of ${body.length}`)
+    );
+  }
+  return usable;
+}
+
 // ---------------------------------------------------------------- page helpers
 
 /** Click the first <button> whose trimmed text starts with `text`. */
@@ -367,7 +408,7 @@ const scenarios = [
     // supposed to mean "my compass". Compass already refuses to persist a lens
     // as selected_topic_ids server-side; this asserts the same rule on the wire.
     async run(b, baseUrl) {
-      const topics = await (await fetch(`${baseUrl}${API}/topics`)).json();
+      const topics = await fetchTopics(baseUrl, 8);
       const lenses = await (await fetch(`${baseUrl}${API}/lenses`)).json();
       // ⚠ The lens's topics must exist IN THE OPEN SEASON, not merely be listed
       // on the lens. /compass/lenses returns every active lens, including ones
@@ -497,7 +538,9 @@ const scenarios = [
       const token = await login(creds);
 
       // Fetched through the dev server's /api proxy, same as the browser.
-      const topics = await (await fetch(`${baseUrl}${API}/topics`)).json();
+      // 31, not 12: the stray is topics[30], and without it the scenario dies on
+      // strayTopic.short_title rather than saying the season is too small.
+      const topics = await fetchTopics(baseUrl, 31);
       const server = topics.slice(0, 12);
       const strayTopic = topics[30]; // deliberately outside the server set
 
@@ -580,7 +623,7 @@ const scenarios = [
       const local = (Array.isArray(lenses) ? lenses : []).find((l) => l.key === "local");
       assert(federal && local, "federal or local lens missing from /compass/lenses");
 
-      const topics = await (await fetch(`${baseUrl}${API}/topics`)).json();
+      const topics = await fetchTopics(baseUrl, 8);
       const lensIds = new Set([...federal.topicIds, ...local.topicIds]);
       const own = topics.filter((t) => !lensIds.has(t.id)).slice(0, 8);
       assert(own.length === 8, "could not find 8 topics outside both lenses");
@@ -726,7 +769,7 @@ const scenarios = [
       await requireMyLensesApi(token);
       await clearServerLenses(token);
 
-      const topics = await (await fetch(`${baseUrl}${API}/topics`)).json();
+      const topics = await fetchTopics(baseUrl, 8);
       const chosen = topics.slice(0, 8).map((t) => t.id);
 
       await b.navigate(`${baseUrl}/results`, { settleMs: 4000 });
@@ -767,7 +810,7 @@ const scenarios = [
     // with unsaved spoke changes must discard them, or every visit silently
     // redefines the lens the user made.
     async run(b, baseUrl) {
-      const topics = await (await fetch(`${baseUrl}${API}/topics`)).json();
+      const topics = await fetchTopics(baseUrl, 8);
       const eight = topics.slice(0, 8).map((t) => t.id);
       const seven = eight.slice(0, 7);
 
@@ -832,7 +875,7 @@ const scenarios = [
     // staleness; it renders what the server decided, so a seeded flag exercises
     // exactly the code that will run.
     async run(b, baseUrl) {
-      const topics = await (await fetch(`${baseUrl}${API}/topics`)).json();
+      const topics = await fetchTopics(baseUrl, 8);
       const eight = topics.slice(0, 8);
       const flagged = eight[2];
       const NOTE = "Rewrote the five options in plainer language.";
@@ -926,8 +969,7 @@ const scenarios = [
     // cannot be seeded from the client. So this scenario pins the invariant and
     // covers the lens path; it is not proof the unlensed path is fixed.
     async run(b, baseUrl) {
-      const topics = await (await fetch(`${baseUrl}${API}/topics`)).json();
-      if (topics.length < 14) throw new Skip("needs at least 14 topics");
+      const topics = await fetchTopics(baseUrl, 14);
       const mine = topics.slice(0, 8);          // the compass
       const offCompass = topics.slice(8, 14);   // revised, NOT on the compass
       const myIds = mine.map((t) => t.id);
@@ -1038,8 +1080,7 @@ const scenarios = [
     // Now it hands off to the full calibration page, where the flagged
     // questions are highlighted and actually asked.
     async run(b, baseUrl) {
-      const topics = await (await fetch(`${baseUrl}${API}/topics`)).json();
-      if (topics.length < 14) throw new Skip("needs at least 14 topics");
+      const topics = await fetchTopics(baseUrl, 14);
       const mine = topics.slice(0, 8);
       const flagged = topics.slice(8, 11);
       const myIds = mine.map((t) => t.id);
@@ -1135,8 +1176,7 @@ const scenarios = [
     // The lens here is a saved custom one, because that is the only flag source
     // a guest has — the server stamps answers, and a guest's never were.
     async run(b, baseUrl) {
-      const topics = await (await fetch(`${baseUrl}${API}/topics`)).json();
-      if (topics.length < 6) throw new Skip("needs at least 6 topics");
+      const topics = await fetchTopics(baseUrl, 6);
       const lensTopics = topics.slice(0, 4);
       const changed = lensTopics[1];
       const NOTE = "We split this into two questions after reader feedback.";
@@ -1278,8 +1318,7 @@ const scenarios = [
     //   flip explainer  why the options are not in the same order for everyone
     //   lens rings      each lens chip's own fraction, not the global 23%
     async run(b, baseUrl) {
-      const topics = await (await fetch(`${baseUrl}${API}/topics`)).json();
-      if (topics.length < 3) throw new Skip("needs at least 3 topics");
+      const topics = await fetchTopics(baseUrl, 3);
 
       // The guidance seed covers every promoted topic, so a page with none at
       // all means the API stopped sending it — which is the regression this
@@ -1382,7 +1421,7 @@ const scenarios = [
       // The loudest one, so the assertion is about the feature and not about
       // whether this particular question happened to clear the floor.
       const best = loud.sort((a, c) => c.total - a.total)[0];
-      const topics = await (await fetch(`${baseUrl}${API}/topics`)).json();
+      const topics = await fetchTopics(baseUrl, 1);
       const target = topics.find((t) => t.id === best.topicId);
       if (!target) throw new Skip("the busiest topic is not in the served set");
 
@@ -1446,7 +1485,9 @@ const scenarios = [
     async run(b, baseUrl) {
       // The sidebar is built from the CATEGORIES, so seeding from /topics alone
       // can leave a second gap behind and the run never reaches its last answer.
-      const topics = await (await fetch(`${baseUrl}${API}/topics`)).json();
+      // At least one: `last` below is topics[topics.length - 1], so an empty list
+      // would reach the page as undefined even when categories supplied the three.
+      const topics = await fetchTopics(baseUrl, 1);
       const categories = await (await fetch(`${baseUrl}${API}/categories`)).json();
       const everything = [
         ...topics,
@@ -1567,7 +1608,7 @@ const scenarios = [
       const federal = (Array.isArray(lenses) ? lenses : []).find((l) => l.key === "federal");
       assert(federal, "federal lens missing from /compass/lenses");
 
-      const topics = await (await fetch(`${baseUrl}${API}/topics`)).json();
+      const topics = await fetchTopics(baseUrl, 1);
       const federalTitles = topics
         .filter((t) => federal.topicIds.includes(t.id))
         .map((t) => t.short_title);
@@ -1676,7 +1717,7 @@ const scenarios = [
         throw new Skip("the index answers, but nothing is published to open yet");
       }
 
-      const topics = await (await fetch(`${baseUrl}${API}/topics`)).json();
+      const topics = await fetchTopics(baseUrl, 5);
       const subject = topics.find((t) => t.id === withEntries[0].topicId);
       if (!subject) throw new Skip("the topic with entries is not in the open season");
       const others = topics.filter((t) => t.id !== subject.id).slice(0, 4);
