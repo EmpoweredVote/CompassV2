@@ -29,8 +29,10 @@ function resolveInitialTheme() {
   // 3. compass_dark_mode (CalibrationOverlay legacy key)
   const legacy = localStorage.getItem('compass_dark_mode');
   if (legacy !== null) return legacy === 'true';
-  // 4. OS preference
-  return !window.matchMedia('(prefers-color-scheme: light)').matches;
+  // 4. Dark. The OS is NOT consulted — a browser reports prefers-color-scheme: light when the
+  //    OS has no preference set at all, so reading it could not tell "never chose" apart from
+  //    "chose light", and every undecided visitor landed on a light page.
+  return true;
 }
 
 export function ThemeProvider({ children }) {
@@ -40,16 +42,10 @@ export function ThemeProvider({ children }) {
     document.documentElement.classList.toggle('dark', isDark);
   }, [isDark]);
 
-  useEffect(() => {
-    const mq = window.matchMedia('(prefers-color-scheme: light)');
-    const handleChange = (e) => {
-      // Only follow the OS for a visitor who has made no choice anywhere — a cookie is a
-      // choice carried in from another app, and outranks the OS exactly as it does above.
-      if (!readCookie() && !localStorage.getItem(KEY)) setIsDark(!e.matches);
-    };
-    mq.addEventListener('change', handleChange);
-    return () => mq.removeEventListener('change', handleChange);
-  }, []);
+  // There WAS a matchMedia listener here that followed the OS mid-session for a visitor who
+  // had chosen nothing anywhere. It went on 2026-10-27, with the OS fallback above: once dark
+  // became the default for everyone undecided, this was the one path left that could still
+  // move them to light without them asking.
 
   function toggle() {
     setIsDark((prev) => {
