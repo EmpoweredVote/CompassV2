@@ -67,8 +67,12 @@
               document.cookie = 'ev_theme=' + s + '; domain=.empowered.vote; path=/; expires=' + d.toUTCString() + '; SameSite=Lax';
             }
           }
-        } catch (err) { /* best-effort: storage is unavailable, fall through to the OS preference */ }
-        if (s === 'dark' || (!s && !window.matchMedia('(prefers-color-scheme: light)').matches)) document.documentElement.classList.add('dark');
+        } catch (err) { /* best-effort: storage is unavailable, fall through to the dark default */ }
+        // Dark unless the visitor chose light on an Empowered Vote site. The OS is deliberately
+        // not consulted: a browser reports prefers-color-scheme: light when the OS has no
+        // preference set at all, so reading it could not tell "never chose" apart from "chose
+        // light", and every undecided visitor got a light page.
+        if (s !== 'light') document.documentElement.classList.add('dark');
       })();
     </script>
   </head>
