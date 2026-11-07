@@ -10,10 +10,12 @@ export default defineConfig({
   // Source files rely on Vite's automatic JSX runtime (no explicit `import
   // React`), which normally comes from @vitejs/plugin-react in vite.config.js.
   // Vitest's own config is intentionally separate from that (see
-  // vitest.setup.js), so it needs this esbuild option directly or any test
+  // vitest.setup.js), so it needs this transform option directly or any test
   // that renders a .jsx component fails with "React is not defined".
-  esbuild: {
-    jsx: "automatic",
+  // Vite 8 transforms with Oxc instead of esbuild, and ignores an `esbuild`
+  // block here, so the option lives under `oxc`.
+  oxc: {
+    jsx: { runtime: "automatic" },
   },
   test: {
     environment: "jsdom",
