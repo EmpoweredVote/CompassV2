@@ -7,10 +7,12 @@ still work.
 npm run smoke                              # all scenarios
 npm run smoke -- --only=preflight          # one scenario
 CHROME_PATH=/path/to/chrome npm run smoke  # if Chrome is somewhere unusual
+SMOKE_CONCURRENCY=1 npm run smoke          # one scenario at a time (default 3)
 ```
 
-Takes ~2min. The two `authed-*` scenarios need credentials (below) and **skip**
-rather than fail without them, so the suite still runs for anyone. Exits non-zero on failure. Runs on every PR via
+The three signed-in scenarios (`authed-*`, `guest-lenses-promote-on-sign-in`)
+need credentials (below) and **skip** rather than fail without them, so the
+suite still runs for anyone. Exits non-zero on failure. Runs on every PR via
 `.github/workflows/build-check.yml`.
 
 ## Why it exists
@@ -47,6 +49,26 @@ Two properties of that bug shaped this suite:
   dependency is down, so an outage is legible instead of silent.
   The tradeoff: a prod API outage turns CI red. That is deliberate — a silent
   pass is what let #65 ship.
+- **Several scenarios at once.** Scenarios run `SMOKE_CONCURRENCY` at a time
+  (default 3), each in its own Chrome with its own profile and debug port,
+  against one shared dev server. Most of a scenario's time is fixed settle
+  delays, not CPU, so this cuts the run to roughly a third. Each scenario's
+  lines are held and printed together when it finishes, so the output is in
+  finishing order, not file order. Set `SMOKE_CONCURRENCY=1` to get the old
+  one-at-a-time run when a failure looks like it might be timing.
+- **Signed-in scenarios never overlap each other.** Scenarios marked
+  `sharedAccount: true` all sign in to the one test account and delete and
+  rewrite its answers and lenses. They run one after another in a single lane,
+  which takes one worker slot beside the guest scenarios. **Mark any new
+  scenario that signs in `sharedAccount: true`**, or it will race the others
+  for the account.
+- **Wait for what you can see; sleep only for what must not happen.** A fixed
+  `b.sleep()` that waits for something observable can be `settleUntil()`
+  instead: it polls, returns early when the condition holds, and leaves the
+  pass/fail call to the assertion after it. Keep the fixed sleep where it
+  proves something did *not* happen (an empty broker payload must not wipe a
+  compass), or where the thing is invisible to the page (fire-and-forget
+  POSTs, the broker echo in `answers-survive-navigation`).
 - **Selectors use `data-testid`, not classes.** A suite that breaks on a CSS
   tweak gets disabled, which defeats the point. `stance-option` and
   `calibration-progress` are the contract; keep them when restyling.
@@ -89,13 +111,34 @@ first, and the mistake is what surfaced the real, narrower bug.
 ## Verifying the suite still bites
 
 A regression test that cannot fail is worse than none. To confirm it still
-catches #65, revert the fix and run it:
+catches #65, put the bug back and run it.
+
+⚠ Do **not** restore an old `CompassContext.jsx` wholesale (the earlier recipe
+here used `git show 9d46027:...`). That file is many commits behind the rest of
+the app now, so the app fails to start, *every* scenario fails, and the check
+proves nothing about #65.
+
+Instead, put back only the bug. In `src/components/CompassContext.jsx`, in the
+guest `evContext.subscribe` callback, replace the whole
+`if (c.a && typeof c.a === 'object') { const scope = ... }` block with the
+pre-#65 line:
+
+```js
+if (c.a && typeof c.a === 'object') setAnswers(c.a);
+```
+
+That replaces local answers with the broker's capped (≤8 topic) copy instead of
+merging it in. Then:
 
 ```bash
-git show 9d46027:src/components/CompassContext.jsx > src/components/CompassContext.jsx
 npm run smoke   # full-calibration-persists and answers-survive-navigation must FAIL
 git checkout src/components/CompassContext.jsx
 ```
+
+Last checked 2026-11-07, three at a time: both FAIL (at their seeding checks —
+`0 / 60` instead of `8 / 60`, and 12 answers instead of 20 — because the
+capped echo now lands while the scenario is still seeding). They fail the same
+way with `SMOKE_CONCURRENCY=1`. Several lens and compare scenarios fail too.
 
 `guest-onboarding` passes even with the bug reverted, and that is correct —
 during the overlay every answered topic *is* selected, so nothing gets capped.
