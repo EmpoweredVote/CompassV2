@@ -135,10 +135,15 @@ npm run smoke   # full-calibration-persists and answers-survive-navigation must 
 git checkout src/components/CompassContext.jsx
 ```
 
-Last checked 2026-11-07, three at a time: both FAIL (at their seeding checks —
-`0 / 60` instead of `8 / 60`, and 12 answers instead of 20 — because the
-capped echo now lands while the scenario is still seeding). They fail the same
-way with `SMOKE_CONCURRENCY=1`. Several lens and compare scenarios fail too.
+Last checked 2026-11-07, three at a time and one at a time: both FAIL at the
+assertion they exist for — `answer 1 did not stick: expected 9 answers, got 8`,
+and `answers were truncated on load: had 20, now 8`. Several lens and compare
+scenarios fail too.
+
+If either one fails at its *seeding* check instead, the scenario has stopped
+testing #65. Both seed from the topics JSON page, not an app page, so the app's
+first load already sees the built compass; seeding from an app page lets that
+load publish an empty compass that the buggy code then applies on reload.
 
 `guest-onboarding` passes even with the bug reverted, and that is correct —
 during the overlay every answered topic *is* selected, so nothing gets capped.
