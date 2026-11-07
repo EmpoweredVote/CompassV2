@@ -294,7 +294,13 @@ const scenarios = [
     // ev-context echo overwrote each answer ~25ms after it was given, so the
     // counter never moved off its starting value.
     async run(b, baseUrl) {
-      await b.navigate(`${baseUrl}/calibrate`, { settleMs: 5000 });
+      // Seed from a same-origin page that is NOT the app (the topics JSON), so
+      // the app's first load already sees the built compass. Seeding from an app
+      // page let that first load publish an EMPTY compass to the broker; with
+      // #65 back, the reload then applied that stale empty state and failed at
+      // the seeding check instead of the assertion this scenario exists for.
+      // A real returning user's broker agrees with their own local state.
+      await b.navigate(`${baseUrl}${API}/topics`, { settleMs: 1000 });
       const seeded = await seedBuiltCompass(b, 8);
       assert(seeded === 8, `seeding failed, got ${seeded} answers`);
 
@@ -323,7 +329,7 @@ const scenarios = [
           count === 8 + i + 1,
           `answer ${i + 1} did not stick: expected ${8 + i + 1} answers, got ${count}. ` +
             `This is the #65 failure mode — an answer is written then overwritten by the ` +
-            `ev-context echo. Check the publishedRef guard in CompassContext.`
+            `ev-context echo. Check the answer merge in CompassContext's subscribe callback.`
         );
       }
 
@@ -342,7 +348,13 @@ const scenarios = [
     // The other half of #65: a full calibration used to be truncated back to the
     // 8 selected topics on the next compass page load.
     async run(b, baseUrl) {
-      await b.navigate(`${baseUrl}/results`, { settleMs: 5000 });
+      // Seed from a same-origin page that is NOT the app (the topics JSON), so
+      // the app's first load already sees the built compass. Seeding from an app
+      // page let that first load publish an EMPTY compass to the broker; with
+      // #65 back, the reload then applied that stale empty state and failed at
+      // the seeding check instead of the assertion this scenario exists for.
+      // A real returning user's broker agrees with their own local state.
+      await b.navigate(`${baseUrl}${API}/topics`, { settleMs: 1000 });
       await seedBuiltCompass(b, 8);
 
       // Add answers beyond the selected 8 — the state that triggered the bug.
