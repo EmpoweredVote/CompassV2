@@ -115,6 +115,25 @@ const WELCOME_LENS_CTA = "Start with the Local Lens";
 // last slide of the learn carousel.
 const LENS_START_CTA = "Start finding my stances";
 
+/**
+ * Poll `expression` until it is truthy or `timeoutMs` passes, then return.
+ *
+ * For replacing a fixed sleep that waited for something observable. It never
+ * throws: the assertion that follows decides pass or fail, exactly as it did
+ * after the sleep. The timeout is at least the old sleep, so a slow-but-correct
+ * app passes as before and a broken one fails at the same assertion — only a
+ * passing run gets faster. Do NOT use it where the old sleep proved something
+ * did NOT happen (an echo that must not wipe state): there is nothing to wait
+ * for, so the full delay is the test.
+ */
+const settleUntil = async (b, expression, timeoutMs) => {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await b.evaluate(expression)) return;
+    await b.sleep(250);
+  }
+};
+
 const answeredCount = (b) =>
   b.evaluate(`Object.keys(JSON.parse(localStorage.getItem('answers') || '{}')).length`);
 
@@ -239,6 +258,10 @@ const scenarios = [
 
       // Answer all 8 lens topics, advancing with Next each time.
       for (let i = 0; i < 8; i++) {
+        // The next question can take longer than clickButton's 900ms to draw,
+        // most of all with several scenarios running at once. That flaked as
+        // "no stance buttons on lens question 4" on an unchanged main.
+        await settleUntil(b, `${STANCE_BUTTONS}.length > 0`, 8000);
         const picked = await b.evaluate(`(() => {
           const btns = ${STANCE_BUTTONS};
           if (!btns.length) return false;
@@ -384,7 +407,13 @@ const scenarios = [
       })()`);
       assert(posted, "ev-context broker iframe not present — cannot test remote updates");
 
-      await b.sleep(4000);
+      // Was a fixed 4s. Waits for the seed to be replaced; the assertions below
+      // still decide whether what replaced it is right.
+      await settleUntil(
+        b,
+        `localStorage.getItem('invertedSpokes') !== ${JSON.stringify(JSON.stringify({ __seed__: true }))}`,
+        8000
+      );
       const stored = await b.evaluate(`localStorage.getItem('invertedSpokes')`);
       assert(
         stored !== JSON.stringify({ __seed__: true }),
@@ -511,7 +540,13 @@ const scenarios = [
 
       // 2. A real reset carries a timestamp and must take effect.
       assert(await post(`{ a: {}, s: [], i: {}, w: {}, clearedAt: ` + Date.now() + ` }`), "broker iframe missing");
-      await b.sleep(3500);
+      // Was a fixed 3.5s. The reset is observable, so wait for it. (The 3.5s
+      // above stays fixed: it proves an empty payload did NOT clear anything.)
+      await settleUntil(
+        b,
+        `Object.keys(JSON.parse(localStorage.getItem('answers') || '{}')).length === 0`,
+        8000
+      );
       const after = await answeredCount(b);
       assert(after === 0, `an explicit remote reset did not clear this tab (${after} answers remain)`);
 
@@ -521,6 +556,7 @@ const scenarios = [
 
   {
     name: "authed-hydrates-server-answers",
+    sharedAccount: true,
     // Every other scenario runs as a guest, but signed-in users take a wholly
     // different path: the server, not localStorage, is their source of truth.
     //
@@ -575,6 +611,7 @@ const scenarios = [
 
   {
     name: "authed-answer-reaches-server",
+    sharedAccount: true,
     // The other half of the authed contract: an answer given while logged in
     // must actually persist server-side, or it is lost on the next device.
     async run(b, baseUrl) {
@@ -758,6 +795,7 @@ const scenarios = [
 
   {
     name: "guest-lenses-promote-on-sign-in",
+    sharedAccount: true,
     // The whole point of letting guests build lenses: the work has to survive
     // signing in. Promotion is one whole-set PUT, and local storage is cleared
     // only after the server confirms — clearing state that was not confirmed
@@ -1130,7 +1168,14 @@ const scenarios = [
         return 'OK';
       })()`);
       if (clicked !== "OK") throw new Skip("no off-compass Review prompt rendered");
-      await b.sleep(3000);
+      // Was a fixed 3s. Waits for /calibrate with its highlights rendered; the
+      // assertions below still check the path and the exact count.
+      await settleUntil(
+        b,
+        `window.location.pathname === '/calibrate' && ` +
+          `document.querySelectorAll('[data-testid^="recalibrate-pending-"]').length >= ${flagged.length}`,
+        8000
+      );
 
       const url = await b.evaluate(`window.location.pathname`);
       assert(url === "/calibrate", `Review should land on /calibrate, got ${url}`);
@@ -1808,15 +1853,36 @@ console.log("Starting dev server...");
 const server = await startDevServer({ port: Number(process.env.SMOKE_PORT) || 5199 });
 console.log(`Dev server up at ${server.baseUrl}\n`);
 
-const results = [];
-let port = 9400;
+// ------------------------------------------------------------- concurrency
+//
+// Scenarios run SMOKE_CONCURRENCY at a time (default 3). Each one already gets
+// its own Chrome, its own fresh profile and its own debug port, so they share
+// nothing but the dev server — and the live API and broker, which serve many
+// real users at once anyway. Most of a scenario's time is spent waiting on
+// fixed settle delays, not CPU, which is why running several at once pays.
+//
+// 🔴 EXCEPT the `sharedAccount` scenarios. They sign in to ONE test account and
+// delete and rewrite its server-side answers and lenses, so two at once would
+// trample each other. They run one after another in a single lane, which takes
+// one worker slot alongside the guest scenarios. A guest scenario never touches
+// the account, so nothing else needs to wait for them.
+//
+// Each scenario's lines are buffered and printed together when it finishes, so
+// output stays one block per scenario instead of interleaving.
 
-for (const scenario of selected) {
+const concurrency = Math.max(1, Number(process.env.SMOKE_CONCURRENCY) || 3);
+const results = [];
+// Ports are fixed per scenario up front, so concurrent launches never collide.
+const portOf = new Map(selected.map((s, i) => [s, 9400 + i]));
+
+async function runScenario(scenario) {
   // A fresh browser profile per scenario: the ev-context broker keeps state in
   // its own origin's storage, so sharing a profile lets scenarios bleed together.
-  const browser = await launch({ port: port++ });
+  const lines = [];
   const started = Date.now();
+  let browser;
   try {
+    browser = await launch({ port: portOf.get(scenario) });
     const detail = await scenario.run(browser, server.baseUrl);
     assert(
       browser.pageErrors.length === 0,
@@ -1824,25 +1890,47 @@ for (const scenario of selected) {
     );
     const ms = Date.now() - started;
     results.push({ name: scenario.name, ok: true });
-    console.log(`PASS  ${scenario.name} (${(ms / 1000).toFixed(1)}s) — ${detail}`);
+    lines.push(`PASS  ${scenario.name} (${(ms / 1000).toFixed(1)}s) — ${detail}`);
     if (browser.consoleErrors.length) {
-      console.log(`      note: ${browser.consoleErrors.length} console error(s), e.g. ${browser.consoleErrors[0].slice(0, 120)}`);
+      lines.push(`      note: ${browser.consoleErrors.length} console error(s), e.g. ${browser.consoleErrors[0].slice(0, 120)}`);
     }
   } catch (err) {
     if (err instanceof Skip) {
       results.push({ name: scenario.name, skipped: true });
-      console.log(`SKIP  ${scenario.name} — ${err.message}`);
+      lines.push(`SKIP  ${scenario.name} — ${err.message}`);
     } else {
+      const ms = Date.now() - started;
       results.push({ name: scenario.name, ok: false, err });
-      console.log(`FAIL  ${scenario.name} — ${err.message}`);
-      if (browser.pageErrors.length) {
-        console.log(`      page errors: ${browser.pageErrors.slice(0, 3).join(" | ")}`);
+      lines.push(`FAIL  ${scenario.name} (${(ms / 1000).toFixed(1)}s) — ${err.message}`);
+      if (browser?.pageErrors.length) {
+        lines.push(`      page errors: ${browser.pageErrors.slice(0, 3).join(" | ")}`);
       }
     }
   } finally {
-    await browser.close();
+    await browser?.close();
   }
+  console.log(lines.join("\n"));
 }
+
+// One job per guest scenario, plus one job that runs every shared-account
+// scenario in order. The account lane goes first: it is the longest single job
+// when credentials are present, so starting it early keeps it off the tail.
+const accountLane = selected.filter((s) => s.sharedAccount);
+const jobs = [
+  ...(accountLane.length
+    ? [async () => { for (const s of accountLane) await runScenario(s); }]
+    : []),
+  ...selected.filter((s) => !s.sharedAccount).map((s) => () => runScenario(s)),
+];
+
+const suiteStarted = Date.now();
+let next = 0;
+await Promise.all(
+  Array.from({ length: Math.min(concurrency, jobs.length) }, async () => {
+    while (next < jobs.length) await jobs[next++]();
+  })
+);
+const suiteSeconds = ((Date.now() - suiteStarted) / 1000).toFixed(0);
 
 await server.stop();
 
@@ -1851,6 +1939,8 @@ const failed = results.filter((r) => !r.ok && !r.skipped);
 const ran = results.length - skipped.length;
 console.log(
   `\n${ran - failed.length}/${ran} scenarios passed` +
-    (skipped.length ? ` (${skipped.length} skipped)` : "")
+    (skipped.length ? ` (${skipped.length} skipped)` : "") +
+    ` in ${suiteSeconds}s, ${concurrency} at a time`
 );
+if (failed.length) console.log(`Failed: ${failed.map((r) => r.name).join(", ")}`);
 process.exit(failed.length ? 1 : 0);
