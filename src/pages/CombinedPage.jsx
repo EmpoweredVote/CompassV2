@@ -27,6 +27,7 @@ import { LOCAL_LENS as LOCAL_LENS_DEFAULT, JUDICIAL_LENS as JUDICIAL_LENS_DEFAUL
 import { tierFromDistrictType } from "../hooks/useFilteredPoliticians";
 import { ENTRY_REASONS } from "../lib/calibrationEvents";
 import { getQuestionText, parseTensionTitle } from "../util/topic";
+import { isWriteIn } from "../lib/writeIn";
 import { TopicTierBadge } from "@empoweredvote/ev-ui";
 import {
   DndContext,
@@ -1052,24 +1053,41 @@ function CombinedPage() {
     }
   };
 
-  const handleDrawerWriteIn = async (topic, writeInValue, writeInText) => {
+  // Local state only. StanceChooser calls this on every keystroke, so it must
+  // never reach the network — the debounced twin below is the one that saves.
+  const handleDrawerWriteIn = (topic, writeInValue, writeInText) => {
     setAnswers((prev) => ({ ...prev, [topic.short_title]: writeInValue }));
     setWriteIns((prev) => ({ ...prev, [topic.short_title]: writeInText }));
     if (!answeredTopicIDs.includes(topic.id)) {
       setAnsweredTopicIDs((prev) => [...prev, topic.id]);
     }
-    if (isLoggedIn) {
-      try {
-        await apiFetch('/compass/answers', {
-          method: "POST",
-          body: JSON.stringify({ topic_id: topic.id, value: writeInValue, write_in_text: writeInText }),
-        });
-      } catch { /* best-effort server sync; the answer is already stored locally. A failed save is currently silent. */ }
-    }
   };
 
+  // Debounced 600 ms inside StanceChooser (and flushed on a drop, on a topic
+  // change and on unmount), so this is one POST per sentence, not per letter.
+  const handleDrawerPersistWriteIn = async (topic, writeInValue, writeInText) => {
+    if (!isLoggedIn) return;
+    try {
+      await apiFetch('/compass/answers', {
+        method: "POST",
+        body: JSON.stringify({ topic_id: topic.id, value: writeInValue, write_in_text: writeInText }),
+      });
+    } catch { /* best-effort server sync; the answer is already stored locally. A failed save is currently silent. */ }
+  };
+
+  // An obligation, not a notification: StanceChooser latches the value it
+  // dismissed, so leaving a half-step answer standing here would leave the
+  // drawer showing an unselected list for a question this page calls answered.
+  // The answer only goes when it IS a write-in — the chooser also reports a
+  // cancel on the way into a stance pick (to clear stale text), and deleting an
+  // integer answer there would undo the pick that is arriving right behind it.
   const handleDrawerCancelWriteIn = (topic) => {
-    setAnswers(prev => { const u = { ...prev }; delete u[topic.short_title]; return u; });
+    setAnswers(prev => {
+      if (!isWriteIn(prev[topic.short_title])) return prev;
+      const u = { ...prev };
+      delete u[topic.short_title];
+      return u;
+    });
     setWriteIns(prev => { const u = { ...prev }; delete u[topic.short_title]; return u; });
   };
 
@@ -2360,6 +2378,7 @@ function CombinedPage() {
             invertedSpokes={invertedSpokes}
             writeIns={writeIns}
             onSelectWriteIn={handleDrawerWriteIn}
+            onPersistWriteIn={handleDrawerPersistWriteIn}
             onCancelWriteIn={handleDrawerCancelWriteIn}
             isOnCompass={drawerTopic ? selectedTopics.includes(drawerTopic.id) : false}
             onRemoveFromCompass={(topic) => {

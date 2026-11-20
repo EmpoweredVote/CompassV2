@@ -6,6 +6,7 @@ import Favicon from "./Favicon";
 import { getPolName } from "../util/name";
 import { getQuestionText, parseTensionTitle } from "../util/topic";
 import InlinePoliticianPicker from "./InlinePoliticianPicker";
+import { orderStances, isWriteIn } from "../lib/writeIn";
 
 import { ESSENTIALS_URL } from "../lib/essentials";
 
@@ -37,7 +38,7 @@ function ComparePanel({
   const selectedTopic = topics.find((t) => t.short_title === dropdownValue);
   const userValue = answers[dropdownValue];
   const polValue = compareAnswers[dropdownValue];
-  const isWriteIn = userValue && !Number.isInteger(userValue);
+  const userWroteIn = isWriteIn(userValue);
   const topicSelected = dropdownValue && dropdownValue !== "default";
 
   // Sync dropdown selection to topic ID
@@ -120,10 +121,14 @@ function ComparePanel({
   };
 
   const stances = selectedTopic?.stances || [];
-  // Match the stance order LibraryDrawer/CalibrationOverlay show for this spoke —
-  // inversion is display-only; stored values stay on the canonical stance.value scale.
+  // One stance order for every surface. This panel used to reverse the array
+  // as served, which only matched whichever of LibraryDrawer/CalibrationOverlay
+  // happened to agree with it — those two read the same inversion flag in
+  // opposite directions, which is the drift `orderStances` exists to end. It
+  // sorts on `.value`: not inverted → descending, inverted → ascending.
+  // Inversion is display-only; stored values stay on the canonical stance.value scale.
   const isInverted = !!(selectedTopic && invertedSpokes[selectedTopic.short_title]);
-  const displayStances = isInverted ? [...stances].reverse() : stances;
+  const displayStances = orderStances(stances, isInverted);
   const polHasAnswered = polValue && polValue > 0;
   const hasContent =
     reasoning || (Array.isArray(sources) && sources.length > 0);
@@ -216,18 +221,18 @@ function ComparePanel({
               {/* Stances */}
               <div className="px-3 pb-3 flex flex-col gap-1.5">
                 {displayStances.map((stance) => {
-                  const isUser = !isWriteIn && userValue === stance.value;
+                  const isUser = !userWroteIn && userValue === stance.value;
                   const isPol = polValue === stance.value;
                   const isActive = isUser || isPol;
 
                   return (
                     <button
                       key={stance.id}
-                      onClick={() => !isWriteIn && updateStance(stance.value)}
-                      disabled={isWriteIn || saving}
+                      onClick={() => !userWroteIn && updateStance(stance.value)}
+                      disabled={userWroteIn || saving}
                       className={`
                         relative text-left px-3 py-3 rounded-xl transition-all text-sm leading-snug
-                        ${isWriteIn ? "cursor-default" : "cursor-pointer"}
+                        ${userWroteIn ? "cursor-default" : "cursor-pointer"}
                         ${
                           isActive
                             ? "bg-neutral-50 dark:bg-zinc-700 border border-neutral-200 dark:border-zinc-600"
@@ -255,7 +260,7 @@ function ComparePanel({
                   );
                 })}
 
-                {isWriteIn && (
+                {userWroteIn && (
                   <div className="relative px-3 py-3 rounded-xl bg-[#7C6B9E]/5 dark:bg-[#7C6B9E]/10 border border-[#7C6B9E]/20">
                     <span className="text-sm text-neutral-900 dark:text-white pr-6">
                       {writeIns[dropdownValue] || "(Custom stance)"}
