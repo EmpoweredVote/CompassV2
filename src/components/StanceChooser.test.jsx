@@ -319,15 +319,57 @@ describe("data that arrives after mount", () => {
     expect(rowIndexOfCard()).toBe(1);
   });
 
-  it("does not re-seed the editor while the user is typing", () => {
-    render({ currentAnswer: null });
-    click(writeOwn());
-    type("half a thought");
+  // The guarded door CAN fire into an open card — a stance list that changes
+  // under it makes `itemsMatchStances` false. What it must never do is put the
+  // stored text back over what is being typed.
+  it("re-places the card without re-seeding the editor the user is typing in", () => {
+    render({ currentAnswer: 4.5, writeInText: "stored text" });
+    type("my fresher text");
 
-    // A parent re-render carrying stored text for this same topic.
-    render({ currentAnswer: null, writeInText: "something older" });
+    // A shorter revision of the same question arrives: the list no longer
+    // matches, so the guarded effect runs.
+    const SHORTER = STANCES.filter((s) => s.value !== 1);
+    render({ stances: SHORTER, currentAnswer: 4.5, writeInText: "stored text" });
 
-    expect(card().querySelector("textarea").value).toBe("half a thought");
+    expect(container.querySelectorAll('[data-testid="stance-row"]')).toHaveLength(4);
+    expect(rowIndexOfCard()).toBe(0); // 4 stances, value 4.5, not inverted
+    expect(card().querySelector("textarea").value).toBe("my fresher text");
+  });
+
+  // The round-1 fix closed this for the first question only: an early return
+  // that skipped the resets left the previous question's card standing, and the
+  // guarded door then saw a list that already looked complete.
+  it("does not carry one question's write-in onto the next when stances lag", () => {
+    const NEXT = { id: "t2", short_title: "Topic Two" };
+    const onSelectWriteIn = vi.fn();
+    const onPersistWriteIn = vi.fn();
+    const common = { onSelectWriteIn, onPersistWriteIn };
+
+    render({ currentAnswer: 4.5, writeInText: "TOPIC ONE TEXT", ...common });
+    expect(card().querySelector("textarea").value).toBe("TOPIC ONE TEXT");
+
+    // Next question, its stances not loaded yet.
+    render({ topic: NEXT, stances: [], currentAnswer: 2.5, writeInText: "TOPIC TWO TEXT", ...common });
+    expect(container.firstChild).toBeNull();
+
+    // They land.
+    render({ topic: NEXT, stances: STANCES, currentAnswer: 2.5, writeInText: "TOPIC TWO TEXT", ...common });
+
+    expect(card().querySelector("textarea").value).toBe("TOPIC TWO TEXT");
+    expect(rowIndexOfCard()).toBe(3); // 5 stances, value 2.5, not inverted
+
+    onSelectWriteIn.mockClear();
+    onPersistWriteIn.mockClear();
+    type("TOPIC TWO TEXT edited");
+
+    expect(onSelectWriteIn).toHaveBeenCalledWith(NEXT, 2.5, "TOPIC TWO TEXT edited");
+    // Nothing from the question just left may reach the new one's record.
+    for (const [calledTopic, calledValue, calledText] of onSelectWriteIn.mock.calls) {
+      expect(calledTopic).toBe(NEXT);
+      expect(calledValue).toBe(2.5);
+      expect(calledText).not.toContain("TOPIC ONE");
+    }
+    expect(onPersistWriteIn).not.toHaveBeenCalled(); // still inside the debounce
   });
 });
 

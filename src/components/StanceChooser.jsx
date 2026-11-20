@@ -35,9 +35,17 @@
 //   onSelectStance(topic, value)
 //   onSelectWriteIn(topic, value, text)   immediate, every keystroke; local state
 //   onPersistWriteIn(topic, value, text)  debounced 600 ms; wire THIS to the API
-//   onCancelWriteIn(topic)
+//   onCancelWriteIn(topic)                the parent MUST clear its stored value
 //   onWriteInModeChange(isOpen)           fires on every open/close, restore included
 //   onOpenWriteIn()                       fires only when the user asks for the card
+//
+// `onCancelWriteIn` is an obligation, not a notification. A dismissal is
+// latched here against the value it dismissed (see `dismissedValueRef`), so a
+// parent that leaves a half-step `currentAnswer` standing gets a component that
+// shows an unselected stance list for a question its own state calls answered —
+// and because the latch is on the value, a later refetch re-asserting that same
+// half-step stays suppressed too. Clear the value; do not rely on the card
+// coming back.
 import { useEffect, useRef, useState } from "react";
 import {
   DndContext,
@@ -307,15 +315,19 @@ function StanceChooser({
   useEffect(() => {
     const restored = storedValueRef.current;
     dismissedValueRef.current = null;
-    if (!topic || !isWriteIn(restored)) {
+    const list = topic ? orderStances(stances, isInverted) : [];
+    // Nothing to show, or nothing to place it among yet. Clearing is not
+    // optional here: a bare `return` would leave the previous question's card,
+    // text and placement standing, and the second door below would then see a
+    // list that already looks complete and leave them there — the last user's
+    // words, at the last question's placement, on this question's record.
+    if (!topic || !isWriteIn(restored) || list.length === 0) {
       setShowWriteIn(false);
       setText("");
       setOrderedItems([]);
       setHasRepositioned(false);
       return;
     }
-    const list = orderStances(stances, isInverted);
-    if (list.length === 0) return; // nothing to place it among yet
     const items = list.map((s) => s.id);
     items.splice(placementFromValue(restored, list.length, isInverted), 0, WRITE_IN_ID);
     setShowWriteIn(true);
