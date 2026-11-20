@@ -23,7 +23,9 @@
 //                      save lands (Full Calibration's `selectedValue`)
 //   writeInText        the stored write-in text; seeds the card's editor
 //   isInverted         this spoke's random display inversion (anti-bias; it
-//                      never changes a stored value)
+//                      never changes a stored value). Safe to flip while a card
+//                      is open: a placed card re-derives its row, an unplaced
+//                      one keeps its position and, above all, its text
 //   disabled           no picks accepted; the unchosen options dim. It does NOT
 //                      freeze a drag already on screen
 //   gapClassName       the Tailwind gap between options. Four surfaces use four
@@ -40,6 +42,11 @@
 //                      is emptied (card STAYS OPEN at its placement)
 //   onWriteInModeChange(isOpen)           fires on every open/close, restore included
 //   onOpenWriteIn()                       fires only when the user asks for the card
+//
+// The editor takes focus on a deliberate "Write your own...", never on a
+// restore. A restored card is a side effect of arriving at a question, and
+// focusing it there scrolls the question's own heading out of a scrolling
+// panel and pulls a keyboard user out of the list they were arrowing through.
 //
 // Clearing the text and cancelling are deliberately different gestures. An
 // empty textarea clears the answer and keeps the card at its placement, so
@@ -122,7 +129,7 @@ function SortableStanceLabel({ id, text, t }) {
   );
 }
 
-function SortableWriteInCard({ id, text, onChange, onCancel, showHint, disabled, t }) {
+function SortableWriteInCard({ id, text, onChange, onCancel, showHint, disabled, autoFocus, t }) {
   const {
     attributes,
     listeners,
@@ -167,7 +174,7 @@ function SortableWriteInCard({ id, text, onChange, onCancel, showHint, disabled,
       </div>
       <div className="flex-1 flex flex-col gap-1">
         <textarea
-          autoFocus
+          autoFocus={autoFocus}
           value={text}
           disabled={disabled}
           onChange={(e) => onChange(e.target.value)}
@@ -223,6 +230,20 @@ function StanceChooser({
   const [text, setText] = useState("");
   const [orderedItems, setOrderedItems] = useState([]);
   const [hasRepositioned, setHasRepositioned] = useState(false);
+  // Focus the editor on a deliberate "Write your own...", never on a restore.
+  // A restored card is a side effect of arriving at a question; stealing focus
+  // then scrolls the question's own heading out of a scrolling panel, and
+  // yanks a keyboard user out of whatever list they were arrowing through.
+  const [autoFocusCard, setAutoFocusCard] = useState(false);
+
+  // `orderedItems` is a DISPLAY order, so it only means anything alongside the
+  // inversion it was built under. Keeping them together is what lets a flip be
+  // read correctly in the render before the re-derive effect has run.
+  const itemsInverted = useRef(isInverted);
+  const setItems = (items, builtUnder = isInverted) => {
+    itemsInverted.current = builtUnder;
+    setOrderedItems(items);
+  };
 
   // The value a pick is measured against: an optimistic pending value wins,
   // so a surface that renders a choice before the save returns stays honest.
@@ -237,7 +258,7 @@ function StanceChooser({
   const writeInIndex = orderedItems.indexOf(WRITE_IN_ID);
   const placedValue =
     showWriteIn && hasRepositioned && writeInIndex >= 0 && ordered.length > 0
-      ? valueFromPlacement(writeInIndex, ordered.length, isInverted)
+      ? valueFromPlacement(writeInIndex, ordered.length, itemsInverted.current)
       : null;
 
   // The one answer to "is there a live write-in, and at what value?". A ref
@@ -310,12 +331,15 @@ function StanceChooser({
   useEffect(() => () => flushRef.current(), [topic?.id]);
 
   // ── Restore ──────────────────────────────────────────────────────────────
-  // Put an existing write-in back where its value says it belongs.
+  // Put an existing write-in back where its value says it belongs. Keyed on
+  // the question, because arriving at a question is what calls for a restore.
   //
-  // `isInverted` is a dependency on purpose. Inversion is display-only, so the
-  // stored value does not move — but the list it sits in flips, and a card
-  // left at its old index would be showing the wrong stance. The drawer's
-  // `[topic?.id]`-only version was the bug this re-derivation fixes.
+  // A flip is handled by the effect below instead, not here. It used to share
+  // this one, which meant an inversion change ran the whole restore — and the
+  // clearing branch with it. On a surface with a Flip control next to the card
+  // (Full Calibration has one), hitting Flip with a card open but not yet
+  // dragged threw away what the user had typed: nothing is stored until a
+  // placement exists, so there was nothing to restore it from.
   //
   // It restores on the value alone, not on the text: a half-step with no text
   // yet is a real state (placed, still being written) and must not collapse
@@ -332,8 +356,9 @@ function StanceChooser({
     if (!topic || !isWriteIn(restored) || list.length === 0) {
       setShowWriteIn(false);
       setText("");
-      setOrderedItems([]);
+      setItems([]);
       setHasRepositioned(false);
+      setAutoFocusCard(false);
       return;
     }
     const items = list.map((s) => s.id);
@@ -342,9 +367,46 @@ function StanceChooser({
     setText(writeInText || "");
     // Already placed, so the drag hint has nothing to teach.
     setHasRepositioned(true);
-    setOrderedItems(items);
+    setItems(items);
+    setAutoFocusCard(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [topic?.id, isInverted]);
+  }, [topic?.id]);
+
+  // ── Inversion ────────────────────────────────────────────────────────────
+  // A flip is display-only: no stored value moves. But the list the card sits
+  // in reverses, so a card left at its old row index would be pointing at a
+  // different stance — the re-derivation fix round 1 added, kept here.
+  //
+  // A card that has never been dragged has no placement to re-derive; it keeps
+  // its parked position at the foot of the list, and above all it keeps what
+  // the user has typed into it.
+  const showWriteInRef = useRef(showWriteIn);
+  showWriteInRef.current = showWriteIn;
+  const flipTopicRef = useRef(topic?.id);
+  useEffect(() => {
+    dismissedValueRef.current = null;
+    // A question whose inversion differs from the last one's changes both at
+    // once (Full Calibration reads `invertedSpokes[topic.short_title]`). The
+    // restore above has already built that question's list from scratch; this
+    // effect would be working from the question just left.
+    const sameTopic = flipTopicRef.current === topic?.id;
+    flipTopicRef.current = topic?.id;
+    if (!sameTopic) return;
+    if (!showWriteInRef.current) return;
+    const list = orderStances(stances, isInverted);
+    if (list.length === 0) return;
+    const items = list.map((s) => s.id);
+    // `liveValueRef` is read through the inversion those items were built
+    // under, so this is the card's value as it meant it a moment ago.
+    const placed = liveValueRef.current;
+    if (placed != null) {
+      items.splice(placementFromValue(placed, list.length, isInverted), 0, WRITE_IN_ID);
+    } else {
+      items.push(WRITE_IN_ID);
+    }
+    setItems(items, isInverted);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isInverted]);
 
   // The second door in. The effect above deliberately ignores `currentAnswer`,
   // `writeInText` and `stances` so that typing is never re-seeded — but a
@@ -369,7 +431,7 @@ function StanceChooser({
     items.splice(placementFromValue(value, ordered.length, isInverted), 0, WRITE_IN_ID);
     setShowWriteIn(true);
     setHasRepositioned(true);
-    setOrderedItems(items);
+    setItems(items);
     // Only seed text into an empty editor: this effect can also fire while the
     // card is open (late stances), and it must not overwrite what is typed.
     setText((prev) => prev || writeInText || "");
@@ -390,8 +452,9 @@ function StanceChooser({
     dismissedValueRef.current = dismissedValue;
     setShowWriteIn(false);
     setText("");
-    setOrderedItems([]);
+    setItems([]);
     setHasRepositioned(false);
+    setAutoFocusCard(false);
   };
 
   const handleSelectStance = (stanceValue) => {
@@ -414,7 +477,9 @@ function StanceChooser({
     dismissedValueRef.current = null;
     setShowWriteIn(true);
     setHasRepositioned(false);
-    setOrderedItems([...ordered.map((s) => s.id), WRITE_IN_ID]);
+    setItems([...ordered.map((s) => s.id), WRITE_IN_ID]);
+    // The one gesture that earns the focus: the user asked for this card.
+    setAutoFocusCard(true);
     onOpenWriteIn?.();
   };
 
@@ -424,7 +489,9 @@ function StanceChooser({
     const newIndex = orderedItems.indexOf(over.id);
     if (oldIndex < 0 || newIndex < 0) return;
     const reordered = arrayMove(orderedItems, oldIndex, newIndex);
-    setOrderedItems(reordered);
+    // A drag rearranges the list it is shown in, so the inversion it was built
+    // under is unchanged.
+    setItems(reordered, itemsInverted.current);
     setHasRepositioned(true);
     const placed = valueFromPlacement(
       reordered.indexOf(WRITE_IN_ID),
@@ -500,6 +567,7 @@ function StanceChooser({
                     onCancel={handleCancelWriteIn}
                     showHint={!!text.trim() && !hasRepositioned}
                     disabled={disabled}
+                    autoFocus={autoFocusCard}
                     t={t}
                   />
                 ) : (

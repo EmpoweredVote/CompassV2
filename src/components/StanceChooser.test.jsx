@@ -255,6 +255,42 @@ describe("the write-in card", () => {
     expect(card().querySelector("textarea").value).toBe("");
   });
 
+  // Full Calibration puts a Flip control inches above this card. Nothing is
+  // stored until a placement exists, so a flip mid-sentence had nothing to
+  // restore the typed text from and simply threw it away.
+  it("keeps an open, undragged card and its text when the spoke is flipped", () => {
+    render({ currentAnswer: null, isInverted: false });
+    click(writeOwn());
+    type("half a thought");
+
+    render({ currentAnswer: null, isInverted: true });
+
+    expect(card()).not.toBeNull();
+    expect(card().querySelector("textarea").value).toBe("half a thought");
+    // Never placed, so it stays parked at the foot of the flipped list.
+    expect(rowIndexOfCard()).toBe(5);
+    expect(container.querySelectorAll('[data-testid="stance-row"]')).toHaveLength(5);
+  });
+
+  it("re-derives a dragged card's row when the spoke is flipped mid-write-in", () => {
+    const onSelectWriteIn = vi.fn();
+    render({ currentAnswer: null, isInverted: false, onSelectWriteIn });
+    click(writeOwn());
+    type("my own view");
+    act(() => drag.end({ active: { id: "write-in" }, over: { id: "s4" } }));
+    expect(rowIndexOfCard()).toBe(1); // value 4.5, descending list
+
+    render({ currentAnswer: null, isInverted: true, onSelectWriteIn });
+
+    // Same stored value, mirrored list: 4.5 of 5 ascending sits at row 4.
+    expect(rowIndexOfCard()).toBe(4);
+    expect(card().querySelector("textarea").value).toBe("my own view");
+
+    onSelectWriteIn.mockClear();
+    type("my own view, restated");
+    expect(onSelectWriteIn).toHaveBeenCalledWith(TOPIC, 4.5, "my own view, restated");
+  });
+
   // Review Focus 4
   it("re-derives the card position when inversion changes", () => {
     render({ currentAnswer: 4.5, writeInText: "my own view", isInverted: false });
@@ -406,6 +442,24 @@ describe("data that arrives after mount", () => {
       expect(calledText).not.toContain("TOPIC ONE");
     }
     expect(onPersistWriteIn).not.toHaveBeenCalled(); // still inside the debounce
+  });
+});
+
+describe("focus", () => {
+  it("focuses the editor when the user asks for the card", () => {
+    render({ currentAnswer: null });
+    click(writeOwn());
+
+    expect(document.activeElement).toBe(card().querySelector("textarea"));
+  });
+
+  it("does not take focus when a card is restored", () => {
+    // Arriving at an answered question must not pull focus out of whatever
+    // list the user is navigating, or scroll the question's heading away.
+    render({ currentAnswer: 4.5, writeInText: "my own view" });
+
+    expect(card()).not.toBeNull();
+    expect(document.activeElement).not.toBe(card().querySelector("textarea"));
   });
 });
 
