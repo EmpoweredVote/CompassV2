@@ -15,6 +15,9 @@ describe("orderStances", () => {
   it("sorts by value, not by array order", () => {
     expect(orderStances(SHUFFLED_5, false).map(s => s.value)).toEqual([5, 4, 3, 2, 1]);
   });
+  it("sorts shuffled input ascending when inverted", () => {
+    expect(orderStances(SHUFFLED_5, true).map(s => s.value)).toEqual([1, 2, 3, 4, 5]);
+  });
   it("does not mutate its input", () => {
     const input = [...SHUFFLED_5];
     orderStances(input, false);
@@ -47,6 +50,22 @@ describe("round trip", () => {
       for (let i = 0; i <= count; i++) {
         const v = valueFromPlacement(i, count, inverted);
         expect(placementFromValue(v, count, inverted)).toBe(i);
+      }
+    }
+  });
+});
+
+describe("display order agrees with placement values", () => {
+  it.each([3, 5, 7])("interior slot value sits between its displayed neighbours for %i stances", (count) => {
+    const shuffled = Array.from({ length: count }, (_, k) => mk(((k * 2 + 1) % count) + 1));
+    for (const inverted of [false, true]) {
+      const shown = orderStances(shuffled, inverted);
+      for (let i = 1; i < count; i++) {
+        const v = valueFromPlacement(i, count, inverted);
+        const above = shown[i - 1].value;
+        const below = shown[i].value;
+        expect(v).toBeGreaterThan(Math.min(above, below));
+        expect(v).toBeLessThan(Math.max(above, below));
       }
     }
   });
