@@ -35,9 +35,17 @@
 //   onSelectStance(topic, value)
 //   onSelectWriteIn(topic, value, text)   immediate, every keystroke; local state
 //   onPersistWriteIn(topic, value, text)  debounced 600 ms; wire THIS to the API
-//   onCancelWriteIn(topic)                the parent MUST clear its stored value
+//   onCancelWriteIn(topic)                the parent MUST clear its stored value.
+//                      Fires on the card's × (card closes) AND when the textarea
+//                      is emptied (card STAYS OPEN at its placement)
 //   onWriteInModeChange(isOpen)           fires on every open/close, restore included
 //   onOpenWriteIn()                       fires only when the user asks for the card
+//
+// Clearing the text and cancelling are deliberately different gestures. An
+// empty textarea clears the answer and keeps the card at its placement, so
+// rewriting your own words never costs you your position on the scale; the ×
+// is how a write-in is abandoned. Both report `onCancelWriteIn`, because in
+// both the stored answer must go.
 //
 // `onCancelWriteIn` is an obligation, not a notification. A dismissal is
 // latched here against the value it dismissed (see `dismissedValueRef`), so a
@@ -440,8 +448,15 @@ function StanceChooser({
       onSelectWriteIn?.(topic, liveValue, newText);
       schedulePersist(liveValue, newText);
     } else {
+      // Emptying the textarea is an edit, not an abandonment — select-all and
+      // retype is how people rewrite a sentence. The stored answer goes (an
+      // empty write-in must never count as answered, and Next must treat the
+      // question as open), but the card stays exactly where it was dragged, so
+      // the next keystroke re-saves at the same placement with no second drag.
+      // `placedValue` is read off the list on screen, so it survives the
+      // parent clearing `currentAnswer` in response to this very call.
+      // Abandoning a write-in has its own control: the card's ×.
       cancelPersist();
-      closeWriteIn();
       onCancelWriteIn?.(topic);
     }
   };

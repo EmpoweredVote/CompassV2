@@ -203,15 +203,48 @@ describe("the write-in card", () => {
     expect(options()).toHaveLength(5);
   });
 
-  it("cancels when the text is cleared", () => {
+  it("clears the stored answer when the text is emptied, without closing the card", () => {
     const onCancelWriteIn = vi.fn();
     render({ currentAnswer: 2.5, writeInText: "my own view", onCancelWriteIn });
 
     expect(card()).not.toBeNull();
+    expect(rowIndexOfCard()).toBe(3); // 5 stances, value 2.5, not inverted
     type("   ");
 
+    // The answer goes — an empty write-in is not an answer.
     expect(onCancelWriteIn).toHaveBeenCalledWith(TOPIC);
-    expect(card()).toBeNull();
+    // The placement does not.
+    expect(card()).not.toBeNull();
+    expect(rowIndexOfCard()).toBe(3);
+  });
+
+  // Select-all-and-retype is how people rewrite a sentence. It must not cost
+  // them the position on the scale they already chose.
+  it("re-saves at the same placement after the text is cleared and retyped", () => {
+    const onSelectWriteIn = vi.fn();
+    const onCancelWriteIn = vi.fn();
+    render({ currentAnswer: null, onSelectWriteIn, onCancelWriteIn });
+
+    click(writeOwn());
+    type("my own view");
+    act(() => drag.end({ active: { id: "write-in" }, over: { id: "s4" } }));
+    expect(onSelectWriteIn).toHaveBeenLastCalledWith(TOPIC, 4.5, "my own view");
+    expect(rowIndexOfCard()).toBe(1);
+
+    type("");
+    expect(onCancelWriteIn).toHaveBeenCalledWith(TOPIC);
+
+    // The parent honours that by clearing its stored value, and re-renders.
+    render({ currentAnswer: null, onSelectWriteIn, onCancelWriteIn });
+    expect(card()).not.toBeNull();
+    expect(rowIndexOfCard()).toBe(1);
+    expect(card().querySelector("textarea").value).toBe("");
+
+    onSelectWriteIn.mockClear();
+    type("second thoughts");
+
+    // The original half-step, with no second drag — not a default.
+    expect(onSelectWriteIn).toHaveBeenCalledWith(TOPIC, 4.5, "second thoughts");
   });
 
   // Review Focus 3
@@ -291,6 +324,9 @@ describe("saving", () => {
     act(() => vi.advanceTimersByTime(WRITE_IN_SAVE_DEBOUNCE_MS * 2));
 
     expect(onPersistWriteIn).not.toHaveBeenCalled();
+    // The × really does abandon it: currentAnswer is still a half-step here,
+    // and the dismissal latch is what stops the card springing back open.
+    expect(card()).toBeNull();
   });
 });
 
