@@ -24,7 +24,7 @@ vi.mock("@dnd-kit/core", async (importOriginal) => {
   };
 });
 
-import StanceChooser from "./StanceChooser.jsx";
+import StanceChooser, { WRITE_IN_SAVE_DEBOUNCE_MS } from "./StanceChooser.jsx";
 
 const TOPIC = { id: "t1", short_title: "Topic One" };
 
@@ -163,6 +163,26 @@ describe("the write-in card", () => {
     act(() => drag.end({ active: { id: "write-in" }, over: { id: "s4" } }));
 
     expect(onSelectWriteIn).toHaveBeenCalledWith(TOPIC, 4.5, "my own view");
+    // The reported value and the card the user is looking at agree.
+    expect(rowIndexOfCard()).toBe(1);
+  });
+
+  // The drop reports a value outward, but a parent that saves async — or never
+  // feeds currentAnswer back — would leave the component thinking nothing is
+  // placed, and every keystroke after the drop would go nowhere.
+  it("keeps saving text after a drop without waiting for the parent to echo the value", () => {
+    const onSelectWriteIn = vi.fn();
+    render({ currentAnswer: null, onSelectWriteIn });
+
+    click(writeOwn());
+    type("first");
+    act(() => drag.end({ active: { id: "write-in" }, over: { id: "s4" } }));
+    onSelectWriteIn.mockClear();
+
+    // currentAnswer is deliberately still null: the parent never echoed.
+    type("first and more");
+
+    expect(onSelectWriteIn).toHaveBeenCalledWith(TOPIC, 4.5, "first and more");
   });
 
   it("tells the parent when write-in mode opens and closes", () => {
@@ -172,10 +192,12 @@ describe("the write-in card", () => {
 
     click(writeOwn());
     expect(onOpenWriteIn).toHaveBeenCalledTimes(1);
+    expect(onWriteInModeChange).toHaveBeenCalledTimes(1);
     expect(onWriteInModeChange).toHaveBeenLastCalledWith(true);
     expect(card()).not.toBeNull();
 
     click(card().querySelector('[data-testid="write-in-cancel"]'));
+    expect(onWriteInModeChange).toHaveBeenCalledTimes(2);
     expect(onWriteInModeChange).toHaveBeenLastCalledWith(false);
     expect(card()).toBeNull();
     expect(options()).toHaveLength(5);
@@ -211,16 +233,134 @@ describe("the write-in card", () => {
   });
 });
 
+describe("saving", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("debounces the persistence callback instead of firing it per keystroke", () => {
+    const onPersistWriteIn = vi.fn();
+    const onSelectWriteIn = vi.fn();
+    render({ currentAnswer: 4.5, writeInText: "mine", onPersistWriteIn, onSelectWriteIn });
+
+    type("mine a");
+    type("mine an");
+    type("mine and more");
+
+    // Local state is told every time; the API is not.
+    expect(onSelectWriteIn).toHaveBeenCalledTimes(3);
+    expect(onPersistWriteIn).not.toHaveBeenCalled();
+
+    act(() => vi.advanceTimersByTime(WRITE_IN_SAVE_DEBOUNCE_MS));
+
+    expect(onPersistWriteIn).toHaveBeenCalledTimes(1);
+    expect(onPersistWriteIn).toHaveBeenCalledWith(TOPIC, 4.5, "mine and more");
+  });
+
+  it("saves a placement immediately rather than waiting out the debounce", () => {
+    const onPersistWriteIn = vi.fn();
+    render({ currentAnswer: null, onPersistWriteIn });
+
+    click(writeOwn());
+    type("my own view");
+    act(() => drag.end({ active: { id: "write-in" }, over: { id: "s4" } }));
+
+    expect(onPersistWriteIn).toHaveBeenCalledTimes(1);
+    expect(onPersistWriteIn).toHaveBeenCalledWith(TOPIC, 4.5, "my own view");
+  });
+
+  it("flushes buffered text when the question changes", () => {
+    const onPersistWriteIn = vi.fn();
+    render({ currentAnswer: 4.5, writeInText: "mine", onPersistWriteIn });
+    type("mine and more");
+    expect(onPersistWriteIn).not.toHaveBeenCalled();
+
+    const NEXT = { id: "t2", short_title: "Topic Two" };
+    render({ topic: NEXT, currentAnswer: null, onPersistWriteIn });
+
+    // Saved against the topic it was typed on, not the one now on screen.
+    expect(onPersistWriteIn).toHaveBeenCalledTimes(1);
+    expect(onPersistWriteIn).toHaveBeenCalledWith(TOPIC, 4.5, "mine and more");
+  });
+
+  it("drops the buffered save when the write-in is cancelled", () => {
+    const onPersistWriteIn = vi.fn();
+    render({ currentAnswer: 4.5, writeInText: "mine", onPersistWriteIn });
+
+    type("mine and more");
+    click(card().querySelector('[data-testid="write-in-cancel"]'));
+    act(() => vi.advanceTimersByTime(WRITE_IN_SAVE_DEBOUNCE_MS * 2));
+
+    expect(onPersistWriteIn).not.toHaveBeenCalled();
+  });
+});
+
+// Important 1: both calibration surfaces load answers after mount, with the
+// same topic.id throughout.
+describe("data that arrives after mount", () => {
+  it("opens the card when a half-step answer lands later", () => {
+    render({ currentAnswer: null, writeInText: "" });
+    expect(card()).toBeNull();
+
+    render({ currentAnswer: 4.5, writeInText: "my own view" });
+
+    expect(card()).not.toBeNull();
+    expect(card().querySelector("textarea").value).toBe("my own view");
+    expect(rowIndexOfCard()).toBe(1);
+  });
+
+  it("places the card among the stances when the stances land later", () => {
+    render({ stances: [], currentAnswer: 4.5, writeInText: "my own view" });
+    expect(container.firstChild).toBeNull();
+
+    render({ stances: STANCES, currentAnswer: 4.5, writeInText: "my own view" });
+
+    expect(card()).not.toBeNull();
+    expect(container.querySelectorAll('[data-testid="stance-row"]')).toHaveLength(5);
+    expect(rowIndexOfCard()).toBe(1);
+  });
+
+  it("does not re-seed the editor while the user is typing", () => {
+    render({ currentAnswer: null });
+    click(writeOwn());
+    type("half a thought");
+
+    // A parent re-render carrying stored text for this same topic.
+    render({ currentAnswer: null, writeInText: "something older" });
+
+    expect(card().querySelector("textarea").value).toBe("half a thought");
+  });
+});
+
+describe("layout", () => {
+  it("lets the caller set the gap, because four surfaces use four", () => {
+    render({ gapClassName: "gap-3" });
+    const root = container.querySelector('[data-testid="stance-chooser"]');
+    expect(root.className).toContain("gap-3");
+    expect(root.className).not.toContain("gap-1.5");
+  });
+
+  it("keeps the viewport-height type scaling opt-in", () => {
+    render({});
+    expect(options()[0].className).not.toContain("clamp");
+    expect(options()[0].className).toContain("sm:text-base");
+
+    render({ scaleWithViewport: true });
+    expect(options()[0].className).toContain("md:text-[clamp(0.8125rem,1.5vh,0.875rem)]");
+  });
+});
+
 // Review Focus 5
 describe("missing data", () => {
   it("renders nothing rather than throwing when stances are missing or empty", () => {
+    // firstChild, not textContent: an empty wrapper div has no text either,
+    // and that is the exact thing this is here to rule out.
     render({ stances: [] });
-    expect(container.textContent).toBe("");
+    expect(container.firstChild).toBeNull();
 
     render({ stances: undefined });
-    expect(container.textContent).toBe("");
+    expect(container.firstChild).toBeNull();
 
     render({ topic: null });
-    expect(container.textContent).toBe("");
+    expect(container.firstChild).toBeNull();
   });
 });

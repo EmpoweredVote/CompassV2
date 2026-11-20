@@ -6,12 +6,13 @@
 //
 // What it owns: the display order (always via `orderStances`, always relative
 // to this spoke's inversion), the "Write your own..." affordance, the
-// drag-to-place write-in card, and the placement <-> value math (via
-// `src/lib/writeIn.js` — never reimplemented here).
+// drag-to-place write-in card, the placement <-> value math (via
+// `src/lib/writeIn.js` — never reimplemented here), and the 600 ms debounce in
+// front of the write-in save, so naive adoption cannot flood the API.
 //
-// What it does NOT own: persistence, analytics, navigation, or any copy that
-// belongs to one surface (the overlay's first-question onboarding hint stays
-// in the overlay). Those arrive as callbacks.
+// What it does NOT own: persistence itself, analytics, navigation, or any copy
+// that belongs to one surface (the overlay's first-question onboarding hint
+// stays in the overlay). Those arrive as callbacks.
 //
 // Props
 //   topic              the topic object; handed back verbatim to every callback
@@ -23,9 +24,17 @@
 //   writeInText        the stored write-in text; seeds the card's editor
 //   isInverted         this spoke's random display inversion (anti-bias; it
 //                      never changes a stored value)
-//   disabled           no picks accepted; the unchosen options dim
+//   disabled           no picks accepted; the unchosen options dim. It does NOT
+//                      freeze a drag already on screen
+//   gapClassName       the Tailwind gap between options. Four surfaces use four
+//                      different gaps and a wrapper cannot override one
+//   scaleWithViewport  opt in to the overlay's viewport-height type/padding
+//                      scaling. Off by default: it drops desktop body text to
+//                      <=14px and ties it to window height, which is right in a
+//                      full-screen flow and wrong in a side panel
 //   onSelectStance(topic, value)
-//   onSelectWriteIn(topic, value, text)   value is always a half-step
+//   onSelectWriteIn(topic, value, text)   immediate, every keystroke; local state
+//   onPersistWriteIn(topic, value, text)  debounced 600 ms; wire THIS to the API
 //   onCancelWriteIn(topic)
 //   onWriteInModeChange(isOpen)           fires on every open/close, restore included
 //   onOpenWriteIn()                       fires only when the user asks for the card
@@ -56,6 +65,10 @@ import {
 } from "../lib/writeIn";
 
 const WRITE_IN_ID = "write-in";
+
+// CalibrationOverlay's proven value: long enough that a sentence is one save,
+// short enough that a user who types and navigates away keeps their words.
+export const WRITE_IN_SAVE_DEBOUNCE_MS = 600;
 
 // Lifted verbatim from CalibrationOverlay — it was byte-identical in all three
 // copies, and the drag only reads right at this easing.
@@ -176,8 +189,11 @@ function StanceChooser({
   writeInText = "",
   isInverted = false,
   disabled = false,
+  gapClassName = "gap-1.5",
+  scaleWithViewport = false,
   onSelectStance,
   onSelectWriteIn,
+  onPersistWriteIn,
   onCancelWriteIn,
   onWriteInModeChange,
   onOpenWriteIn,
@@ -195,10 +211,39 @@ function StanceChooser({
   // The value a pick is measured against: an optimistic pending value wins,
   // so a surface that renders a choice before the save returns stays honest.
   const value = pendingValue != null ? pendingValue : currentAnswer;
-  // The handlers below run after a user gesture, by which time `value` may be
-  // a render behind; a ref keeps them reading what is on screen now.
-  const valueRef = useRef(value);
-  valueRef.current = value;
+
+  // Where the card sits NOW, read off the list on screen rather than off the
+  // prop. A drop reports a value outward, but a parent that saves async — or
+  // never feeds `currentAnswer` back at all — would otherwise leave the
+  // component thinking nothing is placed, and every keystroke after the drop
+  // would be dropped on the floor. `hasRepositioned` is the gate: a freshly
+  // opened card is parked below the list and has not been placed by anyone.
+  const writeInIndex = orderedItems.indexOf(WRITE_IN_ID);
+  const placedValue =
+    showWriteIn && hasRepositioned && writeInIndex >= 0 && ordered.length > 0
+      ? valueFromPlacement(writeInIndex, ordered.length, isInverted)
+      : null;
+
+  // The one answer to "is there a live write-in, and at what value?". A ref
+  // because the handlers below run after a user gesture, by which time the
+  // render that created them may be a beat behind.
+  const liveValueRef = useRef(null);
+  liveValueRef.current =
+    placedValue != null ? placedValue : isWriteIn(value) ? value : null;
+
+  // The stored value alone, for the restore effect below. It must NOT read
+  // `liveValueRef`: on the render where the topic changes, the card's on-screen
+  // placement still belongs to the question just left, and restore would carry
+  // it onto a question nobody has answered.
+  const storedValueRef = useRef(null);
+  storedValueRef.current = isWriteIn(value) ? value : null;
+
+  // A value the user has just dismissed here. Without it the second restore
+  // door below would fight the cancel: the parent has been told, but until it
+  // clears its own state `currentAnswer` still reads as a live write-in, and
+  // the card would spring straight back open. Cleared on a topic or inversion
+  // change, and bypassed by any other value.
+  const dismissedValueRef = useRef(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 3 } }),
@@ -207,7 +252,49 @@ function StanceChooser({
     })
   );
 
-  // Restore: put an existing write-in back where its value says it belongs.
+  // ── Debounced persistence ────────────────────────────────────────────────
+  // The overlay debounced its POST by 600 ms "so typing doesn't flood the API"
+  // and the other copies did not. Solving it here means four adopters cannot
+  // each forget it. `onSelectWriteIn` stays immediate for local state; only
+  // this one waits.
+  const persistTimer = useRef(null);
+  const pendingPersist = useRef(null);
+  const persistRef = useRef(onPersistWriteIn);
+  persistRef.current = onPersistWriteIn;
+  const topicRef = useRef(topic);
+  topicRef.current = topic;
+
+  const flushPersist = () => {
+    clearTimeout(persistTimer.current);
+    persistTimer.current = null;
+    const pending = pendingPersist.current;
+    pendingPersist.current = null;
+    // The pending payload carries its own topic: a flush triggered by moving
+    // to the next question must not save the last answer against the new one.
+    if (pending) persistRef.current?.(pending.topic, pending.value, pending.text);
+  };
+
+  const cancelPersist = () => {
+    clearTimeout(persistTimer.current);
+    persistTimer.current = null;
+    pendingPersist.current = null;
+  };
+
+  const schedulePersist = (v, newText) => {
+    pendingPersist.current = { topic: topicRef.current, value: v, text: newText };
+    clearTimeout(persistTimer.current);
+    persistTimer.current = setTimeout(flushPersist, WRITE_IN_SAVE_DEBOUNCE_MS);
+  };
+
+  const flushRef = useRef(flushPersist);
+  flushRef.current = flushPersist;
+
+  // Leaving the question (or the screen) saves what is in the buffer, rather
+  // than silently losing the last 600 ms of typing.
+  useEffect(() => () => flushRef.current(), [topic?.id]);
+
+  // ── Restore ──────────────────────────────────────────────────────────────
+  // Put an existing write-in back where its value says it belongs.
   //
   // `isInverted` is a dependency on purpose. Inversion is display-only, so the
   // stored value does not move — but the list it sits in flips, and a card
@@ -218,7 +305,8 @@ function StanceChooser({
   // yet is a real state (placed, still being written) and must not collapse
   // the card out from under the typist.
   useEffect(() => {
-    const restored = valueRef.current;
+    const restored = storedValueRef.current;
+    dismissedValueRef.current = null;
     if (!topic || !isWriteIn(restored)) {
       setShowWriteIn(false);
       setText("");
@@ -227,6 +315,7 @@ function StanceChooser({
       return;
     }
     const list = orderStances(stances, isInverted);
+    if (list.length === 0) return; // nothing to place it among yet
     const items = list.map((s) => s.id);
     items.splice(placementFromValue(restored, list.length, isInverted), 0, WRITE_IN_ID);
     setShowWriteIn(true);
@@ -237,8 +326,38 @@ function StanceChooser({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [topic?.id, isInverted]);
 
+  // The second door in. The effect above deliberately ignores `currentAnswer`,
+  // `writeInText` and `stances` so that typing is never re-seeded — but a
+  // parent that loads answers after mount (both calibration surfaces do) keeps
+  // the same `topic.id` throughout, so without this a late half-step answer
+  // would leave the user staring at an unanswered question, and a late
+  // `stances` array would leave a lone card with no stances under it.
+  //
+  // Guarded so it cannot touch a card the user is working in: it fires only
+  // when the card is closed, or when the list it was built from no longer
+  // matches the stances on screen.
+  const needsCard =
+    !!topic &&
+    isWriteIn(value) &&
+    ordered.length > 0 &&
+    value !== dismissedValueRef.current;
+  const itemsMatchStances = orderedItems.length === ordered.length + 1;
+  useEffect(() => {
+    if (!needsCard) return;
+    if (showWriteIn && itemsMatchStances) return;
+    const items = ordered.map((s) => s.id);
+    items.splice(placementFromValue(value, ordered.length, isInverted), 0, WRITE_IN_ID);
+    setShowWriteIn(true);
+    setHasRepositioned(true);
+    setOrderedItems(items);
+    // Only seed text into an empty editor: this effect can also fire while the
+    // card is open (late stances), and it must not overwrite what is typed.
+    setText((prev) => prev || writeInText || "");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [needsCard, itemsMatchStances, showWriteIn, value, writeInText, ordered.length, isInverted]);
+
   // One place reports the mode, so restore, cancel and a cleared textarea all
-  // tell the parent the same way.
+  // tell the parent the same way, exactly once per transition.
   const reportedMode = useRef(false);
   useEffect(() => {
     if (reportedMode.current === showWriteIn) return;
@@ -247,7 +366,8 @@ function StanceChooser({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showWriteIn]);
 
-  const closeWriteIn = () => {
+  const closeWriteIn = (dismissedValue = liveValueRef.current) => {
+    dismissedValueRef.current = dismissedValue;
     setShowWriteIn(false);
     setText("");
     setOrderedItems([]);
@@ -260,8 +380,9 @@ function StanceChooser({
     // reported first: a parent that writes both through one store would
     // otherwise delete the answer it was just given.
     const hadWriteIn =
-      showWriteIn || isWriteIn(valueRef.current) || !!(writeInText || "").trim();
+      showWriteIn || liveValueRef.current != null || !!(writeInText || "").trim();
     if (hadWriteIn) {
+      cancelPersist();
       closeWriteIn();
       onCancelWriteIn?.(topic);
     }
@@ -270,6 +391,7 @@ function StanceChooser({
 
   const handleOpenWriteIn = () => {
     if (disabled) return;
+    dismissedValueRef.current = null;
     setShowWriteIn(true);
     setHasRepositioned(false);
     setOrderedItems([...ordered.map((s) => s.id), WRITE_IN_ID]);
@@ -290,23 +412,31 @@ function StanceChooser({
       isInverted
     );
     onSelectWriteIn?.(topic, placed, text);
+    // A placement is one deliberate act, not a stream: it saves now, and takes
+    // whatever text the buffer was holding with it.
+    schedulePersist(placed, text);
+    flushPersist();
   };
 
   const handleTextChange = (newText) => {
     setText(newText);
+    const liveValue = liveValueRef.current;
     // Before a placement there is no value to save against; the text is held
     // locally until the drag gives it one.
-    if (!isWriteIn(valueRef.current)) return;
+    if (liveValue == null) return;
     if (newText.trim()) {
-      onSelectWriteIn?.(topic, valueRef.current, newText);
+      onSelectWriteIn?.(topic, liveValue, newText);
+      schedulePersist(liveValue, newText);
     } else {
+      cancelPersist();
       closeWriteIn();
       onCancelWriteIn?.(topic);
     }
   };
 
   const handleCancelWriteIn = () => {
-    const hadValue = isWriteIn(valueRef.current);
+    const hadValue = liveValueRef.current != null;
+    cancelPersist();
     closeWriteIn();
     if (hadValue) onCancelWriteIn?.(topic);
   };
@@ -315,9 +445,16 @@ function StanceChooser({
   // API did not send. Rendering an empty shell would read as a broken list.
   if (!topic || ordered.length === 0) return null;
 
+  // One flag picks a whole size recipe, so no call site has to fight Tailwind's
+  // "same utility, source order wins" to undo half of one.
+  const sizeClasses = scaleWithViewport
+    ? "px-3 py-2.5 md:py-[clamp(0.375rem,1.05vh,0.625rem)] text-sm md:text-[clamp(0.8125rem,1.5vh,0.875rem)]"
+    : "px-4 py-3 text-sm sm:text-base";
+  const buttonClasses = `text-left rounded-lg transition-all duration-200 leading-snug font-medium cursor-pointer disabled:cursor-default ${sizeClasses}`;
+
   if (showWriteIn) {
     return (
-      <div className="flex flex-col gap-1.5" data-testid="stance-chooser">
+      <div className={`flex flex-col ${gapClassName}`} data-testid="stance-chooser">
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -325,7 +462,7 @@ function StanceChooser({
           onDragEnd={handleDragEnd}
         >
           <SortableContext items={orderedItems} strategy={verticalListSortingStrategy}>
-            <div className="flex flex-col gap-1.5">
+            <div className={`flex flex-col ${gapClassName}`}>
               {orderedItems.map((itemId) =>
                 itemId === WRITE_IN_ID ? (
                   <SortableWriteInCard
@@ -355,7 +492,7 @@ function StanceChooser({
   }
 
   return (
-    <div className="flex flex-col gap-1.5" data-testid="stance-chooser">
+    <div className={`flex flex-col ${gapClassName}`} data-testid="stance-chooser">
       {ordered.map((stance) => {
         const isSelected = value === stance.value;
         return (
@@ -364,7 +501,7 @@ function StanceChooser({
             data-testid="stance-option"
             disabled={disabled}
             onClick={() => handleSelectStance(stance.value)}
-            className="text-left px-3 py-2.5 md:py-[clamp(0.375rem,1.05vh,0.625rem)] rounded-lg transition-all duration-200 text-sm md:text-[clamp(0.8125rem,1.5vh,0.875rem)] leading-snug font-medium cursor-pointer disabled:cursor-default"
+            className={buttonClasses}
             style={{
               ...(isSelected
                 ? {
@@ -389,7 +526,7 @@ function StanceChooser({
         data-testid="write-own-option"
         disabled={disabled}
         onClick={handleOpenWriteIn}
-        className="text-left px-3 py-2.5 md:py-[clamp(0.375rem,1.05vh,0.625rem)] rounded-lg transition-all duration-200 text-sm md:text-[clamp(0.8125rem,1.5vh,0.875rem)] leading-snug font-medium cursor-pointer disabled:cursor-default"
+        className={buttonClasses}
         style={{
           border: `2px dashed ${t.writeOwnColor}`,
           color: t.writeOwnColor,
