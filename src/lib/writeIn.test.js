@@ -76,3 +76,23 @@ describe("isWriteIn", () => {
     "%s -> %s", (value, expected) => expect(isWriteIn(value)).toBe(expected)
   );
 });
+
+// Regression, kept for the record rather than for new coverage: the round-trip
+// case below already exercises count=5 / inverted / i=4. The quiz used to
+// rebuild a restored write-in card's list from the UNREVERSED stance ids while
+// a freshly opened card used the reversed display order, so an inverted spoke
+// redrew upside-down after a restore and the next drag saved the mirrored
+// value. Its own index math (Math.floor) was right — it is exactly
+// placementFromValue(v, n, true) for a half-step. Placement and display order
+// now come from one place, and this pins the half the quiz never had.
+describe("inverted restore", () => {
+  it("restores an inverted write-in to the side the user placed it on", () => {
+    // placed just below the strong end on an inverted spoke
+    const v = valueFromPlacement(4, 5, true);          // 4.5
+    expect(placementFromValue(v, 5, true)).toBe(4);
+    // and the list it indexes into is the one the user saw: slot 4 of the
+    // inverted display sits between the stances valued 4 and 5.
+    const shown = orderStances([1, 2, 3, 4, 5].map(mk), true);
+    expect([shown[3].value, shown[4].value]).toEqual([4, 5]);
+  });
+});
