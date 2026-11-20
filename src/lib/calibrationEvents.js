@@ -109,14 +109,23 @@ export function eventForGetStarted({ fromStep, totalTopics, lens }) {
  * interior of the flow legible — it gives the drop curve by question number,
  * which is finer than by step.
  */
-export function eventForAnswer({ topicSlug, answeredCount, totalTopics, answerType }) {
+export function eventForAnswer({
+  topicSlug,
+  answeredCount,
+  totalTopics,
+  answerType,
+  // The overlay is the default because it is every existing caller and the
+  // only one that ever passed no surface. /calibrate shares this event name
+  // with it, and the two flows are only separable if each says which it is.
+  surface = SURFACE,
+}) {
   return {
     event: "compass_calibration_question_answered",
     props: {
       topic_slug: topicSlug,
       answered_count: answeredCount,
       total_topics: totalTopics,
-      surface: SURFACE,
+      surface,
       answer_type: answerType,
     },
   };
