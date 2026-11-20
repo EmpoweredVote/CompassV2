@@ -401,19 +401,60 @@ export default function FullCalibration() {
   // `completedThisRun` separates "this session just closed the set" from "the
   // page opened on an already-complete compass", where review mode is the
   // STARTING condition and undoing it would be wrong. Only the former is
-  // reversible, and `clearWriteIn` is what reverses it.
+  // reversible; the effect below is what reverses it.
   const completedThisRun = useRef(false);
+  // The funnel event, once per page session.
+  //
+  // ⚠ finishRun ITSELF IS ALLOWED TO RUN AGAIN — the set can be reopened and
+  // re-closed, and the banner and the flag should follow — but the event must
+  // not. Rewriting the last answer is a clear and a re-place (select-all and
+  // retype is exactly that), so without this each rewrite would add a
+  // completion to the count and the funnel would report more finishes than
+  // finishers. `reportAnswer` is deduped for the same reason one level down.
+  const reportedCompletion = useRef(false);
   const finishRun = useCallback((newAnsweredCount) => {
     completedThisRun.current = true;
     setJustCompleted(true);
     setReviewMode(true);
     localStorage.setItem("calibration_completed", "true");
+    if (reportedCompletion.current) return;
+    reportedCompletion.current = true;
     track('compass_calibration_completed', {
       answered_count: newAnsweredCount,
       total_topics: allTopics.length,
       surface: 'full',
     });
   }, [allTopics.length]);
+
+  // The completion latch, re-checked against the answers that actually settled.
+  //
+  // 🔴 WHY AN EFFECT AND NOT A CHECK INSIDE clearWriteIn. The question is not
+  // "was a write-in removed" but "is the set still closed afterwards", and a
+  // handler cannot answer that. StanceChooser fires `onCancelWriteIn` BEFORE
+  // `onSelectStance` (StanceChooser.jsx:472-479), both synchronously, and
+  // `clearWriteIn` reads `answers` from the render closure — so when a
+  // write-in is SWAPPED for a pre-written stance the handler sees the removal
+  // with the half-step still stored and the replacement nowhere in sight. A
+  // guard there un-latched a set that was never actually reopened, which took
+  // the completion banner away mid-edit and let the answer after it finish the
+  // run a second time.
+  //
+  // `answeredCount` settles after both halves, so a swap never dips below the
+  // total and an abandonment always does. Immune to the ordering rather than
+  // dependent on it. (At latch time `answeredCount === totalCount` by
+  // construction: finishRun only runs when nextTopicFrom finds nothing, which
+  // already accounts for the re-ask set, and that set only ever shrinks.)
+  //
+  // `calibration_completed` in localStorage is deliberately NOT cleared here:
+  // it is one-way everywhere in this app (Quiz, Layout), and making it two-way
+  // on this one path would be the inconsistency rather than the fix.
+  useEffect(() => {
+    if (!completedThisRun.current) return;
+    if (totalCount === 0 || answeredCount >= totalCount) return;
+    completedThisRun.current = false;
+    setJustCompleted(false);
+    setReviewMode(false);
+  }, [answeredCount, totalCount]);
 
   // A pre-written stance, from StanceChooser's onSelectStance. Everything that
   // was already here is unchanged — the optimistic highlight, the crowd line,
@@ -531,22 +572,10 @@ export default function FullCalibration() {
     // reportable again.
     reportedAnswers.current.delete(topic.short_title);
 
-    // 🔴 A GAP REOPENED, SO THE RUN IS NOT OVER. `applyWriteIn` fires on a bare
-    // drop with no text yet, so dragging the card on the LAST open question
-    // closes the set — and then the × takes the answer away again. Without
-    // this the page was left at 59 of 60 with a completion banner up, review
-    // mode latched, and the queue walking the list in order instead of jumping
-    // back to the gap. Only a completion THIS run is undone (see the ref); a
-    // compass that was already complete when the page opened stays in review.
-    //
-    // `calibration_completed` in localStorage is deliberately left set: it is
-    // one-way everywhere in this app (Quiz, Layout) and making it two-way here
-    // alone would be the inconsistency, not the fix.
-    if (completedThisRun.current && isWriteIn(answers[topic.short_title])) {
-      completedThisRun.current = false;
-      setJustCompleted(false);
-      setReviewMode(false);
-    }
+    // Nothing about the completion latch is decided here — removing the answer
+    // is only half of a swap, and this handler is called before the other half
+    // exists. The effect beside `finishRun` re-checks it against the settled
+    // count instead.
     setSelectedValue(prev => (isWriteIn(prev) ? null : prev));
     setAnswers(prev => {
       if (!isWriteIn(prev[topic.short_title])) return prev;
@@ -560,7 +589,7 @@ export default function FullCalibration() {
       delete updated[topic.short_title];
       return updated;
     });
-  }, [answers, setAnswers, setWriteIns]);
+  }, [setAnswers, setWriteIns]);
 
   // Reported on every open/close, restore included.
   //
