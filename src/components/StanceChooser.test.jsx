@@ -62,6 +62,8 @@ const options = () => [...container.querySelectorAll('[data-testid="stance-optio
 const optionText = () => options().map((b) => b.textContent);
 const writeOwn = () => container.querySelector('[data-testid="write-own-option"]');
 const card = () => container.querySelector('[data-testid="write-in-card"]');
+const stanceRowTexts = () =>
+  [...container.querySelectorAll('[data-testid="stance-row"]')].map((el) => el.textContent);
 const rowIndexOfCard = () => {
   const rows = [
     ...container.querySelectorAll('[data-testid="stance-row"], [data-testid="write-in-card"]'),
@@ -289,6 +291,42 @@ describe("the write-in card", () => {
     onSelectWriteIn.mockClear();
     type("my own view, restated");
     expect(onSelectWriteIn).toHaveBeenCalledWith(TOPIC, 4.5, "my own view, restated");
+  });
+
+  // Roughly half of all question changes carry the same inversion as the one
+  // before, which is exactly when a flip-tracking ref never gets written. The
+  // flip that follows must still work — and the list the user is looking at is
+  // what a drop has to be scored against. Reporting the far end of someone's
+  // scale to the server is the worst thing this component can do.
+  it("still flips after a question change that did not change inversion", () => {
+    const onSelectWriteIn = vi.fn();
+    const NEXT = { id: "t2", short_title: "Topic Two" };
+    const common = { currentAnswer: null, onSelectWriteIn };
+
+    render({ isInverted: false, ...common });
+    render({ topic: NEXT, isInverted: false, ...common });
+
+    click(writeOwn());
+    type("my own view");
+    act(() => drag.end({ active: { id: "write-in" }, over: { id: "s4" } }));
+    expect(rowIndexOfCard()).toBe(1);
+    expect(onSelectWriteIn).toHaveBeenLastCalledWith(NEXT, 4.5, "my own view");
+
+    render({ topic: NEXT, isInverted: true, ...common });
+
+    // The list really did mirror, and the card followed its value.
+    expect(stanceRowTexts()).toEqual([
+      "Stance 1",
+      "Stance 2",
+      "Stance 3",
+      "Stance 4",
+      "Stance 5",
+    ]);
+    expect(rowIndexOfCard()).toBe(4);
+
+    // Dropping on the top row of an ascending list is the bottom of the scale.
+    act(() => drag.end({ active: { id: "write-in" }, over: { id: "s1" } }));
+    expect(onSelectWriteIn).toHaveBeenLastCalledWith(NEXT, 0.5, "my own view");
   });
 
   // Review Focus 4

@@ -382,16 +382,23 @@ function StanceChooser({
   // the user has typed into it.
   const showWriteInRef = useRef(showWriteIn);
   showWriteInRef.current = showWriteIn;
-  const flipTopicRef = useRef(topic?.id);
   useEffect(() => {
     dismissedValueRef.current = null;
-    // A question whose inversion differs from the last one's changes both at
-    // once (Full Calibration reads `invertedSpokes[topic.short_title]`). The
-    // restore above has already built that question's list from scratch; this
-    // effect would be working from the question just left.
-    const sameTopic = flipTopicRef.current === topic?.id;
-    flipTopicRef.current = topic?.id;
-    if (!sameTopic) return;
+    // The list on screen was already built under this inversion, so there is
+    // nothing to rebuild. That covers mount, and it covers a question whose
+    // inversion differs from the last one's — both change in one commit (Full
+    // Calibration reads `invertedSpokes[topic.short_title]`) and the restore
+    // above has already built that question's list, under this inversion, in
+    // this same commit.
+    //
+    // This asks the thing that matters — what the list on screen means —
+    // rather than tracking which topic was seen last. A ref written only
+    // inside this effect was wrong: half of all question changes do not flip,
+    // so it never ran, and the next genuine flip compared against a question
+    // the user had long since left and stood down on one that needed it.
+    // `itemsInverted` cannot go stale the same way: `orderedItems` only ever
+    // becomes non-empty through `setItems`, which sets both together.
+    if (itemsInverted.current === isInverted) return;
     if (!showWriteInRef.current) return;
     const list = orderStances(stances, isInverted);
     if (list.length === 0) return;
@@ -493,10 +500,14 @@ function StanceChooser({
     // under is unchanged.
     setItems(reordered, itemsInverted.current);
     setHasRepositioned(true);
+    // Read through the inversion the list on screen was built under, which is
+    // the list the user just dragged within. In the steady state that is
+    // `isInverted`; taking it from the items themselves means a drop can never
+    // be scored against a list the user is not looking at.
     const placed = valueFromPlacement(
       reordered.indexOf(WRITE_IN_ID),
       ordered.length,
-      isInverted
+      itemsInverted.current
     );
     onSelectWriteIn?.(topic, placed, text);
     // A placement is one deliberate act, not a stream: it saves now, and takes
