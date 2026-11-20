@@ -2608,6 +2608,9 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
               currentAnswer={currentTopic ? (answers[currentTopic.short_title] ?? null) : null}
               writeInText={currentTopic ? (writeIns?.[currentTopic.short_title] ?? "") : ""}
               isInverted={!!isFlipped}
+              // The panel's own clamp, kept on the stance rows it was written for:
+              // on a short desktop the list compresses to fit instead of scrolling.
+              gapClassName="gap-1.5 md:gap-[clamp(0.25rem,0.7vh,0.375rem)]"
               scaleWithViewport
               onSelectStance={handleSelectStance}
               onSelectWriteIn={applyWriteIn}
