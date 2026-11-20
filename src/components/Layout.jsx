@@ -228,7 +228,12 @@ function Layout({ children }) {
       const topic_id = titleToId.get(shortTitle);
       if (!topic_id) return Promise.resolve();
       const body = { topic_id, value };
-      if (wi[shortTitle]) body.write_in_text = wi[shortTitle];
+      // Gated on the value for the same reason as the Save path above, and it
+      // matters more here: `wi` is a whole snapshot written by that path, so it
+      // can carry text for a topic the user has since answered with a
+      // pre-written stance. Restoring would hand that text straight back to a
+      // server that had correctly dropped it.
+      if (isWriteIn(value) && wi[shortTitle]) body.write_in_text = wi[shortTitle];
       return apiFetch('/compass/answers', { method: 'POST', body: JSON.stringify(body) }).catch(() => {});
     });
     syncPromises.push(

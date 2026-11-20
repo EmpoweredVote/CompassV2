@@ -46,9 +46,9 @@ const DARK = {
   selBorder:    '#59B0C4',
   yellow:       '#FED12E',
   progressBg:   '#41454E',
-  stanceBg:     '#2F3237',
-  stanceBdr:    '#41454E',
-  stanceShadow: 'none',
+  // No stance tokens here: the stance list is StanceChooser's, and it serves
+  // its own palette from calibrationTheme. Keeping a dead copy would point the
+  // next reader at the wrong file when a stance button looks wrong.
   activeItem:   'rgba(89,176,196,0.09)',
   checkColor:   '#59B0C4',
   flipBtn:      '#41454E',
@@ -68,9 +68,7 @@ const LIGHT = {
   selBorder:    '#00657C',
   yellow:       '#FED12E',
   progressBg:   '#D3D7DE',
-  stanceBg:     '#FFFFFF',
-  stanceBdr:    '#D3D7DE',
-  stanceShadow: '0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.05)',
+  // See DARK: the stance tokens live in calibrationTheme, not here.
   activeItem:   '#EAF5F8',
   checkColor:   '#00657C',
   flipBtn:      '#E5E7EB',
@@ -399,7 +397,14 @@ export default function FullCalibration() {
   // the sidebar is still live, so any answer can be reconsidered on the spot.
   // Dropping into review mode is what stops the next change from trying to
   // finish the run a second time.
+  //
+  // `completedThisRun` separates "this session just closed the set" from "the
+  // page opened on an already-complete compass", where review mode is the
+  // STARTING condition and undoing it would be wrong. Only the former is
+  // reversible, and `clearWriteIn` is what reverses it.
+  const completedThisRun = useRef(false);
   const finishRun = useCallback((newAnsweredCount) => {
+    completedThisRun.current = true;
     setJustCompleted(true);
     setReviewMode(true);
     localStorage.setItem("calibration_completed", "true");
@@ -525,6 +530,23 @@ export default function FullCalibration() {
     // Re-placing at the same slot after a cancel is a new answer, so it must be
     // reportable again.
     reportedAnswers.current.delete(topic.short_title);
+
+    // 🔴 A GAP REOPENED, SO THE RUN IS NOT OVER. `applyWriteIn` fires on a bare
+    // drop with no text yet, so dragging the card on the LAST open question
+    // closes the set — and then the × takes the answer away again. Without
+    // this the page was left at 59 of 60 with a completion banner up, review
+    // mode latched, and the queue walking the list in order instead of jumping
+    // back to the gap. Only a completion THIS run is undone (see the ref); a
+    // compass that was already complete when the page opened stays in review.
+    //
+    // `calibration_completed` in localStorage is deliberately left set: it is
+    // one-way everywhere in this app (Quiz, Layout) and making it two-way here
+    // alone would be the inconsistency, not the fix.
+    if (completedThisRun.current && isWriteIn(answers[topic.short_title])) {
+      completedThisRun.current = false;
+      setJustCompleted(false);
+      setReviewMode(false);
+    }
     setSelectedValue(prev => (isWriteIn(prev) ? null : prev));
     setAnswers(prev => {
       if (!isWriteIn(prev[topic.short_title])) return prev;
@@ -538,7 +560,7 @@ export default function FullCalibration() {
       delete updated[topic.short_title];
       return updated;
     });
-  }, [setAnswers, setWriteIns]);
+  }, [answers, setAnswers, setWriteIns]);
 
   // Reported on every open/close, restore included.
   //
