@@ -11,6 +11,9 @@ import ExplainerPopover from '../components/ExplainerPopover';
 import { mergeFlags } from '../lib/recalibration';
 import { indexJournal, showsThread, markAffected } from '../lib/journal';
 import QuestionNotes from '../components/QuestionNotes';
+import StanceChooser from '../components/StanceChooser';
+import { isWriteIn } from '../lib/writeIn';
+import { eventForAnswer } from '../lib/calibrationEvents';
 import { useNavigate } from "react-router";
 import { track } from "@empoweredvote/analytics";
 import { useCompass } from "../components/CompassContext";
@@ -43,9 +46,9 @@ const DARK = {
   selBorder:    '#59B0C4',
   yellow:       '#FED12E',
   progressBg:   '#41454E',
-  stanceBg:     '#2F3237',
-  stanceBdr:    '#41454E',
-  stanceShadow: 'none',
+  // No stance tokens here: the stance list is StanceChooser's, and it serves
+  // its own palette from calibrationTheme. Keeping a dead copy would point the
+  // next reader at the wrong file when a stance button looks wrong.
   activeItem:   'rgba(89,176,196,0.09)',
   checkColor:   '#59B0C4',
   flipBtn:      '#41454E',
@@ -65,9 +68,7 @@ const LIGHT = {
   selBorder:    '#00657C',
   yellow:       '#FED12E',
   progressBg:   '#D3D7DE',
-  stanceBg:     '#FFFFFF',
-  stanceBdr:    '#D3D7DE',
-  stanceShadow: '0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.05)',
+  // See DARK: the stance tokens live in calibrationTheme, not here.
   activeItem:   '#EAF5F8',
   checkColor:   '#00657C',
   flipBtn:      '#E5E7EB',
@@ -93,6 +94,12 @@ function CircleIcon({ color }) {
 export default function FullCalibration() {
   const {
     topics, categories, answers, setAnswers, isLoggedIn, topicsLoaded,
+    // 🔴 THE BUG THIS PAGE WAS REPORTED FOR. `writeIns` was never read here at
+    // all, so a topic answered in the user's own words during onboarding came
+    // back as a ticked sidebar row with nothing highlighted and not a word of
+    // their text on screen — and there was no way to write one in the first
+    // place. Both halves are one missing destructure and one shared component.
+    writeIns, setWriteIns,
     lenses, userLenses,
     invertedSpokes, setInvertedSpokes, initRandomInversions,
   } = useCompass();
@@ -354,20 +361,114 @@ export default function FullCalibration() {
   }, [activeTopic?.id]);
 
   // ── Handlers ────────────────────────────────────────────────────────────
-  const handleAnswer = useCallback(async (value) => {
-    if (!activeTopic || selectedValue !== null) return;
-    const updatedAnswers = { ...answers, [activeTopic.short_title]: value };
-    const newAnsweredCount = allTopics.filter(tp => updatedAnswers[tp.short_title] > 0).length;
 
-    track('compass_calibration_question_answered', {
-      topic_slug: activeTopic.short_title,
+  // One "question answered" event per (topic, value) pair.
+  //
+  // The dedupe is new and it is not cosmetic: a write-in reports through here
+  // on every keystroke — `onSelectWriteIn` is immediate by StanceChooser's
+  // contract — so one typed sentence would otherwise be thirty answers, and
+  // answered_count is only readable as a drop curve if each answer counts once.
+  const reportedAnswers = useRef(new Map());
+  const reportAnswer = useCallback((topic, value, answerType, answeredCount) => {
+    if (reportedAnswers.current.get(topic.short_title) === value) return;
+    reportedAnswers.current.set(topic.short_title, value);
+    const { event, props } = eventForAnswer({
+      topicSlug: topic.short_title,
+      answeredCount,
+      totalTopics: allTopics.length,
+      answerType,
+      // The overlay fires the same event name. Without this they are one
+      // undifferentiated curve, which is the bug calibrationEvents exists for.
+      surface: 'full',
+    });
+    track(event, props);
+  }, [allTopics.length]);
+
+  // Re-answered, so the topic no longer owes one: drop it from the re-ask set
+  // before anything looks for the next topic, and the sidebar flag clears with
+  // it. Returns the set, because the caller needs it for that lookup.
+  const dropFromReanswer = useCallback((topicId) => {
+    const stillOwed = new Set(mustReanswer);
+    if (stillOwed.delete(topicId)) setMustReanswer(stillOwed);
+    return stillOwed;
+  }, [mustReanswer]);
+
+  // The last gap just closed. Stay exactly where we are and say so in a banner;
+  // the sidebar is still live, so any answer can be reconsidered on the spot.
+  // Dropping into review mode is what stops the next change from trying to
+  // finish the run a second time.
+  //
+  // `completedThisRun` separates "this session just closed the set" from "the
+  // page opened on an already-complete compass", where review mode is the
+  // STARTING condition and undoing it would be wrong. Only the former is
+  // reversible; the effect below is what reverses it.
+  const completedThisRun = useRef(false);
+  // The funnel event, once per page session.
+  //
+  // ⚠ finishRun ITSELF IS ALLOWED TO RUN AGAIN — the set can be reopened and
+  // re-closed, and the banner and the flag should follow — but the event must
+  // not. Rewriting the last answer is a clear and a re-place (select-all and
+  // retype is exactly that), so without this each rewrite would add a
+  // completion to the count and the funnel would report more finishes than
+  // finishers. `reportAnswer` is deduped for the same reason one level down.
+  const reportedCompletion = useRef(false);
+  const finishRun = useCallback((newAnsweredCount) => {
+    completedThisRun.current = true;
+    setJustCompleted(true);
+    setReviewMode(true);
+    localStorage.setItem("calibration_completed", "true");
+    if (reportedCompletion.current) return;
+    reportedCompletion.current = true;
+    track('compass_calibration_completed', {
       answered_count: newAnsweredCount,
       total_topics: allTopics.length,
       surface: 'full',
     });
+  }, [allTopics.length]);
+
+  // The completion latch, re-checked against the answers that actually settled.
+  //
+  // 🔴 WHY AN EFFECT AND NOT A CHECK INSIDE clearWriteIn. The question is not
+  // "was a write-in removed" but "is the set still closed afterwards", and a
+  // handler cannot answer that. StanceChooser fires `onCancelWriteIn` BEFORE
+  // `onSelectStance` (StanceChooser.jsx:472-479), both synchronously, and
+  // `clearWriteIn` reads `answers` from the render closure — so when a
+  // write-in is SWAPPED for a pre-written stance the handler sees the removal
+  // with the half-step still stored and the replacement nowhere in sight. A
+  // guard there un-latched a set that was never actually reopened, which took
+  // the completion banner away mid-edit and let the answer after it finish the
+  // run a second time.
+  //
+  // `answeredCount` settles after both halves, so a swap never dips below the
+  // total and an abandonment always does. Immune to the ordering rather than
+  // dependent on it. (At latch time `answeredCount === totalCount` by
+  // construction: finishRun only runs when nextTopicFrom finds nothing, which
+  // already accounts for the re-ask set, and that set only ever shrinks.)
+  //
+  // `calibration_completed` in localStorage is deliberately NOT cleared here:
+  // it is one-way everywhere in this app (Quiz, Layout), and making it two-way
+  // on this one path would be the inconsistency rather than the fix.
+  useEffect(() => {
+    if (!completedThisRun.current) return;
+    if (totalCount === 0 || answeredCount >= totalCount) return;
+    completedThisRun.current = false;
+    setJustCompleted(false);
+    setReviewMode(false);
+  }, [answeredCount, totalCount]);
+
+  // A pre-written stance, from StanceChooser's onSelectStance. Everything that
+  // was already here is unchanged — the optimistic highlight, the crowd line,
+  // the POST and the 420 ms advance.
+  const handleAnswer = useCallback(async (topic, value) => {
+    const tp = topic ?? activeTopic;
+    if (!tp || selectedValue !== null) return;
+    const updatedAnswers = { ...answers, [tp.short_title]: value };
+    const newAnsweredCount = allTopics.filter(t => updatedAnswers[t.short_title] > 0).length;
+
+    reportAnswer(tp, value, 'stance', newAnsweredCount);
 
     setSelectedValue(value);
-    setAnswers(prev => ({ ...prev, [activeTopic.short_title]: value }));
+    setAnswers(prev => ({ ...prev, [tp.short_title]: value }));
 
     // 🔴 THE ONLY PLACE THIS IS BUILT, AND THAT IS THE SAFEGUARD. A crowd figure
     // shown above five options nobody has chosen yet is an anchor on a product
@@ -375,51 +476,132 @@ export default function FullCalibration() {
     // handler, from the value just picked — means there is no path that renders
     // it before the choice, rather than a convention that it must not be.
     setReveal(answerReveal({
-      stats: statsByTopic.get(activeTopic.id),
+      stats: statsByTopic.get(tp.id),
       value,
-      topicName: parseTensionTitle(activeTopic).name,
+      topicName: parseTensionTitle(tp).name,
     }));
 
     if (isLoggedIn) {
+      // A value-only POST is also what CLEARS any write_in_text the server
+      // holds for this topic (probed live: {topic_id, value: 3} comes back
+      // with write_in_text: null). That is exactly right here — StanceChooser
+      // has already reported the write-in cancelled — and it is why the field
+      // is OMITTED rather than sent as null, which the API answers with a 422.
       apiFetch('/compass/answers', {
         method: 'POST',
-        body: JSON.stringify({ topic_id: activeTopic.id, value }),
+        body: JSON.stringify({ topic_id: tp.id, value }),
       }).catch(() => {});
     }
 
-    // Re-answered, so it no longer owes one: drop it from the set before
-    // looking for the next topic, and the sidebar highlight clears with it.
-    const stillOwed = new Set(mustReanswer);
-    if (stillOwed.delete(activeTopic.id)) setMustReanswer(stillOwed);
+    const stillOwed = dropFromReanswer(tp.id);
 
     setTimeout(() => {
       setSelectedValue(null);
-      const next = nextTopicFrom(allTopics, activeTopic.id, updatedAnswers, reviewMode, stillOwed);
+      const next = nextTopicFrom(allTopics, tp.id, updatedAnswers, reviewMode, stillOwed);
       if (next) {
         setActiveTopic(next);
-      } else if (reviewMode) {
-        // End of a revision pass. Stay on the last topic — the compass was
-        // already complete, so there is nothing to announce as finished.
-      } else {
-        // Completed. Stay exactly where we are and say so in a banner; the
-        // sidebar is still live, so any answer can be reconsidered on the spot.
-        // Dropping into review mode is what stops the next change from trying
-        // to finish the run a second time.
-        setJustCompleted(true);
-        setReviewMode(true);
-        localStorage.setItem("calibration_completed", "true");
-        track('compass_calibration_completed', {
-          answered_count: newAnsweredCount,
-          total_topics: allTopics.length,
-          surface: 'full',
-        });
+      } else if (!reviewMode) {
+        finishRun(newAnsweredCount);
       }
+      // reviewMode with nothing next: the end of a revision pass. Stay on the
+      // last topic — the compass was already complete, so there is nothing to
+      // announce as finished.
     }, 420);
     // ⚠ statsByTopic IS LOAD-BEARING HERE. It arrives from its own fetch, well
     // after this callback is first memoised. Left out, the closure keeps the
     // empty Map it was built with and every lookup misses — no reveal, ever,
     // with nothing failing and nothing in the console to say why.
-  }, [activeTopic, allTopics, answers, isLoggedIn, selectedValue, reviewMode, mustReanswer, statsByTopic]);
+  }, [activeTopic, allTopics, answers, isLoggedIn, selectedValue, reviewMode,
+      statsByTopic, reportAnswer, dropFromReanswer, finishRun, setAnswers]);
+
+  // ── Write-ins ───────────────────────────────────────────────────────────
+  // Every keystroke and every drop, straight from StanceChooser. Local state
+  // and analytics only: the API write is `persistWriteIn`, which the chooser
+  // debounces by 600 ms. Wiring the save here instead would be a POST per
+  // character — the split exists to make that mistake hard.
+  //
+  // 🔴 NO AUTO-ADVANCE ON THIS PATH, AND THAT IS THE POINT. A pre-written
+  // stance is one click and the page moves on after 420 ms; writing your own
+  // is a drag plus a sentence, and 420 ms into it the page would have thrown
+  // the question away mid-word. A write-in therefore never sets
+  // `selectedValue` either — the only thing that clears it is that same timer,
+  // so latching it here with no timer running would early-return every later
+  // answer on this topic forever.
+  const applyWriteIn = useCallback((topic, value, text) => {
+    if (!topic) return;
+    const updatedAnswers = { ...answers, [topic.short_title]: value };
+    const newAnsweredCount = allTopics.filter(t => updatedAnswers[t.short_title] > 0).length;
+
+    setAnswers(prev => ({ ...prev, [topic.short_title]: value }));
+    setWriteIns(prev => ({ ...prev, [topic.short_title]: text }));
+    reportAnswer(topic, value, 'write_in', newAnsweredCount);
+
+    // The run can still END on a write-in, and `calibration_completed` is what
+    // App.jsx routes on — so a compass finished in someone's own words must not
+    // finish silently. The banner is the whole of it; nothing navigates.
+    const stillOwed = dropFromReanswer(topic.id);
+    if (!reviewMode && !nextTopicFrom(allTopics, topic.id, updatedAnswers, reviewMode, stillOwed)) {
+      finishRun(newAnsweredCount);
+    }
+  }, [allTopics, answers, reviewMode, reportAnswer, dropFromReanswer, finishRun,
+      setAnswers, setWriteIns]);
+
+  // Debounced 600 ms inside StanceChooser, fired immediately on a drop, and
+  // flushed when the question changes — so moving on does not eat the last
+  // words typed. The payload carries its own topic for exactly that reason.
+  const persistWriteIn = useCallback((topic, value, text) => {
+    if (!topic || !isLoggedIn) return;
+    apiFetch('/compass/answers', {
+      method: 'POST',
+      body: JSON.stringify({ topic_id: topic.id, value, write_in_text: text }),
+    }).catch(() => {});
+  }, [isLoggedIn]);
+
+  // StanceChooser's cancel is an obligation, not a notification: it latches the
+  // value it dismissed, so a half-step left standing here would show an
+  // unselected stance list for a question our own state calls answered — a
+  // card-less, highlight-less "answered" question, which is the reported bug
+  // reached through another door.
+  //
+  // Guarded on isWriteIn rather than cleared outright, because the chooser also
+  // cancels on the way INTO a stance pick (to drop stale text), and the integer
+  // answer arriving behind it must survive that.
+  const clearWriteIn = useCallback((topic) => {
+    if (!topic) return;
+    // Re-placing at the same slot after a cancel is a new answer, so it must be
+    // reportable again.
+    reportedAnswers.current.delete(topic.short_title);
+
+    // Nothing about the completion latch is decided here — removing the answer
+    // is only half of a swap, and this handler is called before the other half
+    // exists. The effect beside `finishRun` re-checks it against the settled
+    // count instead.
+    setSelectedValue(prev => (isWriteIn(prev) ? null : prev));
+    setAnswers(prev => {
+      if (!isWriteIn(prev[topic.short_title])) return prev;
+      const updated = { ...prev };
+      delete updated[topic.short_title];
+      return updated;
+    });
+    setWriteIns(prev => {
+      if (!(topic.short_title in prev)) return prev;
+      const updated = { ...prev };
+      delete updated[topic.short_title];
+      return updated;
+    });
+  }, [setAnswers, setWriteIns]);
+
+  // Reported on every open/close, restore included.
+  //
+  // ⚠ `false` IS NOT "DISCARD THE TEXT". The flag flaps true → false → true as
+  // the chooser's restore effect rebuilds the card on a topic change, so acting
+  // on a close here would delete a write-in for the crime of being navigated
+  // to. The only thing this does is unlatch a pending pre-written pick, which
+  // otherwise has no timer left to clear it and would early-return every
+  // subsequent answer on this topic.
+  const handleWriteInModeChange = useCallback((isOpen) => {
+    if (isOpen) setSelectedValue(null);
+  }, []);
 
   const handleSkip = useCallback(() => {
     if (!activeTopic) return;
@@ -455,11 +637,9 @@ export default function FullCalibration() {
   // full topic from the topics array which includes the stances array.
   const fullActiveTopic = activeTopic ? (topics.find(t => t.id === activeTopic.id) ?? activeTopic) : null;
   const isFlipped = fullActiveTopic ? !!invertedSpokes[fullActiveTopic.short_title] : false;
-  const orderedStances = fullActiveTopic?.stances
-    ? isFlipped
-      ? [...fullActiveTopic.stances].sort((a, b) => a.value - b.value)
-      : [...fullActiveTopic.stances].sort((a, b) => b.value - a.value)
-    : [];
+  // The display order used to be derived here. It now lives in `orderStances`
+  // inside StanceChooser, which sorts to the same thing this did — descending
+  // for an upright spoke, ascending for a flipped one — so nothing moves.
   const qText    = fullActiveTopic ? getQuestionText(fullActiveTopic) : "";
   const { name: topicName, poles } = fullActiveTopic
     ? parseTensionTitle(fullActiveTopic)
@@ -1072,33 +1252,31 @@ export default function FullCalibration() {
                 )}
               </div>
 
-              {/* Stance buttons */}
-              <div className="flex flex-col gap-2.5">
-                {orderedStances.map(stance => {
-                  const isSelected = selectedValue === stance.value;
-                  const wasPicked  = answers[activeTopic.short_title] === stance.value;
-                  const highlight  = isSelected || (selectedValue === null && wasPicked);
-                  return (
-                    <button
-                      key={stance.id}
-                      data-testid="stance-option"
-                      onClick={() => handleAnswer(stance.value)}
-                      disabled={selectedValue !== null}
-                      className="w-full text-left px-4 py-3.5 rounded-xl text-sm font-medium leading-snug transition-all duration-150 cursor-pointer"
-                      style={{
-                        background:  highlight ? th.selBg : th.stanceBg,
-                        border:      `1.5px solid ${highlight ? th.selBorder : th.stanceBdr}`,
-                        color:       highlight ? th.textAccent : th.textHead,
-                        boxShadow:   highlight ? 'none' : th.stanceShadow,
-                        opacity:     selectedValue !== null && !isSelected ? 0.4 : 1,
-                        transform:   isSelected ? 'scale(1.01)' : 'scale(1)',
-                      }}
-                    >
-                      {stance.text}
-                    </button>
-                  );
-                })}
-              </div>
+              {/* Stances — the same component the onboarding overlay, the quiz
+                  and the library drawer answer through, so "Write your own..."
+                  exists here at last and an existing write-in comes back
+                  placed, highlighted and with its own words in it.
+
+                  `pendingValue`/`disabled` reproduce this page's old highlight
+                  rule exactly: the optimistic pick wins while it settles, the
+                  stored answer shows otherwise, and the rest dim to 0.4.
+                  `scaleWithViewport` stays off — that recipe is the overlay's
+                  full-screen one and would shrink this column's body text. */}
+              <StanceChooser
+                topic={fullActiveTopic}
+                stances={fullActiveTopic?.stances}
+                currentAnswer={answers[activeTopic.short_title] ?? null}
+                pendingValue={selectedValue}
+                writeInText={writeIns?.[activeTopic.short_title] ?? ""}
+                isInverted={isFlipped}
+                disabled={selectedValue !== null}
+                gapClassName="gap-2.5"
+                onSelectStance={handleAnswer}
+                onSelectWriteIn={applyWriteIn}
+                onPersistWriteIn={persistWriteIn}
+                onCancelWriteIn={clearWriteIn}
+                onWriteInModeChange={handleWriteInModeChange}
+              />
 
               {/* Skip */}
               <button

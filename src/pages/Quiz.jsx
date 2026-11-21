@@ -5,133 +5,10 @@ import { useNavigate, useSearchParams } from "react-router";
 import { apiFetch } from "../lib/auth";
 import { getQuestionText, parseTensionTitle } from "../util/topic";
 import RadarChart from "../components/RadarChart";
-import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  useSortable,
-  verticalListSortingStrategy,
-  arrayMove,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
-
-const SMOOTH_TRANSITION = {
-  duration: 300,
-  easing: "cubic-bezier(0.25, 1, 0.5, 1)",
-};
+import StanceChooser from "../components/StanceChooser";
+import { isWriteIn } from "../lib/writeIn";
 
 const QUIZ_STORAGE_KEY = "quiz_progress";
-
-function SortableStanceLabel({ id, text }) {
-  const { setNodeRef, transform, transition } = useSortable({
-    id,
-    disabled: { draggable: true },
-    transition: SMOOTH_TRANSITION,
-  });
-
-  const style = {
-    transform: CSS.Translate.toString(transform),
-    transition,
-  };
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className="px-4 py-2.5 rounded-lg text-sm sm:text-base font-medium bg-[#F7F7F8] dark:bg-[#2F3237] text-[#535964] dark:text-[#D3D7DE] border border-[#D3D7DE] dark:border-[#41454E]"
-    >
-      {text}
-    </div>
-  );
-}
-
-function SortableWriteInCard({ id, text, onChange, onCancel, showHint }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id, transition: SMOOTH_TRANSITION });
-
-  const style = {
-    transform: CSS.Translate.toString(transform),
-    transition: isDragging ? undefined : transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      className={`flex items-start gap-2 px-3 py-2.5 rounded-lg
-        ${
-          text.trim()
-            ? "border-2 border-ev-yellow bg-ev-yellow-light"
-            : "border-2 border-dashed border-gray-400"
-        }`}
-    >
-      <div
-        {...listeners}
-        className={`cursor-grab active:cursor-grabbing pt-1.5 shrink-0 rounded p-1 ${
-          showHint
-            ? "animate-pulse bg-ev-yellow/30 text-ev-coral"
-            : ""
-        }`}
-      >
-        <svg
-          viewBox="0 0 24 24"
-          className="w-5 h-5"
-          fill="currentColor"
-        >
-          <circle cx="9" cy="6" r="1.5" />
-          <circle cx="15" cy="6" r="1.5" />
-          <circle cx="9" cy="12" r="1.5" />
-          <circle cx="15" cy="12" r="1.5" />
-          <circle cx="9" cy="18" r="1.5" />
-          <circle cx="15" cy="18" r="1.5" />
-        </svg>
-      </div>
-      <div className="flex-1 flex flex-col gap-1">
-        <textarea
-          autoFocus
-          value={text}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="Write your stance here..."
-          rows={2}
-          className="text-sm sm:text-base font-medium resize-none bg-transparent focus:outline-none"
-        />
-        {showHint && (
-          <p className="text-xs font-medium text-ev-coral">
-            Drag your own view to where it fits among these stances
-          </p>
-        )}
-      </div>
-      <button
-        onClick={onCancel}
-        className="text-gray-400 hover:text-black shrink-0 pt-1 cursor-pointer"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 20 20"
-          fill="currentColor"
-          className="w-4 h-4"
-        >
-          <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
-        </svg>
-      </button>
-    </div>
-  );
-}
 
 export function Quiz() {
   const { topics, categories, selectedTopics, setSelectedTopics, answers, setAnswers, writeIns, setWriteIns, invertedSpokes, setInvertedSpokes, initRandomInversions, isLoggedIn } =
@@ -207,20 +84,15 @@ export function Quiz() {
     } catch { /* corrupt or unreadable localStorage — fall back to the default */ }
     return 0;
   });
+  // The value the footer reads: Next is disabled without one, and it is what
+  // the POST on Next carries. StanceChooser owns the write-in card's own state
+  // (placement, editor text, drag), so none of that lives here any more.
   const [selectedAnswer, setSelectedAnswer] = useState(null);
-  const [showWriteIn, setShowWriteIn] = useState(false);
-  const [writeInText, setWriteInText] = useState("");
-  const [orderedItems, setOrderedItems] = useState([]);
-  const [hasRepositioned, setHasRepositioned] = useState(false);
-  const prevIndexRef = useRef(currentIndex);
+  // Last (topic, value) pair reported to analytics. Every keystroke in a
+  // write-in card comes back through onSelectWriteIn, so without this the
+  // question-answered event would fire once per letter.
+  const reportedAnswerRef = useRef({ slug: null, value: null });
   const navigate = useNavigate();
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 3 } }),
-    useSensor(TouchSensor, {
-      activationConstraint: { delay: 150, tolerance: 5 },
-    })
-  );
 
   // Validate saved quiz progress against current topic data — restart if stale
   useEffect(() => {
@@ -284,33 +156,19 @@ export function Quiz() {
     );
   }, [mode, selectedTopics, topics, answers]);
 
+  // Mirror the stored answer into the footer's state. Restoring the write-in
+  // card itself used to happen here too, and it rebuilt `orderedItems` from the
+  // raw, unreversed `topic.stances` ids — while opening the card fresh built
+  // them from the reversed display order. On an inverted spoke a restore
+  // therefore redrew the whole stance list upside-down, and the next drag
+  // applied the inversion transform to an ascending list: a card dragged to the
+  // top saved 5.5 where it should have saved 0.5, and came back at the bottom.
+  // StanceChooser builds one list, in display order, for both.
   useEffect(() => {
-    const isTopicChange = prevIndexRef.current !== currentIndex;
-    prevIndexRef.current = currentIndex;
-
     const topic = topics.find((t) => t.id === quizTopicIds[currentIndex]);
     if (!topic) return;
-
-    const prev = answers[topic.short_title] || null;
-    setSelectedAnswer(prev);
-
-    const savedWriteIn = writeIns[topic.short_title];
-    if (savedWriteIn && prev && !Number.isInteger(prev)) {
-      setShowWriteIn(true);
-      setWriteInText(savedWriteIn);
-      if (isTopicChange) setHasRepositioned(true);
-      const stanceIds = topic.stances.map((s) => s.id);
-      const writeInIndex = Math.floor(prev);
-      const items = [...stanceIds];
-      items.splice(writeInIndex, 0, "write-in");
-      setOrderedItems(items);
-    } else {
-      setShowWriteIn(false);
-      setWriteInText("");
-      if (isTopicChange) setHasRepositioned(false);
-      setOrderedItems([]);
-    }
-  }, [currentIndex, quizTopicIds, topics, answers, writeIns]);
+    setSelectedAnswer(answers[topic.short_title] || null);
+  }, [currentIndex, quizTopicIds, topics, answers]);
 
   if (!quizTopicIds.length || !topics.length) {
     return <div className="flex items-center justify-center min-h-screen bg-white dark:bg-[#131416] text-[#9CA3AF]">Loading calibration...</div>;
@@ -325,34 +183,83 @@ export function Quiz() {
     ? categories.find((cat) => cat.topics.some((t) => t.id === currentTopicId))
     : null;
 
-  const selectAnswer = (value, isWriteIn = false) => {
+  const selectAnswer = (topic, value, isWriteInAnswer = false) => {
+    if (!topic) return;
     setSelectedAnswer(value);
 
-    const topic = topics.find((t) => t.id === currentTopicId);
-    if (!topic) return;
+    // Typing in a write-in card re-reports the same placement on every letter.
+    // Writing an unchanged value back would still mint a fresh `answers`
+    // object, which re-runs chartData's memo and makes CompassContext
+    // re-serialise the whole answers map to localStorage once per keystroke.
+    // Nothing has moved, so stop here. Still correct after a cancel: the key is
+    // deleted then, so the retyped value is a change and is stored again.
+    if (answers[topic.short_title] === value) return;
 
-    track('compass_quiz_question_answered', {
-      quiz_type: mode,
-      question_index: currentIndex,
-      questions_total: quizTopicIds.length,
-      topic_slug: topic.short_title,
-      answer_type: isWriteIn ? 'write_in' : 'stance',
-    });
+    // Reported on a change of placement, not a change of wording: the chooser
+    // calls onSelectWriteIn on every keystroke, and one answer is one event.
+    const reported = reportedAnswerRef.current;
+    if (reported.slug !== topic.short_title || reported.value !== value) {
+      reportedAnswerRef.current = { slug: topic.short_title, value };
+      track('compass_quiz_question_answered', {
+        quiz_type: mode,
+        question_index: currentIndex,
+        questions_total: quizTopicIds.length,
+        topic_slug: topic.short_title,
+        answer_type: isWriteInAnswer ? 'write_in' : 'stance',
+      });
+    }
 
     setAnswers((prev) => ({
       ...prev,
       [topic.short_title]: value,
     }));
-
-    if (!isWriteIn) {
-      setWriteIns((prev) => {
-        const updated = { ...prev };
-        delete updated[topic.short_title];
-        return updated;
-      });
-    }
   };
 
+  // A stance pick no longer deletes the stored write-in text here: when one is
+  // live (or a stale one is stored) StanceChooser fires onCancelWriteIn first,
+  // so the clear cannot eat the answer it was just handed.
+  const handleSelectStance = (topic, value) => selectAnswer(topic, value, false);
+
+  // Local state only. Quiz saves on Next, from `writeIns` and `selectedAnswer`,
+  // so there is no per-keystroke API call to debounce and `onPersistWriteIn` is
+  // deliberately not wired — see handleNext.
+  const handleSelectWriteIn = (topic, value, text) => {
+    if (!topic) return;
+    selectAnswer(topic, value, true);
+    setWriteIns((prev) => ({ ...prev, [topic.short_title]: text }));
+  };
+
+  // An obligation, not a notification: StanceChooser latches the value it
+  // dismissed, so a half-step left standing here would show an unselected list
+  // for a question this page calls answered. The answer only goes when it IS a
+  // write-in — the chooser also cancels on the way into a stance pick, to clear
+  // stale text, and deleting an integer answer there would undo the pick
+  // arriving right behind it.
+  const handleCancelWriteIn = (topic) => {
+    if (!topic) return;
+    // The answer is going, so the pair it was reported under must go with it:
+    // otherwise re-placing at the same slot (or retyping after the text was
+    // emptied) is a new answer that emits no event.
+    reportedAnswerRef.current = { slug: null, value: null };
+    setSelectedAnswer((prev) => (isWriteIn(prev) ? null : prev));
+    setAnswers((prev) => {
+      if (!isWriteIn(prev[topic.short_title])) return prev;
+      const updated = { ...prev };
+      delete updated[topic.short_title];
+      return updated;
+    });
+    setWriteIns((prev) => {
+      if (!(topic.short_title in prev)) return prev;
+      const updated = { ...prev };
+      delete updated[topic.short_title];
+      return updated;
+    });
+  };
+
+  // The quiz's only write to the API: one POST per question, on Next. That is
+  // why StanceChooser's `onPersistWriteIn` is not wired here — there is no
+  // per-keystroke save to debounce, and `writeIns` is already current by the
+  // time this runs, because `onSelectWriteIn` updates it immediately.
   const handleNext = () => {
     const topic = topics.find((t) => t.id === currentTopicId);
     const currentWriteIn = topic ? writeIns[topic.short_title] : undefined;
@@ -391,7 +298,14 @@ export function Quiz() {
         body: JSON.stringify({
           topic_id: currentTopicId,
           value: selectedAnswer,
-          ...(currentWriteIn ? { write_in_text: currentWriteIn } : {}),
+          // Gated on the VALUE, not on the text alone (the same hardening
+          // Layout's Save does). `writeIns` can be hydrated from the broker
+          // cache or an API fill-gap with text for a topic whose stored answer
+          // is now an integer — the user has since picked a pre-written stance
+          // and the server already dropped the text on that value-only POST.
+          // Re-attaching it here would resurrect a write-in the server had
+          // correctly cleared. Clearing means OMITTING the field: null is a 422.
+          ...(isWriteIn(selectedAnswer) && currentWriteIn ? { write_in_text: currentWriteIn } : {}),
         }),
       })
         .then((response) => {
@@ -414,149 +328,30 @@ export function Quiz() {
     }
   };
 
-  const isFlipped = invertedSpokes[currentTopic.short_title];
-  const ordered = isFlipped ? [...currentTopic.stances].reverse() : currentTopic.stances;
+  // Display-only: this spoke's inversion flips which pole reads first. The
+  // ordering itself — and the write-in placement math that depends on it —
+  // lives in StanceChooser now, so the quiz, the overlay, Full Calibration and
+  // the library drawer can no longer disagree about it. The quiz's old copy
+  // honoured the flag when it rendered and when it dragged, but not when it
+  // restored, which is the bug that adoption kills.
+  const isInverted = !!invertedSpokes[currentTopic?.short_title];
 
-  const selectWriteInPlacement = (midpointValue) => {
-    selectAnswer(midpointValue, true);
-    setWriteIns((prev) => ({
-      ...prev,
-      [currentTopic.short_title]: writeInText,
-    }));
-  };
-
-  const handleDragEnd = ({ active, over }) => {
-    if (!over || active.id === over.id) return;
-    const oldIndex = orderedItems.indexOf(active.id);
-    const newIndex = orderedItems.indexOf(over.id);
-    const reordered = arrayMove(orderedItems, oldIndex, newIndex);
-    setOrderedItems(reordered);
-    setHasRepositioned(true);
-    const writeInIndex = reordered.indexOf("write-in");
-    const displayMidpoint = writeInIndex + 0.5;
-    const stanceCount = currentTopic?.stances?.length || 0;
-    const midpointValue = isFlipped ? (stanceCount + 1 - displayMidpoint) : displayMidpoint;
-    selectWriteInPlacement(midpointValue);
-  };
-
-  const handleWriteInTextChange = (newText) => {
-    setWriteInText(newText);
-    if (selectedAnswer && !Number.isInteger(selectedAnswer)) {
-      if (newText.trim()) {
-        setWriteIns((prev) => ({
-          ...prev,
-          [currentTopic.short_title]: newText,
-        }));
-      } else {
-        setSelectedAnswer(null);
-        setAnswers((prev) => {
-          const updated = { ...prev };
-          delete updated[currentTopic.short_title];
-          return updated;
-        });
-        setWriteIns((prev) => {
-          const updated = { ...prev };
-          delete updated[currentTopic.short_title];
-          return updated;
-        });
-      }
-    }
-  };
-
-  const handleCancelWriteIn = () => {
-    setShowWriteIn(false);
-    setWriteInText("");
-    setOrderedItems([]);
-    if (selectedAnswer && !Number.isInteger(selectedAnswer)) {
-      setSelectedAnswer(null);
-      setAnswers((prev) => {
-        const updated = { ...prev };
-        delete updated[currentTopic.short_title];
-        return updated;
-      });
-      setWriteIns((prev) => {
-        const updated = { ...prev };
-        delete updated[currentTopic.short_title];
-        return updated;
-      });
-    }
-  };
-
-  // Stance buttons (shared between both modes)
+  // Stance list (shared between both modes)
   const stanceContent = (
-    <>
-      {!showWriteIn ? (
-        <>
-          {ordered.map((stance) => (
-            <button
-              key={stance.id}
-              onClick={() => {
-                setShowWriteIn(false);
-                setWriteInText("");
-                selectAnswer(stance.value);
-              }}
-              className={`text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm sm:text-base font-medium cursor-pointer
-              ${
-                selectedAnswer === stance.value
-                  ? "border-ev-yellow border-2 bg-ev-yellow-light dark:bg-[rgba(254,209,46,0.12)] text-[#2F3237] dark:text-[#EBEDEF]"
-                  : "bg-white dark:bg-[#2F3237] text-[#2F3237] dark:text-[#D3D7DE] border-2 border-[#D3D7DE] dark:border-[#41454E] hover:bg-gray-50 dark:hover:bg-[#41454E]"
-              }`}
-            >
-              {stance.text}
-            </button>
-          ))}
-
-          <button
-            onClick={() => {
-              setShowWriteIn(true);
-              setHasRepositioned(false);
-              setOrderedItems([
-                ...ordered.map((s) => s.id),
-                "write-in",
-              ]);
-            }}
-            className="text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm sm:text-base font-medium cursor-pointer border-2 border-dashed border-[#9CA3AF] dark:border-[#6B7280] text-[#8F9EBC] dark:text-[#6B7280] hover:border-ev-yellow hover:text-[#2F3237] dark:hover:text-[#D3D7DE]"
-          >
-            Write your own...
-          </button>
-        </>
-      ) : (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          modifiers={[restrictToVerticalAxis]}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext
-            items={orderedItems}
-            strategy={verticalListSortingStrategy}
-          >
-            <div className="flex flex-col gap-3">
-              {orderedItems.map((itemId) =>
-                itemId === "write-in" ? (
-                  <SortableWriteInCard
-                    key="write-in"
-                    id="write-in"
-                    text={writeInText}
-                    onChange={handleWriteInTextChange}
-                    onCancel={handleCancelWriteIn}
-                    showHint={!!writeInText.trim() && !hasRepositioned}
-                  />
-                ) : (
-                  <SortableStanceLabel
-                    key={itemId}
-                    id={itemId}
-                    text={
-                      ordered.find((s) => s.id === itemId)?.text ?? ""
-                    }
-                  />
-                )
-              )}
-            </div>
-          </SortableContext>
-        </DndContext>
-      )}
-    </>
+    <StanceChooser
+      topic={currentTopic}
+      stances={currentTopic?.stances}
+      // Read from the store rather than from `selectedAnswer`: a child's effects
+      // run before the parent's, so on the render that changes question the
+      // mirrored state still holds the previous topic's value.
+      currentAnswer={currentTopic ? (answers[currentTopic.short_title] ?? null) : null}
+      writeInText={currentTopic ? (writeIns[currentTopic.short_title] ?? "") : ""}
+      isInverted={isInverted}
+      gapClassName="gap-3"
+      onSelectStance={handleSelectStance}
+      onSelectWriteIn={handleSelectWriteIn}
+      onCancelWriteIn={handleCancelWriteIn}
+    />
   );
 
   // --- FULL MODE LAYOUT ---

@@ -19,6 +19,8 @@ import { LOCAL_LENS, JUDICIAL_LENS, FEDERAL_LENS, getLensColor, getLensInk } fro
 import RadarChart from "./RadarChart";
 import { getQuestionText, parseTensionTitle } from "../util/topic";
 import { TopicTierBadge } from "@empoweredvote/ev-ui";
+import StanceChooser from "./StanceChooser";
+import { isWriteIn } from "../lib/writeIn";
 import {
   DndContext,
   closestCenter,
@@ -30,12 +32,10 @@ import {
 import {
   SortableContext,
   useSortable,
-  verticalListSortingStrategy,
   horizontalListSortingStrategy,
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { DARK_THEME, LIGHT_THEME } from "../lib/calibrationTheme";
 import CoachMark from "./CoachMark";
 import { motion, AnimatePresence } from "framer-motion";
@@ -628,30 +628,6 @@ const SMOOTH_TRANSITION = {
   easing: "cubic-bezier(0.25, 1, 0.5, 1)",
 };
 
-function SortableStanceLabel({ id, text, isDark }) {
-  const t = isDark ? DARK_THEME : LIGHT_THEME;
-  const { setNodeRef, transform, transition } = useSortable({
-    id,
-    disabled: { draggable: true },
-    transition: SMOOTH_TRANSITION,
-  });
-  const style = { transform: CSS.Translate.toString(transform), transition };
-  return (
-    <div
-      ref={setNodeRef}
-      style={{
-        ...style,
-        background: t.card,
-        color: t.textBody,
-        border: `1px solid ${t.border}`,
-      }}
-      className="px-4 py-2.5 rounded-lg text-sm font-medium"
-    >
-      {text}
-    </div>
-  );
-}
-
 function SortableTopicPill({ id, label, onRemove, t }) {
   const {
     attributes,
@@ -692,48 +668,21 @@ function SortableTopicPill({ id, label, onRemove, t }) {
   );
 }
 
-// One editable row in the lens intro's topic list. The order of these rows is
-// the order calibration walks, so the grip and the × are how a user shapes the
-// flow before it starts rather than sitting through a list someone else chose.
-function SortableLensTopicRow({ id, index, label, onRemove, canRemove, accent, t }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id, transition: SMOOTH_TRANSITION });
-
+// One row in the lens intro's topic list. This is the first thing a user sees
+// before any question, so the only thing it offers is the × — dropping a topic
+// they don't care about. Reordering here had no VISIBLE effect: list order does
+// decide the sequence calibration walks, but nothing on this screen showed that,
+// so the drag asked for a decision the screen could not explain. Drag lives on
+// the pill strips later in the flow, where a move visibly moves the compass.
+function LensTopicRow({ index, label, onRemove, canRemove, accent, t }) {
   return (
     <div
-      ref={setNodeRef}
       style={{
-        transform: CSS.Translate.toString(transform),
-        transition: isDragging ? undefined : transition,
         background: t.card,
-        border: `1px solid ${isDragging ? accent : t.border}`,
-        boxShadow: isDragging ? '0 8px 24px rgba(0,0,0,0.18)' : undefined,
-        position: 'relative',
-        zIndex: isDragging ? 1 : 0,
-        touchAction: 'none',
+        border: `1px solid ${t.border}`,
       }}
-      className="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium select-none"
+      className="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium"
     >
-      {/* Only the grip starts a drag, so the remove button stays clickable */}
-      <span
-        {...attributes}
-        {...listeners}
-        className="shrink-0 cursor-grab active:cursor-grabbing"
-        style={{ color: t.textMuted }}
-        aria-label={`Reorder ${label}`}
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-          <path d="M10 3a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM10 8.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM11.5 15.5a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0z" />
-          <path d="M5 3a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM5 8.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM6.5 15.5a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0z" />
-        </svg>
-      </span>
-
       <span className="shrink-0 w-4 text-xs font-bold tabular-nums" style={{ color: accent }}>
         {index + 1}
       </span>
@@ -742,7 +691,6 @@ function SortableLensTopicRow({ id, index, label, onRemove, canRemove, accent, t
 
       <button
         onClick={onRemove}
-        onPointerDown={(e) => e.stopPropagation()}
         disabled={!canRemove}
         aria-label={`Remove ${label}`}
         title={canRemove ? `Remove ${label}` : `Keep at least ${MIN_TOPICS} topics`}
@@ -788,79 +736,6 @@ function SortableStancePill({ id, label, isCurrent, isAnswered, onClick, t }) {
         <span className="mr-1" style={{ color: '#5A9A6E' }}>✓</span>
       )}
       {label}
-    </div>
-  );
-}
-
-function SortableWriteInCard({ id, text, onChange, onCancel, showHint, isDark }) {
-  const t = isDark ? DARK_THEME : LIGHT_THEME;
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id, transition: SMOOTH_TRANSITION });
-
-  const style = {
-    transform: CSS.Translate.toString(transform),
-    transition: isDragging ? undefined : transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={{
-        ...style,
-        border: `2px solid ${t.yellow}`,
-        background: t.yellowBg,
-      }}
-      className="flex items-start gap-2 px-3 py-2.5 rounded-lg"
-      {...attributes}
-    >
-      <div
-        {...listeners}
-        className={`cursor-grab active:cursor-grabbing pt-1.5 shrink-0 rounded p-1 ${
-          showHint ? "animate-pulse" : ""
-        }`}
-        style={{ color: showHint ? '#E85D26' : t.textMuted }}
-      >
-        <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
-          <circle cx="9" cy="6" r="1.5" />
-          <circle cx="15" cy="6" r="1.5" />
-          <circle cx="9" cy="12" r="1.5" />
-          <circle cx="15" cy="12" r="1.5" />
-          <circle cx="9" cy="18" r="1.5" />
-          <circle cx="15" cy="18" r="1.5" />
-        </svg>
-      </div>
-      <div className="flex-1 flex flex-col gap-1">
-        <textarea
-          autoFocus
-          value={text}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="Write your stance here..."
-          rows={2}
-          className="text-sm font-medium resize-none bg-transparent focus:outline-none"
-          style={{ color: t.textHead }}
-        />
-        {showHint && (
-          <p className="text-xs font-medium" style={{ color: '#E85D26' }}>
-            Drag your own view to where it fits among these stances
-          </p>
-        )}
-      </div>
-      <button
-        onClick={onCancel}
-        className="shrink-0 pt-1 cursor-pointer hover:opacity-70 transition-opacity"
-        style={{ color: t.textMuted }}
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-          <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
-        </svg>
-      </button>
     </div>
   );
 }
@@ -1030,8 +905,8 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
             // `lenses` falls back to the bundled constants before the API lands.
             lens = (lenses || []).find((l) => l.key === parsed.lensKey) || null;
             // Only replay the lens definition when the user left it alone.
-            // Once they have reordered or removed topics, the saved list is
-            // theirs and re-deriving would silently undo that.
+            // Once they have removed topics from it, the saved list is theirs
+            // and re-deriving would silently undo that.
             if (lens && !parsed.lensEdited) {
               pickedTopics = lens.topicIds.filter(id => topics.some(t => t.id === id));
             }
@@ -1046,8 +921,9 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
             // Carried through, not just read above. The save effect rewrites
             // this key from state on the next render, so dropping it here made
             // the flag survive exactly one reload: the second one saw
-            // lensEdited:false and re-derived the list from the lens, undoing
-            // the user's reorder — the very thing the flag exists to prevent.
+            // lensEdited:false and re-derived the list from the lens, putting
+            // back the topics the user had removed — the very thing the flag
+            // exists to prevent.
             lensEdited: !!parsed.lensEdited,
           };
         }
@@ -1086,9 +962,9 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
   const [pickedTopics, setPickedTopics] = useState([]);
   const [lensApplied, setLensApplied] = useState(false);
   const [activeLens, setActiveLens] = useState(null);
-  // Set once the user reorders or drops a topic on the lens intro. Their list
-  // is no longer the lens definition, so restoring progress must not re-derive
-  // it from the constant and throw their choices away.
+  // Set once the user drops a topic on the lens intro, or puts the dropped ones
+  // back. Their list is no longer the lens definition, so restoring progress
+  // must not re-derive it from the constant and throw their choices away.
   const [lensEdited, setLensEdited] = useState(false);
   // Snapshot of compass topics before a lens was applied — restored when pressing "← Change my topics"
   const [prevPickedTopics, setPrevPickedTopics] = useState([]);
@@ -1097,13 +973,9 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
   const [learnIndex, setLearnIndex] = useState(0);
   const [learnDir, setLearnDir] = useState(1); // slide direction for carousel transitions
   const [selectedAnswer, setSelectedAnswer] = useState(null);
-  const [showWriteIn, setShowWriteIn] = useState(false);
-  const [writeInText, setWriteInText] = useState("");
-  const [orderedItems, setOrderedItems] = useState([]);
-  const orderedItemsRef = useRef([]);
-  orderedItemsRef.current = orderedItems;
-  const [hasRepositioned, setHasRepositioned] = useState(false);
-  const writeInSaveTimer = useRef(null);
+  // Only what the overlay still needs to know about the chooser: whether the
+  // write-in card is open, so the first-question hint can step out of its way.
+  const [writeInCardOpen, setWriteInCardOpen] = useState(false);
   const wheelLockRef = useRef(false); // debounces trackpad/scroll momentum in the onboarding carousel
 
   const sensors = useSensors(
@@ -1162,30 +1034,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     if (!topic) return;
     const val = answers[topic.short_title];
     setSelectedAnswer(typeof val === "number" && val > 0 ? val : null);
-
-    const isFlippedInEffect = invertedSpokes[topic.short_title];
-    const effectStances = topic.stances
-      ? isFlippedInEffect ? topic.stances : [...topic.stances].reverse()
-      : [];
-
-    const savedWriteIn = writeIns?.[topic.short_title];
-    if (savedWriteIn && val != null && !Number.isInteger(val)) {
-      setShowWriteIn(true);
-      setWriteInText(savedWriteIn);
-      setHasRepositioned(true);
-      const items = [...effectStances.map((s) => s.id)];
-      const displayIndex = isFlippedInEffect
-        ? Math.floor(val)
-        : Math.floor(effectStances.length + 1 - val);
-      items.splice(displayIndex, 0, "write-in");
-      setOrderedItems(items);
-    } else {
-      setShowWriteIn(false);
-      setWriteInText("");
-      setOrderedItems([]);
-      setHasRepositioned(false);
-    }
-  }, [currentIndex, step, pickedTopics, topics, answers, writeIns, invertedSpokes]);
+  }, [currentIndex, step, pickedTopics, topics, answers]);
 
   const [writeInHintShown, setWriteInHintShown] = useState(
     () => !!localStorage.getItem("onboarding_writeInHint")
@@ -1376,27 +1225,23 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     }));
   };
 
-  const handleSelectStance = async (value) => {
-    if (!currentTopic) return;
-    if (writeIns?.[currentTopic?.short_title]) {
-      setWriteIns((prev) => {
-        const updated = { ...prev };
-        delete updated[currentTopic.short_title];
-        return updated;
-      });
-    }
+  const handleSelectStance = async (topic, value) => {
+    if (!topic) return;
+    // No `delete writeIns[...]` here any more: when a write-in is live (or a
+    // stale one is stored) StanceChooser fires onCancelWriteIn -> clearWriteIn
+    // first, so the clear cannot delete the answer it was just handed.
     setSelectedAnswer(value);
-    setAnswers((prev) => ({ ...prev, [currentTopic.short_title]: value }));
+    setAnswers((prev) => ({ ...prev, [topic.short_title]: value }));
     reportAnswer(
-      currentTopic.short_title,
-      { ...answers, [currentTopic.short_title]: value },
+      topic.short_title,
+      { ...answers, [topic.short_title]: value },
       "stance"
     );
     if (isLoggedIn) {
       try {
         await apiFetch('/compass/answers', {
           method: "POST",
-          body: JSON.stringify({ topic_id: currentTopic.id, value }),
+          body: JSON.stringify({ topic_id: topic.id, value }),
         });
       } catch { /* best-effort server sync; the answer is already stored locally. A failed save is currently silent. */ }
     }
@@ -1526,43 +1371,60 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     setStep("complete");
   };
 
-  const selectWriteInPlacement = (midpointValue) => {
-    if (!currentTopic) return;
-    setAnswers((prev) => ({ ...prev, [currentTopic.short_title]: midpointValue }));
-    setWriteIns((prev) => ({ ...prev, [currentTopic.short_title]: writeInText }));
-    setSelectedAnswer(midpointValue);
-    // Deduped, which matters more here than for stances: every drag that
-    // repositions the write-in card comes back through this function.
+  // Every keystroke and every drop, straight from StanceChooser. Local state
+  // and analytics only: the API write is `persistWriteIn` below, which the
+  // chooser debounces by the same 600 ms this file used to time itself.
+  // Wiring the save here instead would put a POST on every character.
+  const applyWriteIn = (topic, value, text) => {
+    if (!topic) return;
+    setAnswers((prev) => ({ ...prev, [topic.short_title]: value }));
+    setWriteIns((prev) => ({ ...prev, [topic.short_title]: text }));
+    setSelectedAnswer(value);
+    // Deduped, which matters more here than for stances: every keystroke and
+    // every drag that repositions the card comes back through this function.
     reportAnswer(
-      currentTopic.short_title,
-      { ...answers, [currentTopic.short_title]: midpointValue },
+      topic.short_title,
+      { ...answers, [topic.short_title]: value },
       "write_in"
     );
-    if (isLoggedIn) {
-      apiFetch('/compass/answers', {
-        method: "POST",
-        body: JSON.stringify({
-          topic_id: currentTopic.id,
-          value: midpointValue,
-          write_in_text: writeInText,
-        }),
-      }).catch(() => {});
-    }
   };
 
-  const handleDragEnd = ({ active, over }) => {
-    if (!over || active.id === over.id) return;
-    const oldIndex = orderedItems.indexOf(active.id);
-    const newIndex = orderedItems.indexOf(over.id);
-    const reordered = arrayMove(orderedItems, oldIndex, newIndex);
-    setOrderedItems(reordered);
-    setHasRepositioned(true);
-    const writeInIndex = reordered.indexOf("write-in");
-    const displayMidpoint = writeInIndex + 0.5;
-    const flipped = currentTopic && invertedSpokes[currentTopic.short_title];
-    const stanceCount = currentTopic?.stances?.length || 0;
-    const midpointValue = flipped ? displayMidpoint : (stanceCount + 1 - displayMidpoint);
-    selectWriteInPlacement(midpointValue);
+  // Debounced 600 ms inside StanceChooser, fired immediately on a drop, and
+  // flushed when the question changes - so a Next does not eat the last words
+  // typed. The payload carries its own topic for exactly that reason.
+  const persistWriteIn = (topic, value, text) => {
+    if (!topic || !isLoggedIn) return;
+    apiFetch('/compass/answers', {
+      method: "POST",
+      body: JSON.stringify({
+        topic_id: topic.id,
+        value,
+        write_in_text: text,
+      }),
+    }).catch(() => {});
+  };
+
+  // StanceChooser's cancel is an obligation, not a notification: it latches the
+  // value it dismissed, so a half-step left standing here would show an
+  // unselected stance list for a question our own state calls answered.
+  // Guarded on the stored value rather than cleared outright, because the
+  // chooser also cancels on the way into a stance pick (stale write-in text
+  // against an integer answer) and that answer must survive.
+  const clearWriteIn = (topic) => {
+    if (!topic) return;
+    setSelectedAnswer((prev) => (isWriteIn(prev) ? null : prev));
+    setAnswers((prev) => {
+      if (!isWriteIn(prev[topic.short_title])) return prev;
+      const updated = { ...prev };
+      delete updated[topic.short_title];
+      return updated;
+    });
+    setWriteIns((prev) => {
+      if (!(topic.short_title in prev)) return prev;
+      const updated = { ...prev };
+      delete updated[topic.short_title];
+      return updated;
+    });
   };
 
   const handleStanceMax = () => {
@@ -1620,70 +1482,9 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     setPickedTopics(newOrder);
   };
 
-  const handleWriteInTextChange = (newText) => {
-    setWriteInText(newText);
-    if (selectedAnswer && !Number.isInteger(selectedAnswer)) {
-      if (newText.trim()) {
-        setWriteIns((prev) => ({ ...prev, [currentTopic.short_title]: newText }));
-        // Debounce server sync so typing doesn't flood the API, but ensure the
-        // final text is always persisted (drag saves position with empty text).
-        if (isLoggedIn && currentTopic) {
-          clearTimeout(writeInSaveTimer.current);
-          writeInSaveTimer.current = setTimeout(() => {
-            apiFetch('/compass/answers', {
-              method: "POST",
-              body: JSON.stringify({
-                topic_id: currentTopic.id,
-                value: selectedAnswer,
-                write_in_text: newText,
-              }),
-            }).catch(() => {});
-          }, 600);
-        }
-      } else {
-        setSelectedAnswer(null);
-        setAnswers((prev) => {
-          const updated = { ...prev };
-          delete updated[currentTopic.short_title];
-          return updated;
-        });
-        setWriteIns((prev) => {
-          const updated = { ...prev };
-          delete updated[currentTopic.short_title];
-          return updated;
-        });
-      }
-    }
-  };
-
-  const handleCancelWriteIn = () => {
-    setShowWriteIn(false);
-    setWriteInText("");
-    setOrderedItems([]);
-    if (selectedAnswer && !Number.isInteger(selectedAnswer)) {
-      setSelectedAnswer(null);
-      setAnswers((prev) => {
-        const updated = { ...prev };
-        delete updated[currentTopic.short_title];
-        return updated;
-      });
-      setWriteIns((prev) => {
-        const updated = { ...prev };
-        delete updated[currentTopic.short_title];
-        return updated;
-      });
-    }
-  };
-
   // --- Render helpers ---
 
   const isFlipped = currentTopic ? invertedSpokes[currentTopic.short_title] : false;
-  const orderedStances =
-    currentTopic && currentTopic.stances
-      ? isFlipped
-        ? currentTopic.stances
-        : [...currentTopic.stances].reverse()
-      : [];
 
   const allRemainingAnswered = pickedTopics.every((id, idx) => {
     if (idx <= currentIndex) return true;
@@ -2174,12 +1975,6 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
       setPickedTopics(prev => prev.filter(x => x !== id));
     };
 
-    const reorderLensTopics = ({ active, over }) => {
-      if (!over || active.id === over.id) return;
-      setLensEdited(true);
-      handlePickDragEnd({ active, over });
-    };
-
     return (
       <div
         className={`fixed ${overlayTop} left-0 right-0 bottom-0 z-50 overflow-y-auto flex flex-col`}
@@ -2303,7 +2098,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
 
           </div>
 
-          {/* ── Right: the topics, as an editable running order ── */}
+          {/* ── Right: the topics we'll ask about, minus any they drop ── */}
           <div className="flex flex-col justify-center px-8 pb-16 lg:py-24 lg:w-1/2 lg:pr-16 lg:pl-8">
             <p
               className="text-xs font-bold tracking-widest uppercase mb-1"
@@ -2312,34 +2107,24 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
               {lensTopics.length} {lensTopics.length === 1 ? 'topic' : 'topics'} we&apos;ll ask about
             </p>
             <p className="text-sm mb-4" style={{ color: t.textMuted }}>
-              This is your running order. Drag a topic to move it, or drop the ones
-              you don&apos;t care about. We&apos;ll ask them exactly like this.
+              Each one becomes a question. Drop any you don&apos;t care about and
+              we&apos;ll ask about the rest.
             </p>
 
             <div className="max-w-md w-full mx-auto lg:mx-0">
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                modifiers={[restrictToVerticalAxis]}
-                onDragEnd={reorderLensTopics}
-              >
-                <SortableContext items={pickedTopics} strategy={verticalListSortingStrategy}>
-                  <div className="flex flex-col gap-2">
-                    {lensTopics.map((topic, i) => (
-                      <SortableLensTopicRow
-                        key={topic.id}
-                        id={topic.id}
-                        index={i}
-                        label={parseTensionTitle(topic).name || topic.short_title}
-                        accent={lensColor}
-                        t={t}
-                        canRemove={canRemoveTopic}
-                        onRemove={() => removeLensTopic(topic.id)}
-                      />
-                    ))}
-                  </div>
-                </SortableContext>
-              </DndContext>
+              <div className="flex flex-col gap-2">
+                {lensTopics.map((topic, i) => (
+                  <LensTopicRow
+                    key={topic.id}
+                    index={i}
+                    label={parseTensionTitle(topic).name || topic.short_title}
+                    accent={lensColor}
+                    t={t}
+                    canRemove={canRemoveTopic}
+                    onRemove={() => removeLensTopic(topic.id)}
+                  />
+                ))}
+              </div>
 
               {lensTopics.length < lensDefaultIds.length && (
                 <button
@@ -2772,95 +2557,36 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
               )}
             </div>
 
-            {!showWriteIn ? (
-              <>
-                {orderedStances.map((stance) => {
-                  const stanceValue = stance.value;
-                  const isSelected = selectedAnswer === stanceValue;
-                  return (
-                    <button
-                      key={stance.id}
-                      data-testid="stance-option"
-                      onClick={() => {
-                        setShowWriteIn(false);
-                        setWriteInText("");
-                        handleSelectStance(stanceValue);
-                      }}
-                      className="text-left px-3 py-2.5 md:py-[clamp(0.375rem,1.05vh,0.625rem)] rounded-lg transition-all duration-200 text-sm md:text-[clamp(0.8125rem,1.5vh,0.875rem)] leading-snug font-medium cursor-pointer"
-                      style={
-                        isSelected
-                          ? {
-                              border: `2px solid ${t.yellow}`,
-                              background: t.yellowBg,
-                              color: t.textHead,
-                            }
-                          : {
-                              background: t.stanceBg,
-                              color: t.stanceText,
-                              border: `2px solid ${t.stanceBorder}`,
-                            }
-                      }
-                    >
-                      {stance.text}
-                    </button>
-                  );
-                })}
-                <button
-                  onClick={() => {
-                    setShowWriteIn(true);
-                    setHasRepositioned(false);
-                    setOrderedItems([...orderedStances.map((s) => s.id), "write-in"]);
-                    if (!writeInHintShown) {
-                      localStorage.setItem("onboarding_writeInHint", "1");
-                      setWriteInHintShown(true);
-                    }
-                  }}
-                  className="text-left px-3 py-2.5 md:py-[clamp(0.375rem,1.05vh,0.625rem)] rounded-lg transition-all duration-200 text-sm md:text-[clamp(0.8125rem,1.5vh,0.875rem)] leading-snug font-medium cursor-pointer"
-                  style={{ border: `2px dashed ${t.writeOwnColor}`, color: t.writeOwnColor, background: 'transparent' }}
-                >
-                  Write your own...
-                </button>
-                {currentIndex === 0 && !writeInHintShown && !showWriteIn && (
-                  <p className="text-xs text-center mt-1" style={{ color: t.textMuted }}>
-                    You can always write your own stance if none of these fit
-                  </p>
-                )}
-              </>
-            ) : (
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                modifiers={[restrictToVerticalAxis]}
-                onDragEnd={handleDragEnd}
-              >
-                <SortableContext
-                  items={orderedItems}
-                  strategy={verticalListSortingStrategy}
-                >
-                  <div className="flex flex-col gap-1.5">
-                    {orderedItems.map((itemId) =>
-                      itemId === "write-in" ? (
-                        <SortableWriteInCard
-                          key="write-in"
-                          id="write-in"
-                          text={writeInText}
-                          onChange={handleWriteInTextChange}
-                          onCancel={handleCancelWriteIn}
-                          showHint={!!writeInText.trim() && !hasRepositioned}
-                          isDark={isDark}
-                        />
-                      ) : (
-                        <SortableStanceLabel
-                          key={itemId}
-                          id={itemId}
-                          text={orderedStances.find((s) => s.id === itemId)?.text ?? ""}
-                          isDark={isDark}
-                        />
-                      )
-                    )}
-                  </div>
-                </SortableContext>
-              </DndContext>
+            <StanceChooser
+              topic={currentTopic}
+              stances={currentTopic?.stances}
+              currentAnswer={currentTopic ? (answers[currentTopic.short_title] ?? null) : null}
+              writeInText={currentTopic ? (writeIns?.[currentTopic.short_title] ?? "") : ""}
+              isInverted={!!isFlipped}
+              // The panel's own clamp, kept on the stance rows it was written for:
+              // on a short desktop the list compresses to fit instead of scrolling.
+              gapClassName="gap-1.5 md:gap-[clamp(0.25rem,0.7vh,0.375rem)]"
+              scaleWithViewport
+              onSelectStance={handleSelectStance}
+              onSelectWriteIn={applyWriteIn}
+              onPersistWriteIn={persistWriteIn}
+              onCancelWriteIn={clearWriteIn}
+              onWriteInModeChange={setWriteInCardOpen}
+              onOpenWriteIn={() => {
+                if (!writeInHintShown) {
+                  localStorage.setItem("onboarding_writeInHint", "1");
+                  setWriteInHintShown(true);
+                }
+              }}
+            />
+            {/* Onboarding copy, not part of the chooser: shown once, on the
+                first question only. The localStorage flag that retires it is
+                written from onOpenWriteIn above - the chooser reports the
+                click, the overlay owns the hint. */}
+            {currentIndex === 0 && !writeInHintShown && !writeInCardOpen && (
+              <p className="text-xs text-center mt-1" style={{ color: t.textMuted }}>
+                You can always write your own stance if none of these fit
+              </p>
             )}
           </div>
         </div>

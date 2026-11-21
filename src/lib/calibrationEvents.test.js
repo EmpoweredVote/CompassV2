@@ -121,6 +121,21 @@ describe("eventForAnswer", () => {
     });
     expect(props.answer_type).toBe("write_in");
   });
+
+  it("defaults surface to overlay", () => {
+    // Every existing caller is the overlay and passes no surface at all; the
+    // default is what keeps their events landing in the same funnel.
+    expect(eventForAnswer({ topicSlug: "t", answeredCount: 1, totalTopics: 8, answerType: "stance" })
+      .props.surface).toBe("overlay");
+  });
+
+  it("carries an explicit surface", () => {
+    // /calibrate shares compass_calibration_question_answered with the overlay.
+    // Without a surface on the event the two flows are one undifferentiated
+    // curve, which is exactly the measurement bug this module exists for.
+    expect(eventForAnswer({ topicSlug: "t", answeredCount: 1, totalTopics: 8, answerType: "write_in", surface: "full" })
+      .props.surface).toBe("full");
+  });
 });
 
 describe("eventForQuestionSkip", () => {

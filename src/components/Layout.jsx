@@ -5,6 +5,7 @@ import { useCompass } from "../components/CompassContext";
 import { useTheme } from "../ThemeProvider";
 import ReturnBanner from "./ReturnBanner";
 import { apiFetch, getToken, clearToken, API_BASE } from "../lib/auth";
+import { isWriteIn } from "../lib/writeIn";
 
 function Layout({ children }) {
   const navigate = useNavigate();
@@ -113,7 +114,13 @@ function Layout({ children }) {
       const topic_id = titleToId.get(shortTitle);
       if (!topic_id) continue;
       const body = { topic_id, value };
-      if (writeIns[shortTitle]) body.write_in_text = writeIns[shortTitle];
+      // Gated on the VALUE, not on the text alone. A write-in is stored as a
+      // half-step; an integer answer means the user has since picked a
+      // pre-written stance, and the server already dropped its write_in_text on
+      // that value-only POST. Re-attaching stale local text here would
+      // resurrect a write-in the server had correctly cleared — and clearing it
+      // means OMITTING the field, because sending null is a 422.
+      if (isWriteIn(value) && writeIns[shortTitle]) body.write_in_text = writeIns[shortTitle];
       const res = await apiFetch('/compass/answers', { method: 'POST', body: JSON.stringify(body) }).catch(() => null);
       if (!res || !res.ok) serverSaveOk = false;
     }
@@ -221,7 +228,12 @@ function Layout({ children }) {
       const topic_id = titleToId.get(shortTitle);
       if (!topic_id) return Promise.resolve();
       const body = { topic_id, value };
-      if (wi[shortTitle]) body.write_in_text = wi[shortTitle];
+      // Gated on the value for the same reason as the Save path above, and it
+      // matters more here: `wi` is a whole snapshot written by that path, so it
+      // can carry text for a topic the user has since answered with a
+      // pre-written stance. Restoring would hand that text straight back to a
+      // server that had correctly dropped it.
+      if (isWriteIn(value) && wi[shortTitle]) body.write_in_text = wi[shortTitle];
       return apiFetch('/compass/answers', { method: 'POST', body: JSON.stringify(body) }).catch(() => {});
     });
     syncPromises.push(
