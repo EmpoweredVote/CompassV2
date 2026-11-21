@@ -31,7 +31,10 @@ export const DARK_THEME = {
   stanceBg:       '#2F3237',
   stanceText:     '#D3D7DE',
   stanceBorder:   '#41454E',
-  writeOwnColor:  '#6B7280',
+  // Clears WCAG AA (4.5:1) on every opaque surface in this theme; the worst
+  // case is cardElev at 4.76:1. The old #6B7280 managed only 1.99:1 there.
+  // Pinned by calibrationTheme.test.js.
+  writeOwnColor:  '#B0B7C3',
 };
 
 export const LIGHT_THEME = {
@@ -57,7 +60,10 @@ export const LIGHT_THEME = {
   stanceBg:       '#FFFFFF',
   stanceText:     '#2F3237',
   stanceBorder:   '#D3D7DE',
-  writeOwnColor:  '#8F9EBC',
+  // Clears WCAG AA (4.5:1) on every opaque surface in this theme; the worst
+  // case is progressBg at 4.70:1. The old #8F9EBC managed only 1.87:1 there.
+  // Pinned by calibrationTheme.test.js.
+  writeOwnColor:  '#4F5B77',
 };
 
 // ────────────────────────────────────────────────
