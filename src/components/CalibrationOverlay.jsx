@@ -32,12 +32,10 @@ import {
 import {
   SortableContext,
   useSortable,
-  verticalListSortingStrategy,
   horizontalListSortingStrategy,
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { DARK_THEME, LIGHT_THEME } from "../lib/calibrationTheme";
 import CoachMark from "./CoachMark";
 import { motion, AnimatePresence } from "framer-motion";
@@ -670,48 +668,21 @@ function SortableTopicPill({ id, label, onRemove, t }) {
   );
 }
 
-// One editable row in the lens intro's topic list. The order of these rows is
-// the order calibration walks, so the grip and the × are how a user shapes the
-// flow before it starts rather than sitting through a list someone else chose.
-function SortableLensTopicRow({ id, index, label, onRemove, canRemove, accent, t }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id, transition: SMOOTH_TRANSITION });
-
+// One row in the lens intro's topic list. This is the first thing a user sees
+// before any question, so the only thing it offers is the × — dropping a topic
+// they don't care about. Reordering here had no VISIBLE effect: list order does
+// decide the sequence calibration walks, but nothing on this screen showed that,
+// so the drag asked for a decision the screen could not explain. Drag lives on
+// the pill strips later in the flow, where a move visibly moves the compass.
+function LensTopicRow({ index, label, onRemove, canRemove, accent, t }) {
   return (
     <div
-      ref={setNodeRef}
       style={{
-        transform: CSS.Translate.toString(transform),
-        transition: isDragging ? undefined : transition,
         background: t.card,
-        border: `1px solid ${isDragging ? accent : t.border}`,
-        boxShadow: isDragging ? '0 8px 24px rgba(0,0,0,0.18)' : undefined,
-        position: 'relative',
-        zIndex: isDragging ? 1 : 0,
-        touchAction: 'none',
+        border: `1px solid ${t.border}`,
       }}
-      className="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium select-none"
+      className="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium"
     >
-      {/* Only the grip starts a drag, so the remove button stays clickable */}
-      <span
-        {...attributes}
-        {...listeners}
-        className="shrink-0 cursor-grab active:cursor-grabbing"
-        style={{ color: t.textMuted }}
-        aria-label={`Reorder ${label}`}
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-          <path d="M10 3a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM10 8.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM11.5 15.5a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0z" />
-          <path d="M5 3a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM5 8.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM6.5 15.5a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0z" />
-        </svg>
-      </span>
-
       <span className="shrink-0 w-4 text-xs font-bold tabular-nums" style={{ color: accent }}>
         {index + 1}
       </span>
@@ -720,7 +691,6 @@ function SortableLensTopicRow({ id, index, label, onRemove, canRemove, accent, t
 
       <button
         onClick={onRemove}
-        onPointerDown={(e) => e.stopPropagation()}
         disabled={!canRemove}
         aria-label={`Remove ${label}`}
         title={canRemove ? `Remove ${label}` : `Keep at least ${MIN_TOPICS} topics`}
@@ -935,8 +905,8 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
             // `lenses` falls back to the bundled constants before the API lands.
             lens = (lenses || []).find((l) => l.key === parsed.lensKey) || null;
             // Only replay the lens definition when the user left it alone.
-            // Once they have reordered or removed topics, the saved list is
-            // theirs and re-deriving would silently undo that.
+            // Once they have removed topics from it, the saved list is theirs
+            // and re-deriving would silently undo that.
             if (lens && !parsed.lensEdited) {
               pickedTopics = lens.topicIds.filter(id => topics.some(t => t.id === id));
             }
@@ -951,8 +921,9 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
             // Carried through, not just read above. The save effect rewrites
             // this key from state on the next render, so dropping it here made
             // the flag survive exactly one reload: the second one saw
-            // lensEdited:false and re-derived the list from the lens, undoing
-            // the user's reorder — the very thing the flag exists to prevent.
+            // lensEdited:false and re-derived the list from the lens, putting
+            // back the topics the user had removed — the very thing the flag
+            // exists to prevent.
             lensEdited: !!parsed.lensEdited,
           };
         }
@@ -991,9 +962,9 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
   const [pickedTopics, setPickedTopics] = useState([]);
   const [lensApplied, setLensApplied] = useState(false);
   const [activeLens, setActiveLens] = useState(null);
-  // Set once the user reorders or drops a topic on the lens intro. Their list
-  // is no longer the lens definition, so restoring progress must not re-derive
-  // it from the constant and throw their choices away.
+  // Set once the user drops a topic on the lens intro, or puts the dropped ones
+  // back. Their list is no longer the lens definition, so restoring progress
+  // must not re-derive it from the constant and throw their choices away.
   const [lensEdited, setLensEdited] = useState(false);
   // Snapshot of compass topics before a lens was applied — restored when pressing "← Change my topics"
   const [prevPickedTopics, setPrevPickedTopics] = useState([]);
@@ -2004,12 +1975,6 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
       setPickedTopics(prev => prev.filter(x => x !== id));
     };
 
-    const reorderLensTopics = ({ active, over }) => {
-      if (!over || active.id === over.id) return;
-      setLensEdited(true);
-      handlePickDragEnd({ active, over });
-    };
-
     return (
       <div
         className={`fixed ${overlayTop} left-0 right-0 bottom-0 z-50 overflow-y-auto flex flex-col`}
@@ -2133,7 +2098,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
 
           </div>
 
-          {/* ── Right: the topics, as an editable running order ── */}
+          {/* ── Right: the topics we'll ask about, minus any they drop ── */}
           <div className="flex flex-col justify-center px-8 pb-16 lg:py-24 lg:w-1/2 lg:pr-16 lg:pl-8">
             <p
               className="text-xs font-bold tracking-widest uppercase mb-1"
@@ -2142,34 +2107,24 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
               {lensTopics.length} {lensTopics.length === 1 ? 'topic' : 'topics'} we&apos;ll ask about
             </p>
             <p className="text-sm mb-4" style={{ color: t.textMuted }}>
-              This is your running order. Drag a topic to move it, or drop the ones
-              you don&apos;t care about. We&apos;ll ask them exactly like this.
+              Each one becomes a question. Drop any you don&apos;t care about and
+              we&apos;ll ask about the rest.
             </p>
 
             <div className="max-w-md w-full mx-auto lg:mx-0">
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                modifiers={[restrictToVerticalAxis]}
-                onDragEnd={reorderLensTopics}
-              >
-                <SortableContext items={pickedTopics} strategy={verticalListSortingStrategy}>
-                  <div className="flex flex-col gap-2">
-                    {lensTopics.map((topic, i) => (
-                      <SortableLensTopicRow
-                        key={topic.id}
-                        id={topic.id}
-                        index={i}
-                        label={parseTensionTitle(topic).name || topic.short_title}
-                        accent={lensColor}
-                        t={t}
-                        canRemove={canRemoveTopic}
-                        onRemove={() => removeLensTopic(topic.id)}
-                      />
-                    ))}
-                  </div>
-                </SortableContext>
-              </DndContext>
+              <div className="flex flex-col gap-2">
+                {lensTopics.map((topic, i) => (
+                  <LensTopicRow
+                    key={topic.id}
+                    index={i}
+                    label={parseTensionTitle(topic).name || topic.short_title}
+                    accent={lensColor}
+                    t={t}
+                    canRemove={canRemoveTopic}
+                    onRemove={() => removeLensTopic(topic.id)}
+                  />
+                ))}
+              </div>
 
               {lensTopics.length < lensDefaultIds.length && (
                 <button
