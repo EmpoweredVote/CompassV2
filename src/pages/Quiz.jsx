@@ -298,7 +298,14 @@ export function Quiz() {
         body: JSON.stringify({
           topic_id: currentTopicId,
           value: selectedAnswer,
-          ...(currentWriteIn ? { write_in_text: currentWriteIn } : {}),
+          // Gated on the VALUE, not on the text alone (the same hardening
+          // Layout's Save does). `writeIns` can be hydrated from the broker
+          // cache or an API fill-gap with text for a topic whose stored answer
+          // is now an integer — the user has since picked a pre-written stance
+          // and the server already dropped the text on that value-only POST.
+          // Re-attaching it here would resurrect a write-in the server had
+          // correctly cleared. Clearing means OMITTING the field: null is a 422.
+          ...(isWriteIn(selectedAnswer) && currentWriteIn ? { write_in_text: currentWriteIn } : {}),
         }),
       })
         .then((response) => {
@@ -327,7 +334,7 @@ export function Quiz() {
   // the library drawer can no longer disagree about it. The quiz's old copy
   // honoured the flag when it rendered and when it dragged, but not when it
   // restored, which is the bug that adoption kills.
-  const isInverted = !!invertedSpokes[currentTopic.short_title];
+  const isInverted = !!invertedSpokes[currentTopic?.short_title];
 
   // Stance list (shared between both modes)
   const stanceContent = (
