@@ -18,7 +18,11 @@ export function valueFromPlacement(writeInIndex, stanceCount, isInverted) {
 
 export function placementFromValue(value, stanceCount, isInverted) {
   const raw = isInverted ? value - 0.5 : stanceCount + 0.5 - value;
-  return Math.round(raw);
+  // A stored value can outrun the current range — a 5.5 kept from before a
+  // revision trimmed the topic to four stances. Unclamped, that yields -1, and
+  // `items.splice(-1, 0, WRITE_IN_ID)` counts from the END, dropping the card
+  // next to last instead of at the top. Clamp to the slots that exist.
+  return Math.min(Math.max(Math.round(raw), 0), stanceCount);
 }
 
 export function isWriteIn(value) {

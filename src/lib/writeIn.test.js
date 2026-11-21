@@ -55,6 +55,30 @@ describe("round trip", () => {
   });
 });
 
+// A stored value can outlive the range it was placed in: a topic revised from
+// five stances to four leaves a 5.5 pointing past the end. The slot has to stay
+// inside the list either way — a negative index makes `splice` count from the
+// END, which drops the card next to last instead of at the top.
+describe("a value outside the current range", () => {
+  it("clamps to the slots that exist", () => {
+    // 5.5 against a 4-stance topic: off the strong end of each display order.
+    expect(placementFromValue(5.5, 4, false)).toBe(0);
+    expect(placementFromValue(5.5, 4, true)).toBe(4);
+    // and off the other end.
+    expect(placementFromValue(-0.5, 4, false)).toBe(4);
+    expect(placementFromValue(-0.5, 4, true)).toBe(0);
+  });
+
+  it("keeps the card inside the list when spliced at that slot", () => {
+    for (const inverted of [false, true]) {
+      const items = ["s1", "s2", "s3", "s4"];
+      items.splice(placementFromValue(5.5, 4, inverted), 0, "write-in");
+      expect(items.indexOf("write-in")).toBe(inverted ? 4 : 0);
+      expect(items).toHaveLength(5);
+    }
+  });
+});
+
 describe("display order agrees with placement values", () => {
   it.each([3, 5, 7])("interior slot value sits between its displayed neighbours for %i stances", (count) => {
     const shuffled = Array.from({ length: count }, (_, k) => mk(((k * 2 + 1) % count) + 1));
