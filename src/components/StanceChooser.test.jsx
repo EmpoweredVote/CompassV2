@@ -187,6 +187,30 @@ describe("the write-in card", () => {
     expect(onSelectWriteIn).toHaveBeenCalledWith(TOPIC, 4.5, "first and more");
   });
 
+  // Dragging before typing is the natural order — the card opens empty and the
+  // drag hint sits inside it. A blank write-in is not an answer: reported, it
+  // would POST `write_in_text: ""` and, if it filled the last gap, raise the
+  // "Fully calibrated" banner on nothing.
+  it("records nothing for a drag made before anything is typed", () => {
+    const onSelectWriteIn = vi.fn();
+    const onPersistWriteIn = vi.fn();
+    render({ currentAnswer: null, onSelectWriteIn, onPersistWriteIn });
+
+    click(writeOwn());
+    act(() => drag.end({ active: { id: "write-in" }, over: { id: "s4" } }));
+
+    expect(onSelectWriteIn).not.toHaveBeenCalled();
+    expect(onPersistWriteIn).not.toHaveBeenCalled();
+    // The placement is held on screen, so no second drag is needed.
+    expect(rowIndexOfCard()).toBe(1);
+
+    // ...and the first keystroke saves at the slot just dragged to, not at the
+    // foot of the list where the card started.
+    type("my own view");
+
+    expect(onSelectWriteIn).toHaveBeenCalledWith(TOPIC, 4.5, "my own view");
+  });
+
   it("tells the parent when write-in mode opens and closes", () => {
     const onWriteInModeChange = vi.fn();
     const onOpenWriteIn = vi.fn();

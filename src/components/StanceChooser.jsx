@@ -500,6 +500,14 @@ function StanceChooser({
     // under is unchanged.
     setItems(reordered, itemsInverted.current);
     setHasRepositioned(true);
+    // An empty card has nothing to record yet, and dragging before typing is
+    // the natural order — the hint only appears once the card is open. Nothing
+    // is reported or saved here, so a blank write-in can neither be POSTed as
+    // an answered topic nor be the answer that completes a run. The placement
+    // is still kept on screen: `hasRepositioned` is set above and `placedValue`
+    // reads off the list, so the first keystroke saves at exactly the slot just
+    // dragged to, with no second drag.
+    if (!text.trim()) return;
     // Read through the inversion the list on screen was built under, which is
     // the list the user just dragged within. In the steady state that is
     // `isInverted`; taking it from the items themselves means a drop can never
