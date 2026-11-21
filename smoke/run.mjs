@@ -134,6 +134,28 @@ const settleUntil = async (b, expression, timeoutMs) => {
   }
 };
 
+/**
+ * Wait for a `data-testid` element to exist, then click it.
+ *
+ * A bare `document.querySelector('[data-testid=…]').click()` throws "Cannot
+ * read properties of null" the moment the element is one beat late, and the
+ * message names the line rather than the thing that was missing. A lens chip
+ * after a navigate is something the suite can SEE, so it waits for it — the
+ * README's rule — and still fails loudly, by name, if it never arrives.
+ */
+const clickTestId = async (b, testId, { timeoutMs = 8000, settleMs = 900 } = {}) => {
+  const selector = JSON.stringify(`[data-testid="${testId}"]`);
+  await settleUntil(b, `!!document.querySelector(${selector})`, timeoutMs);
+  const result = await b.evaluate(`(() => {
+    const el = document.querySelector(${selector});
+    if (!el) return 'NOT_FOUND';
+    el.click();
+    return 'OK';
+  })()`);
+  assert(result === "OK", `no [data-testid="${testId}"] after ${timeoutMs}ms`);
+  await b.sleep(settleMs);
+};
+
 const answeredCount = (b) =>
   b.evaluate(`Object.keys(JSON.parse(localStorage.getItem('answers') || '{}')).length`);
 
@@ -243,6 +265,30 @@ const scenarios = [
       assert(sawWelcome, "fresh guest never saw the calibration welcome screen");
 
       await clickButton(b, WELCOME_LENS_CTA);
+
+      // The lens intro's topic list is a list, not a sortable. Reordering it
+      // moved nothing a user could see — the screen has asked no question yet,
+      // so it has no context in which an order could matter — and a grip that
+      // does nothing reads as a deliberate design choice, never as a bug.
+      // Pinned on the aria-label the drag handle carried (`Reorder <topic>`),
+      // which only that row ever rendered: the pills later in the flow are
+      // still draggable and label their control `Remove <topic>`.
+      //
+      // ⚠ `waitFor`, NOT `settleUntil`. Counting zero grips on a screen that
+      // never rendered is a PASS, and this is the only automated pin on the
+      // bug that was reported — a pin that can report success from an empty
+      // page reads as coverage for a year and was asserting nothing. waitFor
+      // throws on timeout, so a missing lens intro fails here, by name.
+      const sawLensIntro = await b.waitFor(
+        `[...document.querySelectorAll('button')]
+           .some(el => (el.textContent || '').trim().startsWith(${JSON.stringify(LENS_START_CTA)}))`,
+        { label: "lens intro" }
+      );
+      assert(sawLensIntro, "never reached the lens intro, so its topic list proves nothing");
+      const grips = await b.evaluate(
+        `document.querySelectorAll('[aria-label^="Reorder "]').length`
+      );
+      assert(grips === 0, `the lens intro's topic list invites a drag again: ${grips} handle(s)`);
 
       // welcome → lens intro → learn carousel → answer. The carousel sits
       // between the lens intro and the first question, and its last slide
@@ -379,7 +425,12 @@ const scenarios = [
           `only carries the <=8 selected topics; it must merge, not replace.`
       );
 
-      const chart = await b.evaluate(`document.querySelectorAll('svg').length > 5`);
+      // Waited for, not sampled: the fixed settle above is there to let the
+      // broker echo land (and prove it did NOT truncate), not to time the
+      // chart's first paint. `guest-onboarding` waits for the same thing.
+      const chart = await b.waitFor(`document.querySelectorAll('svg').length > 5`, {
+        label: "compass chart",
+      });
       assert(chart, "compass chart did not render for a returning user");
 
       return `20 answers preserved across navigation, compass renders`;
@@ -882,11 +933,9 @@ const scenarios = [
       await b.navigate(`${baseUrl}/results`, { settleMs: 8000 });
 
       // Activate it, then shrink the on-screen spokes WITHOUT pressing Update.
-      await b.evaluate(`document.querySelector('[data-testid="lens-chip-u_edit01"]').click()`);
-      await b.sleep(1000);
+      await clickTestId(b, "lens-chip-u_edit01", { settleMs: 1000 });
       await b.evaluate(`localStorage.setItem('selectedTopics', ${JSON.stringify(JSON.stringify(seven))})`);
-      await b.evaluate(`document.querySelector('[data-testid="lens-chip-my-compass"]').click()`);
-      await b.sleep(1000);
+      await clickTestId(b, "lens-chip-my-compass", { settleMs: 1000 });
 
       const untouched = await b.evaluate(`JSON.parse(localStorage.getItem('customLenses'))[0]`);
       assert(
@@ -896,8 +945,7 @@ const scenarios = [
 
       // Delete it. window.confirm has to be answered before the click.
       await b.evaluate(`window.confirm = () => true`);
-      await b.evaluate(`document.querySelector('[data-testid="lens-chip-u_edit01"]').click()`);
-      await b.sleep(900);
+      await clickTestId(b, "lens-chip-u_edit01");
       const del = await b.evaluate(`(() => {
         const el = document.querySelector('[data-testid="lens-delete"]');
         if (!el) return 'NOT_FOUND';
@@ -960,8 +1008,7 @@ const scenarios = [
       );
       assert(badge === "1", `expected a "1" flag badge on the chip, got ${JSON.stringify(badge)}`);
 
-      await b.evaluate(`document.querySelector('[data-testid="lens-chip-u_flag01"]').click()`);
-      await b.sleep(1200);
+      await clickTestId(b, "lens-chip-u_flag01", { settleMs: 1200 });
 
       const marker = await b.evaluate(`(() => {
         const el = document.querySelector('[data-testid="recalibrate-marker-${flagged.id}"]');
