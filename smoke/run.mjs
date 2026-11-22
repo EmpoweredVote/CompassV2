@@ -156,6 +156,122 @@ const clickTestId = async (b, testId, { timeoutMs = 8000, settleMs = 900 } = {})
   await b.sleep(settleMs);
 };
 
+/**
+ * Type into the open write-in card with real text input.
+ *
+ * Not `el.value = …`: React owns that property, so assigning it updates the
+ * DOM and nothing else — the component's state never moves and the card still
+ * reads as empty to every path that matters. Input.insertText goes through the
+ * browser's own text-input path, which is the one React listens to.
+ */
+const typeIntoWriteIn = async (b, text) => {
+  const focused = await b.evaluate(`(() => {
+    const el = document.querySelector('[data-testid="write-in-card"] textarea');
+    if (!el) return false;
+    el.focus();
+    return document.activeElement === el;
+  })()`);
+  assert(focused, "the write-in card has no focusable textarea");
+
+  await b.send("Input.insertText", { text });
+  await b.sleep(400);
+
+  const got = await b.evaluate(
+    `(document.querySelector('[data-testid="write-in-card"] textarea') || {}).value`
+  );
+  assert(got === text, `typing did not reach the textarea: got ${JSON.stringify(got)}`);
+};
+
+/**
+ * Drag the write-in card onto the stance row at `rowIndex`, with real mouse
+ * events. Returns how many stance rows were on screen.
+ *
+ * Two details decide whether this works at all:
+ *
+ * - The press must land on the GRIP. Only the grip carries dnd-kit's drag
+ *   listeners, because the textarea beside it has to stay typeable.
+ * - The travel is measured from the CARD's centre, not the grip's. dnd-kit's
+ *   closestCenter compares the dragged NODE's rect against the droppables, not
+ *   the cursor — so aiming the pointer at the target row moves the card by the
+ *   wrong delta and it lands a slot or two off. Intermittently, which is the
+ *   worst way for a suite to be wrong.
+ *
+ * PointerSensor has a 3px activation distance, hence the stepped move rather
+ * than one jump to the destination.
+ */
+const placeWriteIn = async (b, rowIndex, { steps = 14, overshootPx = 0, settleMs = 1300 } = {}) => {
+  const geom = await b.evaluate(`(() => {
+    const grip = document.querySelector('[data-testid="write-in-grip"]');
+    const card = document.querySelector('[data-testid="write-in-card"]');
+    const rows = [...document.querySelectorAll('[data-testid="stance-row"]')];
+    const row = rows[${rowIndex}];
+    if (!grip || !card || !row) return null;
+    const mid = (el) => {
+      const r = el.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    };
+    const g = mid(grip);
+    return { gx: g.x, gy: g.y, dy: mid(row).y - mid(card).y, rows: rows.length };
+  })()`);
+  assert(geom, `no write-in card, grip or stance row ${rowIndex} to drag onto`);
+
+  const travel = geom.dy + overshootPx;
+  const mouse = (type, y, extra) =>
+    b.send("Input.dispatchMouseEvent", { type, x: geom.gx, y, button: "left", ...extra });
+
+  await mouse("mouseMoved", geom.gy, { button: "none", buttons: 0 });
+  await mouse("mousePressed", geom.gy, { buttons: 1, clickCount: 1 });
+  for (let i = 1; i <= steps; i++) {
+    await mouse("mouseMoved", geom.gy + (travel * i) / steps, { buttons: 1 });
+    await b.sleep(30);
+  }
+  await mouse("mouseReleased", geom.gy + travel, { buttons: 0, clickCount: 1 });
+  await b.sleep(settleMs);
+
+  return geom.rows;
+};
+
+/** Everything a guest's write-in is made of: the half-step value and the words. */
+const writeInState = (b) =>
+  b.evaluate(`(() => ({
+    answers: JSON.parse(localStorage.getItem('answers') || '{}'),
+    writeIns: JSON.parse(localStorage.getItem('writeIns') || '{}'),
+    inverted: JSON.parse(localStorage.getItem('invertedSpokes') || '{}'),
+  }))()`);
+
+/**
+ * Open the write-in card on the question currently showing, type `text`, and
+ * drag it to the top slot. Returns the topic it answered and the state after.
+ *
+ * The top slot is chosen because its expected value is exact and known:
+ * valueFromPlacement(0, n, inverted) is 0.5 when inverted and n + 0.5 when it
+ * is not. An overshoot is safe there — past the first row the index clamps —
+ * so the drag does not have to be pixel-perfect to be checkable.
+ */
+const giveWriteInAnswer = async (b, text) => {
+  const before = Object.keys((await writeInState(b)).answers);
+
+  await clickTestId(b, "write-own-option");
+  await b.waitFor(`!!document.querySelector('[data-testid="write-in-card"]')`, {
+    label: "write-in card",
+  });
+
+  await typeIntoWriteIn(b, text);
+  const stanceCount = await placeWriteIn(b, 0, { overshootPx: -24 });
+
+  const state = await writeInState(b);
+  const fresh = Object.keys(state.answers).filter((k) => !before.includes(k));
+  assert(
+    fresh.length === 1,
+    `expected the write-in to answer exactly one topic, got ${JSON.stringify(fresh)}. ` +
+      `If that is empty the drag never registered: dnd-kit's PointerSensor needs a press ` +
+      `on [data-testid="write-in-grip"] followed by movement past its 3px activation ` +
+      `distance, and the card is placed by ITS centre, not the cursor's.`
+  );
+
+  return { topic: fresh[0], stanceCount, state };
+};
+
 const answeredCount = (b) =>
   b.evaluate(`Object.keys(JSON.parse(localStorage.getItem('answers') || '{}')).length`);
 
@@ -437,6 +553,75 @@ const scenarios = [
     },
   },
   {
+    name: "write-in-survives-the-broker-echo",
+    // #141 restored write-ins outside onboarding, and nothing in this suite
+    // watches them. Every other scenario clicks a pre-written stance, which is
+    // a different path end to end: an integer value, no text, no drag.
+    //
+    // The echo is the half worth a real browser. `writeIns` rides the
+    // ev-context payload as `w`, and the subscribe callback only accepts an
+    // incoming `w` when the local copy is EMPTY — the same shape of rule whose
+    // answers equivalent was #65. A regression there loses the user's own
+    // words on the next page load and leaves the half-step value behind,
+    // pointing at nothing: a question that reads as answered with no answer on
+    // it. The 2500ms below is deliberate and must stay fixed — it is there to
+    // prove the echo did NOT wipe the write-in, and there is nothing to wait
+    // for when the correct outcome is that nothing happens.
+    async run(b, baseUrl) {
+      const TEXT = "Only if the budget is published first";
+
+      // Seed from the topics JSON, not an app page, for the reason the two #65
+      // scenarios give: an app page's first load would publish an EMPTY
+      // compass to the broker, and the reload would then be testing that.
+      await b.navigate(`${baseUrl}${API}/topics`, { settleMs: 1000 });
+      const seeded = await seedBuiltCompass(b, 8);
+      assert(seeded === 8, `seeding failed, got ${seeded} answers`);
+
+      await b.navigate(`${baseUrl}/calibrate`, { settleMs: 8000 });
+      await b.waitFor(`${STANCE_BUTTONS}.length > 0`, { label: "stance buttons" });
+
+      const { topic, stanceCount, state } = await giveWriteInAnswer(b, TEXT);
+
+      // The placement is checkable exactly, because the card went to the top
+      // slot: 0.5 when this topic's spokes are flipped for this user, and
+      // stanceCount + 0.5 when they are not. Inversion is per user and per
+      // topic, so the expected value has to be read, not hardcoded.
+      const flipped = !!state.inverted[topic];
+      const expected = flipped ? 0.5 : stanceCount + 0.5;
+      assert(
+        state.answers[topic] === expected,
+        `"${topic}" has ${stanceCount} stances and the card was dropped in the top slot, ` +
+          `so the value should be ${expected} (spokes ${flipped ? "flipped" : "not flipped"} ` +
+          `for this user) — got ${JSON.stringify(state.answers[topic])}`
+      );
+      assert(
+        state.writeIns[topic] === TEXT,
+        `the typed stance was not saved for "${topic}": got ${JSON.stringify(state.writeIns[topic])}`
+      );
+
+      // Now the echo. /results publishes to the broker and takes its reply.
+      await b.navigate(`${baseUrl}/results`, { settleMs: 9000 });
+      await b.sleep(2500);
+
+      const after = await writeInState(b);
+      assert(
+        after.writeIns[topic] === TEXT,
+        `the broker echo wiped the write-in text for "${topic}": ${JSON.stringify(after.writeIns[topic])}. ` +
+          `The payload carries writeIns as \`w\`; CompassContext must merge it, not let an ` +
+          `incoming copy replace words the user typed in this tab.`
+      );
+      assert(
+        after.answers[topic] === expected,
+        `the half-step value for "${topic}" did not survive the echo: ` +
+          `${JSON.stringify(after.answers[topic])}, expected ${expected}. A value without its ` +
+          `text is a question that reads as answered with nothing to show for it.`
+      );
+
+      return `"${topic}" answered in the user's own words at ${expected}, intact after the echo`;
+    },
+  },
+
+  {
     name: "remote-update-persists",
     // A remote write from another tab or subdomain must survive a reload. The
     // subscribe callback writes React state; every slice needs a persistence
@@ -704,6 +889,56 @@ const scenarios = [
           `Authed answers are POSTed fire-and-forget, so a failure here is silent.`
       );
       return `${rows.length} answers persisted server-side`;
+    },
+  },
+
+  {
+    name: "write-in-reaches-the-server",
+    sharedAccount: true,
+    // A signed-in user's write-in has a second half the guest path does not:
+    // `write_in_text` on the POST. It goes out fire-and-forget and debounced by
+    // 600ms, so if it stopped being sent — or went out without the text, which
+    // is what #141 fixed in the quiz — nothing on screen would say so. The
+    // words would simply not be on the next device.
+    async run(b, baseUrl) {
+      const TEXT = "Fund it, but sunset the program after five years";
+
+      const creds = loadCredentials();
+      if (!creds) throw new Skip("no SMOKE_EMAIL / SMOKE_PASSWORD available");
+      const token = await login(creds);
+      await resetServerAnswers(token);
+
+      await b.navigate(`${baseUrl}/calibrate`, { settleMs: 4000 });
+      await b.evaluate(`(() => {
+        localStorage.clear();
+        localStorage.setItem('ev_token', ${JSON.stringify(token)});
+      })()`);
+      await b.navigate(`${baseUrl}/calibrate`, { settleMs: 10000 });
+      await b.waitFor(`${STANCE_BUTTONS}.length > 0`, { label: "stance buttons" });
+
+      const { topic } = await giveWriteInAnswer(b, TEXT);
+
+      // 600ms debounce, then a fire-and-forget POST. Fixed, like the sibling
+      // authed scenario: the page shows nothing either way.
+      await b.sleep(3000);
+
+      const rows = await getServerAnswers(token);
+      assert(Array.isArray(rows), `GET /compass/answers answered with ${JSON.stringify(rows).slice(0, 120)}`);
+
+      const saved = rows.filter((r) => r?.write_in_text === TEXT);
+      assert(
+        saved.length === 1,
+        `answered "${topic}" in the user's own words, but the server has ${saved.length} row(s) ` +
+          `carrying that text out of ${rows.length}. The POST sends write_in_text alongside the ` +
+          `half-step value; a row saved without it strands the value with nothing to display.`
+      );
+      assert(
+        !Number.isInteger(saved[0].value),
+        `the server stored ${saved[0].value} for the write-in — a whole number means it was ` +
+          `filed as one of the pre-written stances, and the placement was lost.`
+      );
+
+      return `write-in persisted server-side at ${saved[0].value} with its text`;
     },
   },
 
