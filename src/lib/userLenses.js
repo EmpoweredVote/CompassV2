@@ -77,9 +77,17 @@ export function regenerateConflictingKeys(lenses, conflictingKeys) {
  * Server-owned fields (needsRecalibration, createdAt, updatedAt) are dropped —
  * sending them back is harmless but meaningless, and it invites treating the
  * client's copy of a server computation as authoritative.
+ *
+ * 🔴 `deleteKeys` IS NOT DERIVED FROM `lenses`, AND MUST NOT BE. The server now
+ * keeps any lens this body does not mention; a deletion is something the caller
+ * states out loud. Diffing the two here would rebuild the hazard one layer up —
+ * a client whose list had been blanked by a failed fetch would diff its way to
+ * deleting everything it had forgotten it had. What goes in here is what the
+ * user chose to delete, and nothing else.
  */
-export function toPutPayload(lenses) {
+export function toPutPayload(lenses, deleteKeys = []) {
   return {
+    delete_keys: deleteKeys,
     lenses: lenses.map((l) => ({
       key: l.key,
       name: l.name,
