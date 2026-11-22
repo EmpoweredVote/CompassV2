@@ -1475,7 +1475,13 @@ function CombinedPage() {
     // Leave the lens BEFORE removing it, so the compass is restored from
     // preLensTopics rather than stranding the user on an orphaned topic set.
     exitToCompass();
-    await saveUserLenses(userLenses.filter((l) => l.key !== key));
+    // 🔴 THE KEY IS NAMED, NOT JUST OMITTED. Filtering it out of the list is how
+    // the UI shows the deletion; it is not how the server is told about it. The
+    // server keeps any lens a body does not mention, precisely so that a client
+    // which has lost track of the set cannot delete by forgetting. This is the
+    // one place in the app that means to destroy a lens, so this is the only
+    // place that says so.
+    await saveUserLenses(userLenses.filter((l) => l.key !== key), { deleteKeys: [key] });
   };
 
   const lensOrderKey = (lens) => `lensTopicsOrder:${lens.key}`;

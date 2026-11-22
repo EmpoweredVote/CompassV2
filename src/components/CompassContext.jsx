@@ -109,6 +109,20 @@ export function CompassProvider({ children }) {
   // Whether refreshUserLenses has settled at least once. Guest lenses are read
   // synchronously above, so this only ever gates on the authed fetch.
   const [userLensesLoaded, setUserLensesLoaded] = useState(false);
+  /**
+   * Whether `userLenses` is the account's real set, or merely the last thing we
+   * managed to read.
+   *
+   * 🔴 SETTLED IS NOT THE SAME AS KNOWN, AND CONFLATING THEM COST TWO LENSES.
+   * `userLensesLoaded` means the fetch stopped. This means it stopped by
+   * succeeding. A write may only go out when this is true, because a PUT says
+   * what the whole set should be — and a client that does not know the set has
+   * nothing it can honestly say about it.
+   *
+   * A ref and not state: it gates a write at the moment the write happens, and
+   * nothing renders differently because of it.
+   */
+  const lensSetKnown = useRef(false);
   const [answers, setAnswers] = useState(
     () => safeParse(localStorage.getItem("answers"), {})
   );
@@ -585,13 +599,38 @@ export function CompassProvider({ children }) {
   // ------------------------------------------------------------------ user lenses
 
   const refreshUserLenses = useCallback(async () => {
-    if (!isLoggedIn) { setUserLenses(readGuestLenses()); setUserLensesLoaded(true); return; }
+    if (!isLoggedIn) {
+      // localStorage IS the authority for a guest, and reading it cannot fail.
+      setUserLenses(readGuestLenses());
+      lensSetKnown.current = true;
+      setUserLensesLoaded(true);
+      return;
+    }
     try {
       const res = await apiFetch('/compass/my-lenses');
-      const data = res ? await res.json() : [];
-      setUserLenses(Array.isArray(data) ? data : []);
+      // 🔴 A FAILED FETCH IS NOT AN EMPTY SET. This line used to read
+      // `res ? await res.json() : []`, and `apiFetch` returns null on a transient
+      // failure by design — so one network blip told the client the user had no
+      // custom lenses. It then kept that belief (the catch never fired) and the
+      // user's next save posted a list missing every lens it had forgotten,
+      // which the server honoured as a deletion. Nobody deleted anything, and
+      // there is no history table. Measured on prod 2026-11-22: three lenses in,
+      // a one-lens PUT, one left.
+      //
+      // A non-array body is the same failure wearing a 200: an error object from
+      // a 500 is not a lens list, and `Array.isArray` used to turn it into [].
+      if (!res || !res.ok) {
+        throw new Error(`loading lenses failed (${res ? res.status : 'no response'})`);
+      }
+      const data = await res.json();
+      if (!Array.isArray(data)) throw new Error('lens list was not a list');
+      setUserLenses(data);
+      lensSetKnown.current = true;
     } catch (err) {
-      // Custom lenses are additive. Their absence must never break the compass.
+      // Custom lenses are additive. Their absence must never break the compass —
+      // so this leaves `userLenses` exactly as it was rather than emptying it,
+      // and records that what is on screen is no longer known to be the truth.
+      lensSetKnown.current = false;
       console.error('[compass] could not load custom lenses:', err);
     } finally {
       // Settled, not succeeded. A ?calibrate=u_... arrival has to know when to
@@ -607,18 +646,53 @@ export function CompassProvider({ children }) {
   }, [authChecking, isLoggedIn, refreshUserLenses]);
 
   /**
-   * Persist the whole lens set. Whole-set replace rather than per-lens CRUD
-   * because that is how the client holds them: a guest builds lenses with no
-   * server round-trip, and sign-in promotes the collection in one request.
+   * Persist the whole lens set, and destroy exactly the lenses named in
+   * `deleteKeys`.
+   *
+   * Whole-set upsert rather than per-lens CRUD because that is how the client
+   * holds them: a guest builds lenses with no server round-trip, and sign-in
+   * promotes the collection in one request.
+   *
+   * 🔴 `deleteKeys` IS NOT OPTIONAL POLISH. The server keeps any lens this body
+   * does not mention — it used to delete them, which is how a client that had
+   * lost track of the set destroyed lenses nobody asked it to. So the one place
+   * in the app that means to delete a lens says so here, and every other caller
+   * leaves this empty and cannot destroy anything.
    */
-  const saveUserLenses = useCallback(async (next) => {
+  const saveUserLenses = useCallback(async (next, { deleteKeys = [] } = {}) => {
     setUserLenses(next);                       // optimistic — the user just acted
     if (!isLoggedIn) { writeGuestLenses(next); return; }
 
+    // 🔴 DO NOT WRITE A SET YOU DO NOT KNOW. If the last read failed, `next` was
+    // computed from a list that may be missing lenses this account holds, and
+    // sending it is how they used to be destroyed. Try once to find out; if that
+    // still fails, refuse — the user keeps what they just did on screen, and the
+    // account keeps what it has.
+    if (!lensSetKnown.current) {
+      await refreshUserLenses();
+      if (!lensSetKnown.current) {
+        throw new Error('lens set unknown — refusing to save over it');
+      }
+    }
+
     const res = await apiFetch('/compass/my-lenses', {
       method: 'PUT',
-      body: JSON.stringify(toPutPayload(next)),
+      body: JSON.stringify(toPutPayload(next, deleteKeys)),
     });
+
+    if (res && res.status === 409) {
+      // The server is holding lenses this body would have destroyed without
+      // naming them. Our picture of the account is stale, so throw the picture
+      // away and re-read rather than retrying the same claim.
+      const body = await res.json().catch(() => ({}));
+      if (body.code === 'LENS_DELETE_NOT_ACKNOWLEDGED') {
+        lensSetKnown.current = false;
+        await refreshUserLenses();
+        throw new Error(
+          `server holds lenses this save did not account for: ${(body.unacknowledged_keys || []).join(', ')}`
+        );
+      }
+    }
     if (res && res.status === 422) {
       // Should be unreachable: topic ids come from the loaded topic set. If it
       // happens the client holds an id the server has never heard of, which is
@@ -632,8 +706,10 @@ export function CompassProvider({ children }) {
       throw new Error(`saving lenses failed (${res ? res.status : 'no response'})`);
     }
     const saved = await res.json();
-    if (Array.isArray(saved)) setUserLenses(saved);
-  }, [isLoggedIn]);
+    // A 200 from the PUT is the server telling us the set it now holds, which
+    // makes it known again even if the read before it had failed.
+    if (Array.isArray(saved)) { setUserLenses(saved); lensSetKnown.current = true; }
+  }, [isLoggedIn, refreshUserLenses]);
 
   // Guest -> signed-in: fold whatever this browser holds into the account, once.
   const promotedRef = useRef(false);
@@ -646,9 +722,22 @@ export function CompassProvider({ children }) {
     (async () => {
       try {
         const res = await apiFetch('/compass/my-lenses');
-        const server = res ? await res.json() : [];
-        let merged = mergeLensSets(Array.isArray(server) ? server : [], local);
+        // 🔴 THE SAME BLANKING BUG, AND THIS COPY WAS THE DANGEROUS ONE. It did
+        // `res ? await res.json() : []` too — but this path PUTs on its own,
+        // with no user action at all. A browser holding guest lenses signs in,
+        // this one GET blips, the merge is seeded with [] instead of the
+        // account's real set, and the PUT that follows replaces the account with
+        // just the guest's copies. Reading nothing must abort the promotion, not
+        // proceed with nothing: the local copy is kept and a later load retries.
+        if (!res || !res.ok) {
+          throw new Error(`could not read the account's lenses (${res ? res.status : 'no response'})`);
+        }
+        const server = await res.json();
+        if (!Array.isArray(server)) throw new Error('lens list was not a list');
+        let merged = mergeLensSets(server, local);
 
+        // A merge is a superset of both sides, so promotion never deletes — and
+        // with no delete_keys it now cannot, whatever it believes it read.
         let put = await apiFetch('/compass/my-lenses', {
           method: 'PUT', body: JSON.stringify(toPutPayload(merged)),
         });
@@ -665,7 +754,7 @@ export function CompassProvider({ children }) {
         if (!put || !put.ok) throw new Error(`promotion failed (${put ? put.status : 'no response'})`);
 
         const saved = await put.json();
-        if (Array.isArray(saved)) setUserLenses(saved);
+        if (Array.isArray(saved)) { setUserLenses(saved); lensSetKnown.current = true; }
         // Only now. Clearing local state that was not confirmed written is how
         // you lose a user's work to one bad response.
         clearGuestLenses();

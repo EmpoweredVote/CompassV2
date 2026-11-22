@@ -87,8 +87,32 @@ describe("toPutPayload", () => {
       { key: "u_7f3a91", name: "Farm bill", topicIds: ["t1", "t2"], visibility: "private" },
     ]);
     expect(payload).toEqual({
+      delete_keys: [],
       lenses: [{ key: "u_7f3a91", name: "Farm bill", topic_ids: ["t1", "t2"], visibility: "private" }],
     });
+  });
+
+  // 🔴 THE DEFAULT HAS TO BE "DELETE NOTHING". Every caller but one is saving,
+  // renaming or reordering, and none of them should be able to destroy a lens by
+  // leaving it out of the list — which is exactly what used to happen.
+  it("names no deletions unless asked", () => {
+    expect(toPutPayload([]).delete_keys).toEqual([]);
+  });
+
+  it("carries the keys the caller named for deletion", () => {
+    const payload = toPutPayload(
+      [{ key: "u_7f3a91", name: "x", topicIds: [] }],
+      ["u_aaa001", "u_bbb002"]
+    );
+    expect(payload.delete_keys).toEqual(["u_aaa001", "u_bbb002"]);
+  });
+
+  // Deliberately NOT derived from the difference between the two. A client whose
+  // lens list had been blanked by a failed fetch would diff its way to deleting
+  // everything it had forgotten — which is the bug, one layer up.
+  it("never infers a deletion from a lens being absent", () => {
+    const payload = toPutPayload([{ key: "u_7f3a91", name: "x", topicIds: [] }]);
+    expect(payload.delete_keys).toEqual([]);
   });
 
   it("defaults visibility to private", () => {
