@@ -62,6 +62,26 @@ Two properties of that bug shaped this suite:
   which takes one worker slot beside the guest scenarios. **Mark any new
   scenario that signs in `sharedAccount: true`**, or it will race the others
   for the account.
+- **…and no two RUNS overlap either, which is a separate problem.** That lane
+  is per-run. Nothing stopped two CI runs holding the same account at once, and
+  two PRs pushed two minutes apart duly wiped each other's seeded answers:
+  `authed-hydrates-server-answers` failed with *"12 on the server, but ended up
+  with 1"*, which reads as a hydration bug and is not one. It passed on re-run
+  and locally — the worst shape a CI failure can take.
+
+  The `smoke` job now carries its own `concurrency` group keyed on a **literal**
+  (`smoke-shared-test-account`), not on `github.ref` like the workflow-level
+  one, because the resource is one account shared by every run. GitHub keeps at
+  most one run pending per group, so a third concurrent run cancels the
+  second's wait: a cancelled check is honest and re-runnable, which the silent
+  wrong failure was not. If three smoke jobs at once becomes normal here, the
+  answer is a second test account, not a longer queue.
+
+  ⚠ **A local `npm run smoke` is outside that lock.** Nothing in GitHub can
+  serialise your laptop against CI. Don't start one while CI is running, or
+  point it at a different `SMOKE_EMAIL`. `authed-hydrates-server-answers` now
+  re-checks the server before it blames hydration and names contention as the
+  first thing to rule out — see `seedStillOnServer`.
 - **Wait for what you can see; sleep only for what must not happen.** A fixed
   `b.sleep()` that waits for something observable can be `settleUntil()`
   instead: it polls, returns early when the condition holds, and leaves the
@@ -134,7 +154,9 @@ never committed. To run them in CI, add the two as repository secrets and pass
 them through to the `smoke` job; without them the scenarios skip.
 
 Use a **dedicated throwaway account** — these scenarios delete and rewrite the
-account's compass answers on every run.
+account's compass answers on every run. One account is shared by every run of
+the suite everywhere, which is why the `smoke` job serialises itself repo-wide
+and why a local run must not overlap CI (see the design note above).
 
 `authed-hydrates-server-answers` deliberately runs on `/calibrate`, not
 `/results`. `CombinedPage` issues its own `/compass/answers` fetch that masks a

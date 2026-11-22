@@ -352,6 +352,39 @@ const placeWriteInByKeyboard = async (b, slotsUp, { settleMs = 1300 } = {}) => {
 
   return rows;
 };
+/**
+ * Confirm this run's seeded answers are still on the shared account.
+ *
+ * 🔴 WHY A SCENARIO CHECKS THIS AT ALL. Four scenarios sign into one test
+ * account and call DELETE /compass/answers/me to get a known starting state.
+ * Two of them running at once destroy each other's seed, and the damage
+ * surfaces as the NEXT assertion failing — "12 on the server, but ended up with
+ * 1" — which reads as a hydration bug in the app. It is not. It is two runs
+ * sharing an account, and it cost a re-run and an investigation to find that
+ * out.
+ *
+ * CI now serialises the smoke job repo-wide, so two PRs cannot do this. A
+ * `npm run smoke` on a laptop is outside that lock and still can, which is why
+ * the check lives here rather than only in the workflow.
+ *
+ * Call it immediately before the assertion that would otherwise lie. It is
+ * cheap — one GET — and it can only fire when the seed really has gone.
+ */
+const seedStillOnServer = async (token, seeded) => {
+  const have = (await getServerAnswers(token)).length;
+  assert(
+    have >= seeded,
+    `this run seeded ${seeded} answers on the shared test account and the server now holds ` +
+      `${have}. Nothing the scenario does removes them, so read it in this order:\n` +
+      `  1. Another run was using the same account. CI runs one smoke job at a time repo-wide ` +
+      `(see .github/workflows/build-check.yml), but a local \`npm run smoke\` is OUTSIDE that ` +
+      `lock — do not start one while CI is running, or point it at a different SMOKE_EMAIL.\n` +
+      `  2. If nothing else was running, the app deleted server answers on its own, and THAT ` +
+      `is the bug. DELETE /compass/answers/:topicId fires when a write-in is cancelled; ` +
+      `/calibrate should never reach it here.`
+  );
+};
+
 const answeredCount = (b) =>
   b.evaluate(`Object.keys(JSON.parse(localStorage.getItem('answers') || '{}')).length`);
 
@@ -1005,6 +1038,11 @@ const scenarios = [
 
       const local = await b.evaluate(`JSON.parse(localStorage.getItem('answers') || '{}')`);
       const count = Object.keys(local).length;
+      // Check the SERVER before blaming hydration. This is the scenario that
+      // misreported the contention: it said "12 on the server, but ended up
+      // with 1" while the 12 had already been wiped by another run, so the
+      // sentence named the one thing that was not wrong.
+      await seedStillOnServer(token, server.length);
       assert(
         count >= server.length,
         `signed in with 1 local answer and ${server.length} on the server, but ended up with ` +
@@ -1048,7 +1086,9 @@ const scenarios = [
       assert(
         Array.isArray(rows) && rows.length >= 3,
         `answered 3 questions while signed in but the server has ${Array.isArray(rows) ? rows.length : "?"}. ` +
-          `Authed answers are POSTed fire-and-forget, so a failure here is silent.`
+          `Authed answers are POSTed fire-and-forget, so a failure here is silent. If the ` +
+          `count is 0, check whether another run reset this shared account first — CI ` +
+          `serialises the smoke job, but a local run is outside that lock.`
       );
       return `${rows.length} answers persisted server-side`;
     },

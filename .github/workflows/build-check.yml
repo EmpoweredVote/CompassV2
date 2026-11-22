@@ -56,6 +56,39 @@ jobs:
       - run: npm run build
 
   smoke:
+    # 🔴 ONE SMOKE JOB AT A TIME, REPO-WIDE, AND THE KEY IS A CONSTANT.
+    #
+    # The workflow-level group above is keyed on `github.ref`, which supersedes
+    # a branch's own earlier runs — the right behaviour, and no help here. Four
+    # scenarios (`sharedAccount: true`) sign into the ONE test account and call
+    # DELETE /compass/answers/me to establish a known starting state. The suite
+    # serialises them into a single lane WITHIN a run; nothing serialised them
+    # ACROSS runs, so two PRs with overlapping smoke jobs wiped each other's
+    # seeded answers.
+    #
+    # It is not theoretical: two PRs pushed two minutes apart failed
+    # `authed-hydrates-server-answers` with "12 on the server, but ended up
+    # with 1" — the other run's reset, reported as a hydration bug. It passed
+    # on re-run and locally, which is the worst shape a CI failure can take.
+    #
+    # The group name is a literal, with nothing branch- or run-specific in it,
+    # because the resource being protected is one account shared by every run.
+    # `cancel-in-progress: false` queues rather than kills: a smoke run that is
+    # most of the way through a three-minute suite should finish.
+    #
+    # ⚠ THE COST, STATED. GitHub keeps at most one run PENDING per group, so a
+    # third concurrent run cancels the second's wait. A cancelled check is
+    # honest and re-runnable, which the silent wrong failure was not — but if
+    # this repo starts running three smoke jobs at once routinely, the fix is a
+    # second test account, not a longer queue.
+    #
+    # ⚠ IT DOES NOT COVER A LOCAL RUN. `npm run smoke` on a laptop is outside
+    # this lock entirely, and the authed scenarios now detect that case and say
+    # so rather than blaming the app — see `seedStillOnServer` in smoke/run.mjs.
+    concurrency:
+      group: smoke-shared-test-account
+      cancel-in-progress: false
+
     # Drives the real app in headless Chrome and asserts the critical guest
     # paths still work. `build` only proves the app compiles — the #65 bug
     # compiled fine and silently deleted every answer on /calibrate.
