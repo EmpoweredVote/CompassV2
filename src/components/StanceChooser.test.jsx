@@ -558,3 +558,234 @@ describe("missing data", () => {
     expect(container.firstChild).toBeNull();
   });
 });
+
+// The card's hint has always said to drag it somewhere, and dnd-kit's default
+// screen-reader text has always promised a space-bar pick-up. Neither was
+// reachable without a pointer: no KeyboardSensor was ever registered, and the
+// element carrying the drag listeners was not focusable. These pin the route
+// that replaced that promise.
+//
+// Unlike a pointer drag — which jsdom cannot reproduce, hence the DndContext
+// wrapper at the top of this file — an arrow press needs no geometry, so these
+// drive the real component through the real handler.
+describe("placing a write-in from the keyboard", () => {
+  const grip = () => card().querySelector('[data-testid="write-in-grip"]');
+  const region = () => container.querySelector('[data-testid="write-in-announcement"]');
+  const announcement = () => region().textContent.trim();
+  const press = (key, times = 1) => {
+    for (let i = 0; i < times; i++) {
+      act(() => {
+        grip().dispatchEvent(
+          new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }),
+        );
+      });
+    }
+  };
+
+  it("puts the drag handle in the tab order, named for the keys that work on it", () => {
+    render({});
+    click(writeOwn());
+
+    // A div with listeners on it is not reachable; a button is.
+    expect(grip().tagName).toBe("BUTTON");
+    expect(grip().tabIndex).toBe(0);
+    expect(grip().getAttribute("aria-label")).toMatch(/up and down arrow keys/i);
+  });
+
+  it("describes the route that exists, not dnd-kit's space-bar pick-up", () => {
+    render({});
+    click(writeOwn());
+
+    const describedBy = grip().getAttribute("aria-describedby");
+    expect(describedBy).toBeTruthy();
+    const instructions = document.getElementById(describedBy);
+    expect(instructions?.textContent).toMatch(/up and down arrow keys/i);
+    // dnd-kit's default text. It needs a KeyboardSensor, which this component
+    // does not register, so leaving it in place described a way in that was
+    // not there.
+    expect(instructions?.textContent).not.toMatch(/space bar/i);
+  });
+
+  it("leaves the card itself out of the tab order, so the editor is not inside a button", () => {
+    render({});
+    click(writeOwn());
+
+    expect(card().getAttribute("role")).toBeNull();
+    expect(card().hasAttribute("tabindex")).toBe(false);
+  });
+
+  it("names both routes in the hint, since one of them has no visible affordance", () => {
+    render({});
+    click(writeOwn());
+    type("my own view");
+
+    expect(card().textContent).toMatch(/drag/i);
+    expect(card().textContent).toContain("↑");
+    expect(card().textContent).toContain("↓");
+  });
+
+  // The drag test above drops the card on `s4` and gets 4.5 at row 1. The
+  // keyboard must reach the same slot and report the same value, or the two
+  // gestures are not the same feature.
+  it("reaches the same slot and the same value as the equivalent drag", () => {
+    const onSelectWriteIn = vi.fn();
+    render({ isInverted: false, onSelectWriteIn });
+
+    click(writeOwn());
+    type("my own view");
+    press("ArrowUp", 4);
+
+    expect(rowIndexOfCard()).toBe(1);
+    expect(onSelectWriteIn).toHaveBeenLastCalledWith(TOPIC, 4.5, "my own view");
+  });
+
+  it("reads the placement through the spoke's inversion", () => {
+    const onSelectWriteIn = vi.fn();
+    render({ isInverted: true, onSelectWriteIn });
+
+    click(writeOwn());
+    type("my own view");
+    press("ArrowUp", 2);
+
+    // Same two presses, inverted display: 3.5 rather than the 2.5 the
+    // uninverted list would give. A keyboard placement is scored off the list
+    // on screen, exactly as a drop is.
+    expect(onSelectWriteIn).toHaveBeenLastCalledWith(TOPIC, 3.5, "my own view");
+  });
+
+  it("stops at the top of the list instead of running off it", () => {
+    const onSelectWriteIn = vi.fn();
+    render({ onSelectWriteIn });
+
+    click(writeOwn());
+    type("my own view");
+    press("ArrowUp", 7); // five presses reach the top; two more are nothing
+
+    expect(rowIndexOfCard()).toBe(0);
+    expect(onSelectWriteIn).toHaveBeenLastCalledWith(TOPIC, 5.5, "my own view");
+  });
+
+  it("stops at the foot of the list instead of running off it", () => {
+    const onSelectWriteIn = vi.fn();
+    render({ onSelectWriteIn });
+
+    click(writeOwn());
+    type("my own view");
+    press("ArrowDown"); // the card opens parked at the foot already
+
+    expect(rowIndexOfCard()).toBe(5);
+    expect(onSelectWriteIn).not.toHaveBeenCalled();
+  });
+
+  // Same rule as a drag made before typing: a blank write-in must never be
+  // reported, or it POSTs an empty answer and can raise "Fully calibrated" on
+  // nothing. The placement is still kept, so the first keystroke lands on it.
+  it("records nothing for an arrow press made before anything is typed", () => {
+    const onSelectWriteIn = vi.fn();
+    const onPersistWriteIn = vi.fn();
+    render({ onSelectWriteIn, onPersistWriteIn });
+
+    click(writeOwn());
+    press("ArrowUp");
+
+    expect(onSelectWriteIn).not.toHaveBeenCalled();
+    expect(onPersistWriteIn).not.toHaveBeenCalled();
+    expect(rowIndexOfCard()).toBe(4);
+
+    type("my own view");
+    expect(onSelectWriteIn).toHaveBeenCalledWith(TOPIC, 1.5, "my own view");
+  });
+
+  // `disabled` does not freeze a drag already on screen, and the keyboard is
+  // the same control by another gesture.
+  it("still moves while a pick is settling, exactly as a drag on screen does", () => {
+    const onSelectWriteIn = vi.fn();
+    render({ disabled: true, currentAnswer: 4.5, writeInText: "mine", onSelectWriteIn });
+
+    press("ArrowUp");
+
+    expect(onSelectWriteIn).toHaveBeenLastCalledWith(TOPIC, 5.5, "mine");
+  });
+
+  describe("what it says out loud", () => {
+    it("names the stances the card landed between", () => {
+      render({});
+      click(writeOwn());
+
+      press("ArrowUp");
+
+      expect(announcement()).toBe('Your stance is between "Stance 2" and "Stance 1".');
+    });
+
+    it("speaks again when a press changes nothing, so the key never reads as dead", () => {
+      render({});
+      click(writeOwn());
+
+      press("ArrowDown");
+      const first = region().textContent;
+      press("ArrowDown");
+      const second = region().textContent;
+
+      expect(first.trim()).toBe("Your stance is below every stance in the list.");
+      expect(second.trim()).toBe(first.trim());
+      // Same words, different string. A live region handed its own text back
+      // verbatim says nothing at all, and the end of the list is the one place
+      // a user most needs an answer.
+      expect(second).not.toBe(first);
+    });
+
+    it("does not carry a position across to the next question", () => {
+      render({});
+      click(writeOwn());
+      press("ArrowUp");
+      expect(announcement()).not.toBe("");
+
+      render({ topic: { id: "t2", short_title: "Topic Two" } });
+
+      expect(container.querySelector('[data-testid="write-in-announcement"]')).toBeNull();
+    });
+  });
+
+  describe("saving", () => {
+    beforeEach(() => vi.useFakeTimers());
+    afterEach(() => vi.useRealTimers());
+
+    // A drop is one finished act and saves at once (pinned above). A run of
+    // arrow presses is one act arriving in steps, so it rides the debounce:
+    // sweeping the card down a five-stance list is one POST, not five.
+    it("coalesces a run of arrow presses into a single save", () => {
+      const onSelectWriteIn = vi.fn();
+      const onPersistWriteIn = vi.fn();
+      render({ onSelectWriteIn, onPersistWriteIn });
+
+      click(writeOwn());
+      type("my own view");
+      press("ArrowUp", 3);
+
+      // Local state hears every step, so the parent and the list on screen
+      // never disagree about where the card is.
+      expect(onSelectWriteIn).toHaveBeenCalledTimes(3);
+      expect(onPersistWriteIn).not.toHaveBeenCalled();
+
+      act(() => vi.advanceTimersByTime(WRITE_IN_SAVE_DEBOUNCE_MS));
+
+      expect(onPersistWriteIn).toHaveBeenCalledTimes(1);
+      expect(onPersistWriteIn).toHaveBeenCalledWith(TOPIC, 3.5, "my own view");
+    });
+
+    it("saves a keyboard placement left mid-debounce when the question changes", () => {
+      const onPersistWriteIn = vi.fn();
+      render({ onPersistWriteIn });
+
+      click(writeOwn());
+      type("my own view");
+      press("ArrowUp", 2);
+      expect(onPersistWriteIn).not.toHaveBeenCalled();
+
+      render({ topic: { id: "t2", short_title: "Topic Two" }, onPersistWriteIn });
+
+      expect(onPersistWriteIn).toHaveBeenCalledTimes(1);
+      expect(onPersistWriteIn).toHaveBeenCalledWith(TOPIC, 2.5, "my own view");
+    });
+  });
+});

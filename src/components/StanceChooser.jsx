@@ -48,6 +48,18 @@
 // focusing it there scrolls the question's own heading out of a scrolling
 // panel and pulls a keyboard user out of the list they were arrowing through.
 //
+// Placing a write-in has two gestures, and they can do exactly the same
+// things. Pointer users drag the card by its handle. Keyboard users focus that
+// same handle (Shift+Tab from the editor) and press ↑ / ↓; each press moves
+// the card one place and saves it there. The handle is the only control that
+// moves the card either way, which is why dnd-kit's attributes live on it
+// rather than on the card: one tab stop, one thing it does.
+//
+// The two gestures differ in exactly one respect, and deliberately. A drop is
+// one finished act, so it saves at once; an arrow press is one step of a run,
+// so it rides the 600 ms debounce and a sweep down the list costs one POST
+// rather than five.
+//
 // Clearing the text and cancelling are deliberately different gestures. An
 // empty textarea clears the answer and keeps the card at its placement, so
 // rewriting your own words never costs you your position on the scale; the ×
@@ -104,6 +116,16 @@ const SMOOTH_TRANSITION = {
 // because it has to shout in both themes.
 const HINT_COLOR = "#E85D26";
 
+// What a screen reader reads off the handle. dnd-kit's default text describes
+// a space-bar pick-up that exists only where a KeyboardSensor is registered —
+// this component has never registered one, so the default was an invitation to
+// a route that was not there. The arrow keys are the route; say so.
+const KEYBOARD_INSTRUCTIONS = {
+  draggable:
+    "Press the up and down arrow keys to move your stance among the stances. " +
+    "Each press moves it one place and saves it there.",
+};
+
 function SortableStanceLabel({ id, text, t }) {
   const { setNodeRef, transform, transition } = useSortable({
     id,
@@ -129,7 +151,19 @@ function SortableStanceLabel({ id, text, t }) {
   );
 }
 
-function SortableWriteInCard({ id, text, onChange, onCancel, showHint, disabled, autoFocus, t }) {
+function SortableWriteInCard({
+  id,
+  text,
+  onChange,
+  onCancel,
+  onMove,
+  handleLabel,
+  announcement,
+  showHint,
+  disabled,
+  autoFocus,
+  t,
+}) {
   const {
     attributes,
     listeners,
@@ -138,6 +172,32 @@ function SortableWriteInCard({ id, text, onChange, onCancel, showHint, disabled,
     transition,
     isDragging,
   } = useSortable({ id, transition: SMOOTH_TRANSITION });
+
+  // The focus ring is ours to draw. The handle is the keyboard's only way in,
+  // and a control you cannot see you are standing on is not a route.
+  const [handleFocused, setHandleFocused] = useState(false);
+
+  const handleKeyDown = (e) => {
+    const delta = e.key === "ArrowUp" ? -1 : e.key === "ArrowDown" ? 1 : 0;
+    if (!delta) return;
+    // Without this the page scrolls under the card instead, which is exactly
+    // what "there is no keyboard route" looked like from the outside.
+    e.preventDefault();
+    onMove?.(delta);
+  };
+
+  const handleFocus = (e) => {
+    // The ring belongs to the keyboard route, not to the mouse press that
+    // starts a drag. jsdom's selector engine may not know :focus-visible; a
+    // focus we cannot classify gets the ring rather than silently losing it.
+    let visible = true;
+    try {
+      visible = e.target.matches(":focus-visible");
+    } catch {
+      visible = true;
+    }
+    setHandleFocused(visible);
+  };
 
   return (
     <div
@@ -151,17 +211,31 @@ function SortableWriteInCard({ id, text, onChange, onCancel, showHint, disabled,
         background: t.yellowBg,
       }}
       className="flex items-start gap-2 px-3 py-2.5 rounded-lg"
-      {...attributes}
     >
-      {/* Only the grip starts a drag, so the textarea stays typeable */}
-      <div
+      {/* The one control that moves the card, by either gesture: a pointer
+          drags from here, and the arrow keys work from here. dnd-kit's own
+          attributes (tabIndex, role, aria-describedby) ride on this button
+          rather than on the card, so the editor is not announced as part of a
+          button and there is exactly one tab stop that means "move me". The
+          textarea beside it stays typeable because the drag listeners never
+          reach it. */}
+      <button
+        type="button"
+        {...attributes}
         {...listeners}
+        onKeyDown={handleKeyDown}
+        onFocus={handleFocus}
+        onBlur={() => setHandleFocused(false)}
         data-testid="write-in-grip"
+        aria-label={handleLabel}
         className={`cursor-grab active:cursor-grabbing pt-1.5 shrink-0 rounded p-1 ${
           showHint ? "animate-pulse" : ""
         }`}
-        style={{ color: showHint ? HINT_COLOR : t.textMuted }}
-        aria-label="Drag your stance into place"
+        style={{
+          color: showHint ? HINT_COLOR : t.textMuted,
+          outline: handleFocused ? `2px solid ${t.yellowDark}` : "none",
+          outlineOffset: "2px",
+        }}
       >
         <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
           <circle cx="9" cy="6" r="1.5" />
@@ -171,7 +245,7 @@ function SortableWriteInCard({ id, text, onChange, onCancel, showHint, disabled,
           <circle cx="9" cy="18" r="1.5" />
           <circle cx="15" cy="18" r="1.5" />
         </svg>
-      </div>
+      </button>
       <div className="flex-1 flex flex-col gap-1">
         <textarea
           autoFocus={autoFocus}
@@ -185,9 +259,16 @@ function SortableWriteInCard({ id, text, onChange, onCancel, showHint, disabled,
         />
         {showHint && (
           <p className="text-xs font-medium" style={{ color: HINT_COLOR }}>
-            Drag your own view to where it fits among these stances
+            Drag your own view to where it fits among these stances, or use ↑
+            and ↓ on its handle
           </p>
         )}
+        {/* Mounted for as long as the card is, so it is already in the page
+            when its text changes — a live region added at the same moment as
+            its message is not announced. */}
+        <p className="sr-only" aria-live="polite" data-testid="write-in-announcement">
+          {announcement}
+        </p>
       </div>
       <button
         onClick={onCancel}
@@ -236,12 +317,23 @@ function StanceChooser({
   // yanks a keyboard user out of whatever list they were arrowing through.
   const [autoFocusCard, setAutoFocusCard] = useState(false);
 
+  // What the last keyboard move did, for a screen reader. A pointer drag keeps
+  // dnd-kit's own announcements; this covers the route dnd-kit is not driving.
+  const [announcement, setAnnouncement] = useState("");
+
   // `orderedItems` is a DISPLAY order, so it only means anything alongside the
   // inversion it was built under. Keeping them together is what lets a flip be
   // read correctly in the render before the re-derive effect has run.
+  //
+  // The ref is for the handlers: held arrow keys can fire faster than a
+  // render, and a second press reading the list off the previous render would
+  // undo the first. `orderedItems` only ever changes through here, so the two
+  // cannot drift.
   const itemsInverted = useRef(isInverted);
+  const itemsRef = useRef([]);
   const setItems = (items, builtUnder = isInverted) => {
     itemsInverted.current = builtUnder;
+    itemsRef.current = items;
     setOrderedItems(items);
   };
 
@@ -347,6 +439,9 @@ function StanceChooser({
   useEffect(() => {
     const restored = storedValueRef.current;
     dismissedValueRef.current = null;
+    // A position announced for the question just left must not stand as this
+    // question's answer to "where am I?".
+    setAnnouncement("");
     const list = topic ? orderStances(stances, isInverted) : [];
     // Nothing to show, or nothing to place it among yet. Clearing is not
     // optional here: a bare `return` would leave the previous question's card,
@@ -455,6 +550,28 @@ function StanceChooser({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showWriteIn]);
 
+  // Where the card sits, said in terms of the stances around it. The index and
+  // the half-step value are ours; what the user placed is a sentence between
+  // two sentences.
+  const describePlacement = (items) => {
+    const i = items.indexOf(WRITE_IN_ID);
+    if (i <= 0) return "Your stance is above every stance in the list.";
+    if (i >= items.length - 1) return "Your stance is below every stance in the list.";
+    const above = ordered.find((s) => s.id === items[i - 1])?.text ?? "";
+    const below = ordered.find((s) => s.id === items[i + 1])?.text ?? "";
+    return `Your stance is between "${above}" and "${below}".`;
+  };
+
+  // A live region only speaks when its text changes, so an arrow press that
+  // changes nothing — the card is already at the end of the list — would be
+  // silent, which is the one case most in need of an answer. The alternating
+  // trailing non-breaking space is invisible and makes the string differ.
+  const announceSeq = useRef(0);
+  const announce = (message) => {
+    announceSeq.current += 1;
+    setAnnouncement(announceSeq.current % 2 ? message : `${message}\u00A0`);
+  };
+
   const closeWriteIn = (dismissedValue = liveValueRef.current) => {
     dismissedValueRef.current = dismissedValue;
     setShowWriteIn(false);
@@ -462,6 +579,7 @@ function StanceChooser({
     setItems([]);
     setHasRepositioned(false);
     setAutoFocusCard(false);
+    setAnnouncement("");
   };
 
   const handleSelectStance = (stanceValue) => {
@@ -490,38 +608,64 @@ function StanceChooser({
     onOpenWriteIn?.();
   };
 
-  const handleDragEnd = ({ active, over }) => {
-    if (!over || active.id === over.id) return;
-    const oldIndex = orderedItems.indexOf(active.id);
-    const newIndex = orderedItems.indexOf(over.id);
-    if (oldIndex < 0 || newIndex < 0) return;
-    const reordered = arrayMove(orderedItems, oldIndex, newIndex);
-    // A drag rearranges the list it is shown in, so the inversion it was built
+  // One commit for both gestures, so a keyboard placement cannot drift from a
+  // dragged one. `saveNow` is the only difference: see the note at the top.
+  const commitPlacement = (reordered, { saveNow }) => {
+    // A move rearranges the list it is shown in, so the inversion it was built
     // under is unchanged.
     setItems(reordered, itemsInverted.current);
     setHasRepositioned(true);
-    // An empty card has nothing to record yet, and dragging before typing is
+    // An empty card has nothing to record yet, and placing before typing is
     // the natural order — the hint only appears once the card is open. Nothing
     // is reported or saved here, so a blank write-in can neither be POSTed as
     // an answered topic nor be the answer that completes a run. The placement
     // is still kept on screen: `hasRepositioned` is set above and `placedValue`
     // reads off the list, so the first keystroke saves at exactly the slot just
-    // dragged to, with no second drag.
+    // moved to, with no second move.
     if (!text.trim()) return;
     // Read through the inversion the list on screen was built under, which is
-    // the list the user just dragged within. In the steady state that is
-    // `isInverted`; taking it from the items themselves means a drop can never
-    // be scored against a list the user is not looking at.
+    // the list the user just moved within. In the steady state that is
+    // `isInverted`; taking it from the items themselves means a placement can
+    // never be scored against a list the user is not looking at.
     const placed = valueFromPlacement(
       reordered.indexOf(WRITE_IN_ID),
       ordered.length,
       itemsInverted.current
     );
     onSelectWriteIn?.(topic, placed, text);
-    // A placement is one deliberate act, not a stream: it saves now, and takes
-    // whatever text the buffer was holding with it.
     schedulePersist(placed, text);
-    flushPersist();
+    // A drop is one deliberate act, not a stream: it saves now, and takes
+    // whatever text the buffer was holding with it.
+    if (saveNow) flushPersist();
+  };
+
+  const handleDragEnd = ({ active, over }) => {
+    if (!over || active.id === over.id) return;
+    const items = itemsRef.current;
+    const oldIndex = items.indexOf(active.id);
+    const newIndex = items.indexOf(over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+    commitPlacement(arrayMove(items, oldIndex, newIndex), { saveNow: true });
+  };
+
+  // The keyboard's route to a placement. Same commit as a drop, on purpose:
+  // the whole point of the handle is that the two gestures can do the same
+  // things. It is not gated on `disabled` for the same reason a drag already
+  // on screen is not — see the prop note above.
+  const moveWriteIn = (delta) => {
+    const items = itemsRef.current;
+    const from = items.indexOf(WRITE_IN_ID);
+    if (from < 0) return;
+    const to = from + delta;
+    if (to < 0 || to >= items.length) {
+      // Say the unchanged position rather than nothing. Silence at the end of
+      // the list is indistinguishable from a key that does not work.
+      announce(describePlacement(items));
+      return;
+    }
+    const reordered = arrayMove(items, from, to);
+    commitPlacement(reordered, { saveNow: false });
+    announce(describePlacement(reordered));
   };
 
   const handleTextChange = (newText) => {
@@ -565,6 +709,14 @@ function StanceChooser({
     : "px-4 py-3 text-sm sm:text-base";
   const buttonClasses = `text-left rounded-lg transition-all duration-200 leading-snug font-medium cursor-pointer disabled:cursor-default ${sizeClasses}`;
 
+  // The handle's accessible name carries the keys, because the visible hint
+  // that carries them is gone the moment the card has been placed once — and
+  // moving it again is exactly when a keyboard user needs to be told how.
+  const handleSlot = writeInIndex >= 0 ? writeInIndex + 1 : orderedItems.length;
+  const handleLabel =
+    `Move your stance into place: position ${handleSlot} of ${orderedItems.length}. ` +
+    `Press the up and down arrow keys, or drag.`;
+
   if (showWriteIn) {
     return (
       <div className={`flex flex-col ${gapClassName}`} data-testid="stance-chooser">
@@ -573,6 +725,7 @@ function StanceChooser({
           collisionDetection={closestCenter}
           modifiers={[restrictToVerticalAxis]}
           onDragEnd={handleDragEnd}
+          accessibility={{ screenReaderInstructions: KEYBOARD_INSTRUCTIONS }}
         >
           <SortableContext items={orderedItems} strategy={verticalListSortingStrategy}>
             <div className={`flex flex-col ${gapClassName}`}>
@@ -584,6 +737,9 @@ function StanceChooser({
                     text={text}
                     onChange={handleTextChange}
                     onCancel={handleCancelWriteIn}
+                    onMove={moveWriteIn}
+                    handleLabel={handleLabel}
+                    announcement={announcement}
                     showHint={!!text.trim() && !hasRepositioned}
                     disabled={disabled}
                     autoFocus={autoFocusCard}
