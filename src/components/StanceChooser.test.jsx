@@ -27,6 +27,7 @@ vi.mock("@dnd-kit/core", async (importOriginal) => {
 import StanceChooser, { WRITE_IN_SAVE_DEBOUNCE_MS } from "./StanceChooser.jsx";
 
 const TOPIC = { id: "t1", short_title: "Topic One" };
+const OTHER = { id: "t9", short_title: "Topic Nine" };
 
 // Deliberately out of order: display order must come from `orderStances`,
 // not from the order the caller happened to hold them in.
@@ -135,7 +136,7 @@ describe("picking a pre-written stance", () => {
 
     click(options()[0]); // Stance 5
 
-    expect(onCancelWriteIn).toHaveBeenCalledWith(TOPIC);
+    expect(onCancelWriteIn).toHaveBeenCalledWith(TOPIC, "replaced");
     expect(onSelectStance).toHaveBeenCalledWith(TOPIC, 5);
     expect(calls).toEqual(["cancel", "select"]);
   });
@@ -238,7 +239,7 @@ describe("the write-in card", () => {
     type("   ");
 
     // The answer goes — an empty write-in is not an answer.
-    expect(onCancelWriteIn).toHaveBeenCalledWith(TOPIC);
+    expect(onCancelWriteIn).toHaveBeenCalledWith(TOPIC, "emptied");
     // The placement does not.
     expect(card()).not.toBeNull();
     expect(rowIndexOfCard()).toBe(3);
@@ -258,7 +259,7 @@ describe("the write-in card", () => {
     expect(rowIndexOfCard()).toBe(1);
 
     type("");
-    expect(onCancelWriteIn).toHaveBeenCalledWith(TOPIC);
+    expect(onCancelWriteIn).toHaveBeenCalledWith(TOPIC, "emptied");
 
     // The parent honours that by clearing its stored value, and re-renders.
     render({ currentAnswer: null, onSelectWriteIn, onCancelWriteIn });
@@ -822,5 +823,75 @@ describe("placing a write-in from the keyboard", () => {
       expect(onPersistWriteIn).toHaveBeenCalledTimes(1);
       expect(onPersistWriteIn).toHaveBeenCalledWith(TOPIC, 2.5, "my own view");
     });
+  });
+});
+
+// Three different gestures report a cancel, and for a parent holding only
+// local state they are the same event — which is why this was a bare
+// `onCancelWriteIn(topic)` for as long as that was true.
+//
+// They stop being the same the moment a parent clears the SERVER copy.
+// "replaced" is followed within the same tick by a POST of the new stance, and
+// the two requests are independent and unordered, so a DELETE sent on that
+// path can land after the POST and soft-delete the answer the user just gave.
+// Only this component knows which gesture it was.
+describe("why a cancel was reported", () => {
+  it('says "abandoned" when the card is dismissed with its ×', () => {
+    const onCancelWriteIn = vi.fn();
+    render({ currentAnswer: 4.5, writeInText: "mine", onCancelWriteIn });
+
+    click(card().querySelector('[data-testid="write-in-cancel"]'));
+
+    expect(onCancelWriteIn).toHaveBeenCalledWith(TOPIC, "abandoned");
+  });
+
+  it('says "emptied" when the text is cleared but the card stays put', () => {
+    const onCancelWriteIn = vi.fn();
+    render({ currentAnswer: 4.5, writeInText: "mine", onCancelWriteIn });
+
+    type("");
+
+    expect(onCancelWriteIn).toHaveBeenCalledWith(TOPIC, "emptied");
+    // The card keeps its placement, so the next keystroke saves at the same
+    // slot. Nothing is being swapped, so a server-side clear is right here.
+    expect(card()).not.toBeNull();
+  });
+
+  // 🔴 THE ONE THAT MATTERS. A parent that deletes server-side on this reason
+  // races the stance POST that follows it in the same tick, and a DELETE that
+  // lands second silently removes the answer the user just picked.
+  it('says "replaced" on the way into a pre-written stance pick', () => {
+    const calls = [];
+    const onCancelWriteIn = vi.fn((topic, reason) => calls.push(`cancel:${reason}`));
+    const onSelectStance = vi.fn(() => calls.push("select"));
+
+    render({ currentAnswer: 3, writeInText: "mine", onCancelWriteIn, onSelectStance });
+    click(options()[0]); // Stance 5
+
+    expect(onCancelWriteIn).toHaveBeenCalledWith(TOPIC, "replaced");
+    expect(onSelectStance).toHaveBeenCalledWith(TOPIC, 5);
+    // The ordering the reason exists to make safe: the cancel is reported
+    // first, and the pick lands behind it.
+    expect(calls).toEqual(["cancel:replaced", "select"]);
+  });
+
+  it("never reports a bare cancel with no reason", () => {
+    // A parent switching on `reason` would treat undefined as "not replaced"
+    // and start deleting on the swap path — the exact bug this prevents. So no
+    // route may report without one.
+    const seen = [];
+    const onCancelWriteIn = vi.fn((topic, reason) => seen.push(reason));
+
+    render({ currentAnswer: 4.5, writeInText: "mine", onCancelWriteIn });
+    type("");
+    click(card().querySelector('[data-testid="write-in-cancel"]'));
+
+    render({ topic: OTHER, currentAnswer: 3, writeInText: "mine", onCancelWriteIn });
+    click(options()[2]);
+
+    expect(seen.length).toBeGreaterThan(0);
+    for (const reason of seen) {
+      expect(["abandoned", "emptied", "replaced"]).toContain(reason);
+    }
   });
 });

@@ -1410,8 +1410,21 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
   // Guarded on the stored value rather than cleared outright, because the
   // chooser also cancels on the way into a stance pick (stale write-in text
   // against an integer answer) and that answer must survive.
-  const clearWriteIn = (topic) => {
+  const clearWriteIn = (topic, reason) => {
     if (!topic) return;
+
+    // The server copy goes too. See the same block in FullCalibration: nothing
+    // else here can say "this is no longer answered", because every other write
+    // carries a value, and the abandoned write-in came back on the next
+    // hydration.
+    //
+    // ⚠ NOT ON "replaced" — a stance POST follows that one in the same tick,
+    // unordered against this, and a DELETE landing after it would soft-delete
+    // the answer the user just gave.
+    if (isLoggedIn && reason !== 'replaced') {
+      apiFetch(`/compass/answers/${topic.id}`, { method: 'DELETE' }).catch(() => {});
+    }
+
     setSelectedAnswer((prev) => (isWriteIn(prev) ? null : prev));
     setAnswers((prev) => {
       if (!isWriteIn(prev[topic.short_title])) return prev;
