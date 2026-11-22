@@ -5,9 +5,109 @@
 // needs no browser download step.
 
 import { spawn } from "node:child_process";
-import { existsSync, rmSync } from "node:fs";
+import { existsSync, readdirSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+
+const PROFILE_PREFIX = "compass-smoke-";
+
+/**
+ * Profiles whose Chrome was still holding its locks when the scenario ended.
+ *
+ * Not a leak — a deferral. `removePendingProfiles()` clears these at the end
+ * of the run, where waiting costs nothing because there is no scenario left to
+ * hold up.
+ */
+const unreleasedProfiles = new Set();
+
+/**
+ * Delete `compass-smoke-*` profile directories left behind by earlier runs.
+ *
+ * A scenario that finishes removes its own profile, so anything still here is
+ * the residue of a run that did not finish — a Ctrl-C, a killed CI job, a
+ * machine that slept. Nothing collects those: `%TEMP%` on Windows is not swept
+ * unless Storage Sense is on, and a profile is tens of megabytes. Three
+ * hundred of them filled a disk and stopped a day's work, which is the whole
+ * reason this exists.
+ *
+ * `maxAgeMs` is what makes it safe to run while another copy of the suite is
+ * going: a live scenario's profile is seconds old, never hours. Without that
+ * guard a second run would delete the first run's browsers out from under it.
+ */
+export function sweepStaleProfiles({ maxAgeMs = 2 * 60 * 60 * 1000 } = {}) {
+  const root = tmpdir();
+  const cutoff = Date.now() - maxAgeMs;
+  let removed = 0;
+  let bytes = 0;
+  let skipped = 0;
+
+  let entries;
+  try {
+    entries = readdirSync(root, { withFileTypes: true });
+  } catch {
+    return { removed, bytes, skipped };
+  }
+
+  for (const entry of entries) {
+    if (!entry.isDirectory() || !entry.name.startsWith(PROFILE_PREFIX)) continue;
+    const path = join(root, entry.name);
+    try {
+      if (statSync(path).mtimeMs > cutoff) continue;
+      bytes += dirSize(path);
+      rmSync(path, { recursive: true, force: true });
+      removed++;
+    } catch {
+      // Still locked, or gone between the readdir and now. Either way it is
+      // not ours to insist on.
+      skipped++;
+    }
+  }
+  return { removed, bytes, skipped };
+}
+
+/**
+ * Clear the profiles that were still locked when their scenario finished.
+ *
+ * Call this after every browser in the suite has been killed. At that point
+ * the locks are released within a second or two, and the wait is free — the
+ * run is over. Returns what is still stuck, which should be nothing.
+ */
+export async function removePendingProfiles({ attempts = 20, intervalMs = 250 } = {}) {
+  const stuck = [];
+  for (const profile of unreleasedProfiles) {
+    let gone = false;
+    for (let attempt = 0; attempt < attempts && !gone; attempt++) {
+      try {
+        rmSync(profile, { recursive: true, force: true });
+        gone = true;
+      } catch {
+        await sleep(intervalMs);
+      }
+    }
+    if (!gone) stuck.push(profile);
+  }
+  unreleasedProfiles.clear();
+  return stuck;
+}
+
+function dirSize(path) {
+  let total = 0;
+  let entries;
+  try {
+    entries = readdirSync(path, { withFileTypes: true });
+  } catch {
+    return 0;
+  }
+  for (const entry of entries) {
+    const child = join(path, entry.name);
+    try {
+      total += entry.isDirectory() ? dirSize(child) : statSync(child).size;
+    } catch {
+      // raced with a delete
+    }
+  }
+  return total;
+}
 
 const CHROME_CANDIDATES = {
   win32: [
@@ -155,13 +255,33 @@ export async function launch({ port = 9222 } = {}) {
       // socket already gone
     }
     chrome.kill();
-    // Give Chrome a beat to release the profile dir before removing it.
-    await sleep(300);
-    try {
-      rmSync(profile, { recursive: true, force: true });
-    } catch {
-      // best effort; the OS temp dir gets cleaned eventually
+
+    // Chrome releases the profile directory asynchronously, and on Windows it
+    // routinely holds its locks for longer than one grace period. This used to
+    // be a single rmSync after 300ms, with the failure swallowed and a comment
+    // saying the OS would clean up eventually. It does not: %TEMP% is not
+    // swept unless Storage Sense is on, so every slow release left tens of
+    // megabytes behind, silently, forever.
+    //
+    // Retrying is the fix — the lock does clear, it just takes longer than one
+    // guess. Roughly 3s of attempts, which costs nothing on a run that already
+    // takes minutes.
+    for (let attempt = 0; attempt < 12; attempt++) {
+      await sleep(250);
+      try {
+        rmSync(profile, { recursive: true, force: true });
+        return;
+      } catch {
+        // still locked; go round again
+      }
     }
+
+    // Out of attempts, and waiting longer HERE is the wrong trade: this runs
+    // inside the scenario, so every extra second is a second on the suite.
+    // Hand it to the end-of-run pass instead, which retries once every Chrome
+    // in the suite is gone — by which point the lock is certainly released.
+    // Measured: 2 of 25 scenarios reach this line on Windows.
+    unreleasedProfiles.add(profile);
   };
 
   return { evaluate, navigate, waitFor, send, pageErrors, consoleErrors, close, sleep };

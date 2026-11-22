@@ -9,7 +9,7 @@
 //
 // Run: npm run smoke        (add --headful to watch, --only=<name> to filter)
 
-import { launch } from "./cdp.mjs";
+import { launch, sweepStaleProfiles, removePendingProfiles } from "./cdp.mjs";
 import { startDevServer } from "./server.mjs";
 import {
   loadCredentials, login, resetServerAnswers, putServerAnswer,
@@ -2315,6 +2315,15 @@ if (only && selected.length === 0) {
   process.exit(2);
 }
 
+// Collect the profiles of runs that never got to clean up after themselves —
+// a Ctrl-C, a killed CI job, a machine that slept mid-scenario. Age-gated, so
+// a second copy of the suite running right now is left alone.
+const swept = sweepStaleProfiles();
+if (swept.removed > 0) {
+  const mb = (swept.bytes / (1024 * 1024)).toFixed(0);
+  console.log(`Swept ${swept.removed} stale Chrome profile(s) from earlier runs (~${mb} MB)`);
+}
+
 console.log("Starting dev server...");
 const server = await startDevServer({ port: Number(process.env.SMOKE_PORT) || 5199 });
 console.log(`Dev server up at ${server.baseUrl}\n`);
@@ -2399,6 +2408,16 @@ await Promise.all(
 const suiteSeconds = ((Date.now() - suiteStarted) / 1000).toFixed(0);
 
 await server.stop();
+
+// Every browser is dead by here, so the profiles a scenario could not release
+// in time will let go now. Waiting costs nothing: the run is over.
+const stuck = await removePendingProfiles();
+if (stuck.length) {
+  console.warn(
+    `\n⚠ ${stuck.length} Chrome profile(s) could not be removed and are left in the ` +
+      `temp directory:\n  ${stuck.join("\n  ")}\n  The next run sweeps anything over two hours old.`
+  );
+}
 
 const skipped = results.filter((r) => r.skipped);
 const failed = results.filter((r) => !r.ok && !r.skipped);
