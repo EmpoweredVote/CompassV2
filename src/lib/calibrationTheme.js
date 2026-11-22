@@ -37,18 +37,42 @@ import { contrastRatio } from './lensColors.js';
 // progress bar fainter for no legibility gain. That is why the textMuted test
 // measures TEXT_SURFACE_KEYS and not every opaque token — see the note there.
 //
-// ── Light: the ink moved, and the tier went with it ─────────────────────
-// ⚠ #555B66 IS BARELY LIGHTER THAN `textBody`, AND THAT IS STILL THE PRICE
-// HERE. A light-theme ink that clears 4.5:1 on a #D3D7DE rule has to be about
-// as dark as body text — it sits 1.03:1 from #535964. Light's muted tier is
-// therefore mostly gone; what separates secondary text there is size and
-// weight, not colour. The same re-ramp would fix it — darken `cardElev`,
-// `flipBtn` and `progressBg` — and has deliberately not been done yet.
-// Lightening this value instead just reinstates the failure.
+// ── Light: the surfaces could not move, so `textBody` did ───────────────
+// 🔴 LIGHT CANNOT COPY THE DARK FIX, AND IT IS WORTH KNOWING WHY. In dark, a
+// dimmer ink needs a darker surface and there was room below `card` to find
+// one. In light, a lighter ink needs a LIGHTER surface — and `card` is already
+// #FFFFFF. That is a ceiling, not a preference: even with every surface at
+// pure white, the lightest ink still clearing 4.5:1 is #727780, a tier of only
+// 1.57:1. Lightening the chip surfaces toward white buys a little of that and
+// costs their visibility, since a grey chip already sits only 1.17:1 from the
+// white card it is drawn on.
 //
-// Pinned by calibrationTheme.test.js, against every palette in this file.
+// So the muted ink goes as light as the surfaces already allow — #60656F,
+// 4.73:1 on `flipBtn`, the darkest surface either light palette paints text on
+// — and the tier is widened from the OTHER end instead, by darkening
+// `textBody` from #535964 to #3F444D.
+//
+// What that buys is the two themes finally agreeing on what their three text
+// tiers mean. They used to spend their separation in opposite directions:
+//
+//        head/body   body/muted
+//   dark   1.23          1.76      muted is clearly a tier, head barely is
+//   light  1.83          1.03      the exact inverse
+//
+// and now both read 1.2-1.3 between head and body and 1.7-ish between body and
+// muted. Pinned by calibrationTheme.test.js, which compares the two.
+//
+// ⚠ Body text in light mode is genuinely darker than it was. That is the cost,
+// and it is paid in the right place: #3F444D reads 9.79:1 on white where
+// #535964 read 7.05:1, so the tier is bought with MORE legibility rather than
+// less. The squeeze lands on head/body (1.83 -> 1.31), which is where dark has
+// always sat.
 const MUTED_DARK = '#9CA3AF';
-const MUTED_LIGHT = '#555B66';
+const MUTED_LIGHT = '#60656F';
+
+// Light's body ink. It is a token of this change, not a constant that happened
+// to be here: see the note above for why it moved and what it is holding.
+const BODY_LIGHT = '#3F444D';
 
 // ────────────────────────────────────────────────
 // Theme palettes (EV semantic tokens)
@@ -103,7 +127,9 @@ export const LIGHT_THEME = {
   border:         '#D3D7DE',
   borderAccent:   '#00657C',
   textHead:       '#2F3237',
-  textBody:       '#535964',
+  // See BODY_LIGHT — darkened to widen the muted tier from this end,
+  // because light's surfaces had no room left to give.
+  textBody:       BODY_LIGHT,
   // See MUTED_LIGHT.
   textMuted:      MUTED_LIGHT,
   textAccent:     '#00657C',
@@ -176,7 +202,8 @@ export const FULL_LIGHT_THEME = {
   card:         '#FFFFFF',
   border:       '#D3D7DE',
   textHead:     '#2F3237',
-  textBody:     '#535964',
+  // See BODY_LIGHT.
+  textBody:     BODY_LIGHT,
   // 🔴 WAS #9CA3AF — the DARK theme's grey, in the LIGHT theme. 2.54:1 on the
   // white card, 1.76:1 on a #D3D7DE rule. The single worst contrast failure in
   // the calibration flow, and it survived because this palette was a private
