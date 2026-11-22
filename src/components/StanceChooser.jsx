@@ -37,9 +37,12 @@
 //   onSelectStance(topic, value)
 //   onSelectWriteIn(topic, value, text)   immediate, every keystroke; local state
 //   onPersistWriteIn(topic, value, text)  debounced 600 ms; wire THIS to the API
-//   onCancelWriteIn(topic)                the parent MUST clear its stored value.
-//                      Fires on the card's × (card closes) AND when the textarea
-//                      is emptied (card STAYS OPEN at its placement)
+//   onCancelWriteIn(topic, reason)        the parent MUST clear its stored value.
+//                      `reason` is "abandoned" (the card's ×; card closes),
+//                      "emptied" (textarea cleared; card STAYS OPEN at its
+//                      placement) or "replaced" (on the way into a pre-written
+//                      pick). See the note on `reason` below — a parent that
+//                      deletes server-side has to tell them apart.
 //   onWriteInModeChange(isOpen)           fires on every open/close, restore included
 //   onOpenWriteIn()                       fires only when the user asks for the card
 //
@@ -65,6 +68,22 @@
 // rewriting your own words never costs you your position on the scale; the ×
 // is how a write-in is abandoned. Both report `onCancelWriteIn`, because in
 // both the stored answer must go.
+//
+// 🔴 WHY `reason` EXISTS, AND IT IS NOT BOOKKEEPING. A third thing reports a
+// cancel: picking a pre-written stance, which fires one on the way in to drop
+// stale text. All three mean "the stored write-in must go", so for a parent
+// holding local state they are the same event — which is why this used to be a
+// bare `onCancelWriteIn(topic)`.
+//
+// They stop being the same the moment a parent clears the SERVER copy, because
+// "replaced" is followed within the same tick by a POST of the new stance.
+// Those are two independent fire-and-forget requests with no ordering between
+// them, so a DELETE sent on that path can land after the POST and soft-delete
+// the answer the user just gave. A write-in swapped for a stance would vanish
+// server-side, and only on a reload, which is the worst way to find out.
+//
+// The parent cannot infer this. StanceChooser is the only thing that knows
+// which gesture it was, so it says so.
 //
 // `onCancelWriteIn` is an obligation, not a notification. A dismissal is
 // latched here against the value it dismissed (see `dismissedValueRef`), so a
@@ -592,7 +611,9 @@ function StanceChooser({
     if (hadWriteIn) {
       cancelPersist();
       closeWriteIn();
-      onCancelWriteIn?.(topic);
+      // Not a deletion — the stance POST that follows this in the same tick
+      // is what records the answer, and it drops the stale text itself.
+      onCancelWriteIn?.(topic, "replaced");
     }
     onSelectStance?.(topic, stanceValue);
   };
@@ -687,7 +708,7 @@ function StanceChooser({
       // parent clearing `currentAnswer` in response to this very call.
       // Abandoning a write-in has its own control: the card's ×.
       cancelPersist();
-      onCancelWriteIn?.(topic);
+      onCancelWriteIn?.(topic, "emptied");
     }
   };
 
@@ -695,7 +716,7 @@ function StanceChooser({
     const hadValue = liveValueRef.current != null;
     cancelPersist();
     closeWriteIn();
-    if (hadValue) onCancelWriteIn?.(topic);
+    if (hadValue) onCancelWriteIn?.(topic, "abandoned");
   };
 
   // Nothing to choose between: a topic still loading, or one whose stances the

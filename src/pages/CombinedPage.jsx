@@ -27,7 +27,7 @@ import { LOCAL_LENS as LOCAL_LENS_DEFAULT, JUDICIAL_LENS as JUDICIAL_LENS_DEFAUL
 import { tierFromDistrictType } from "../hooks/useFilteredPoliticians";
 import { ENTRY_REASONS } from "../lib/calibrationEvents";
 import { getQuestionText, parseTensionTitle } from "../util/topic";
-import { isWriteIn } from "../lib/writeIn";
+import { isWriteIn, clearsServerCopy } from "../lib/writeIn";
 import { TopicTierBadge } from "@empoweredvote/ev-ui";
 import {
   DndContext,
@@ -1081,7 +1081,17 @@ function CombinedPage() {
   // The answer only goes when it IS a write-in — the chooser also reports a
   // cancel on the way into a stance pick (to clear stale text), and deleting an
   // integer answer there would undo the pick that is arriving right behind it.
-  const handleDrawerCancelWriteIn = (topic) => {
+  const handleDrawerCancelWriteIn = (topic, reason) => {
+    // The server copy goes too — the drawer saves write-ins through
+    // `handleDrawerPersistWriteIn`, so without this the abandoned one comes
+    // back on the next hydration, exactly as it did on the calibration pages.
+    //
+    // ⚠ NOT ON "replaced", for the reason the comment above gives in local
+    // terms: the stance POST arriving right behind this one is unordered
+    // against a DELETE, so sending one there can soft-delete the pick.
+    if (isLoggedIn && clearsServerCopy(reason)) {
+      apiFetch(`/compass/answers/${topic.id}`, { method: 'DELETE' }).catch(() => {});
+    }
     setAnswers(prev => {
       if (!isWriteIn(prev[topic.short_title])) return prev;
       const u = { ...prev };

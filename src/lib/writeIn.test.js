@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { orderStances, valueFromPlacement, placementFromValue, isWriteIn } from "./writeIn";
+import {
+  orderStances,
+  valueFromPlacement,
+  placementFromValue,
+  isWriteIn,
+  clearsServerCopy,
+} from "./writeIn";
 
 const mk = (v) => ({ id: `s${v}`, value: v, text: `stance ${v}` });
 const ASC_5 = [1, 2, 3, 4, 5].map(mk);
@@ -118,5 +124,38 @@ describe("inverted restore", () => {
     // inverted display sits between the stances valued 4 and 5.
     const shown = orderStances([1, 2, 3, 4, 5].map(mk), true);
     expect([shown[3].value, shown[4].value]).toEqual([4, 5]);
+  });
+});
+
+// These exist because the guard they pin was, briefly, not there. Firing the
+// server DELETE on every reported cancel passed all 343 tests in the suite —
+// nothing described the one case where it loses data, so nothing objected.
+describe('clearsServerCopy', () => {
+  it('clears when the user is left with no answer', () => {
+    // The card's × and an emptied textarea both end with the question
+    // unanswered. The stored row has to go, or the next hydration hands the
+    // abandoned write-in straight back — the bug this whole path fixes.
+    expect(clearsServerCopy('abandoned')).toBe(true);
+    expect(clearsServerCopy('emptied')).toBe(true);
+  });
+
+  it('🔴 does NOT clear when a pre-written stance is replacing the write-in', () => {
+    // The stance POST goes out in the same tick. Both calls are
+    // fire-and-forget with no ordering between them, so a DELETE sent here can
+    // land AFTER that POST and soft-delete the answer the user just picked —
+    // gone server-side, and only visible on a reload.
+    expect(clearsServerCopy('replaced')).toBe(false);
+  });
+
+  it('does not clear on a reason it does not recognise', () => {
+    // ⚠ The costs are not symmetric. Failing to clear leaves a stale row the
+    // user can clear again; clearing wrongly destroys an answer they gave. So
+    // this allows rather than excludes, and a future gesture that forgets to
+    // say why fails safe instead of silently deleting.
+    expect(clearsServerCopy(undefined)).toBe(false);
+    expect(clearsServerCopy(null)).toBe(false);
+    expect(clearsServerCopy('')).toBe(false);
+    expect(clearsServerCopy('cancelled')).toBe(false);
+    expect(clearsServerCopy('ABANDONED')).toBe(false);
   });
 });

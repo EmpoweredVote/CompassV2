@@ -28,3 +28,32 @@ export function placementFromValue(value, stanceCount, isInverted) {
 export function isWriteIn(value) {
   return value != null && !Number.isInteger(value);
 }
+
+/**
+ * Should a reported cancel also clear the SERVER's copy of the answer?
+ *
+ * StanceChooser reports a cancel for three gestures (see its `reason` note).
+ * Two of them mean the user is left with no answer — the card's × and an
+ * emptied textarea — and the stored row has to go, or the next hydration hands
+ * the abandoned write-in straight back.
+ *
+ * 🔴 "replaced" MUST NOT DELETE. It means a pre-written stance is being picked,
+ * and its POST goes out in the same tick. The two requests are independent and
+ * unordered, so a DELETE on that path can land after the POST and soft-delete
+ * the answer the user just gave — lost server-side, surfacing only on a reload.
+ * The stance POST already drops the row's write_in_text on its own, so there is
+ * nothing for that path to clean up.
+ *
+ * ⚠ UNKNOWN REASONS DO NOT DELETE, DELIBERATELY. Written as `reason !==
+ * 'replaced'`, a future gesture that forgets to say why would silently start
+ * deleting — the same bug through the back door. The costs are not symmetric:
+ * failing to clear leaves a stale row the user can clear again, while clearing
+ * wrongly destroys an answer they gave. So this allows, rather than excludes.
+ *
+ * It lives here rather than in each parent because three surfaces own write-in
+ * state (FullCalibration, CalibrationOverlay, CombinedPage's drawer) and a rule
+ * copied three times is a rule that drifts twice.
+ */
+export function clearsServerCopy(reason) {
+  return reason === 'abandoned' || reason === 'emptied';
+}

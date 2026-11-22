@@ -12,7 +12,7 @@ import { mergeFlags } from '../lib/recalibration';
 import { indexJournal, showsThread, markAffected } from '../lib/journal';
 import QuestionNotes from '../components/QuestionNotes';
 import StanceChooser from '../components/StanceChooser';
-import { isWriteIn } from '../lib/writeIn';
+import { isWriteIn, clearsServerCopy } from '../lib/writeIn';
 // This page's chrome palette lives beside the stance list's, so one contrast
 // test measures both. It used to be a private copy in this file, and that copy
 // painted the dark theme's muted grey onto white.
@@ -531,11 +531,29 @@ export default function FullCalibration() {
   // Guarded on isWriteIn rather than cleared outright, because the chooser also
   // cancels on the way INTO a stance pick (to drop stale text), and the integer
   // answer arriving behind it must survive that.
-  const clearWriteIn = useCallback((topic) => {
+  const clearWriteIn = useCallback((topic, reason) => {
     if (!topic) return;
     // Re-placing at the same slot after a cancel is a new answer, so it must be
     // reportable again.
     reportedAnswers.current.delete(topic.short_title);
+
+    // 🔴 THE SERVER COPY GOES TOO, AND NOTHING ELSE DID THIS. Every other write
+    // on this page carries a value, because every other write is an answer;
+    // abandoning a write-in is not one, so no POST could say so and the row
+    // survived. CompassContext hydrates `/compass/answers` on the next load and
+    // fills gaps from it — so the abandoned write-in came back, text and
+    // half-step together, on a question the user had explicitly cancelled.
+    //
+    // ⚠ NOT ON "replaced". That reason means a pre-written stance is being
+    // picked, and `handleAnswer` POSTs it in the same tick. Both calls are
+    // fire-and-forget with no ordering between them, so a DELETE sent here
+    // could land AFTER that POST and soft-delete the answer the user just
+    // gave — lost server-side, visible only on a reload. The stance POST
+    // already drops the row's write_in_text by itself, so there is nothing for
+    // this path to clean up anyway.
+    if (isLoggedIn && clearsServerCopy(reason)) {
+      apiFetch(`/compass/answers/${topic.id}`, { method: 'DELETE' }).catch(() => {});
+    }
 
     // Nothing about the completion latch is decided here — removing the answer
     // is only half of a swap, and this handler is called before the other half
@@ -554,7 +572,7 @@ export default function FullCalibration() {
       delete updated[topic.short_title];
       return updated;
     });
-  }, [setAnswers, setWriteIns]);
+  }, [isLoggedIn, setAnswers, setWriteIns]);
 
   // Reported on every open/close, restore included.
   //
