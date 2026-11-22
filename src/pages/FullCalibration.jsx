@@ -12,7 +12,7 @@ import { mergeFlags } from '../lib/recalibration';
 import { indexJournal, showsThread, markAffected } from '../lib/journal';
 import QuestionNotes from '../components/QuestionNotes';
 import StanceChooser from '../components/StanceChooser';
-import { isWriteIn } from '../lib/writeIn';
+import { isWriteIn, clearsServerCopy } from '../lib/writeIn';
 import { eventForAnswer } from '../lib/calibrationEvents';
 import { useNavigate } from "react-router";
 import { track } from "@empoweredvote/analytics";
@@ -586,7 +586,7 @@ export default function FullCalibration() {
     // gave — lost server-side, visible only on a reload. The stance POST
     // already drops the row's write_in_text by itself, so there is nothing for
     // this path to clean up anyway.
-    if (isLoggedIn && reason !== 'replaced') {
+    if (isLoggedIn && clearsServerCopy(reason)) {
       apiFetch(`/compass/answers/${topic.id}`, { method: 'DELETE' }).catch(() => {});
     }
 

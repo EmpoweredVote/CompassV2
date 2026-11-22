@@ -20,7 +20,7 @@ import RadarChart from "./RadarChart";
 import { getQuestionText, parseTensionTitle } from "../util/topic";
 import { TopicTierBadge } from "@empoweredvote/ev-ui";
 import StanceChooser from "./StanceChooser";
-import { isWriteIn } from "../lib/writeIn";
+import { isWriteIn, clearsServerCopy } from "../lib/writeIn";
 import {
   DndContext,
   closestCenter,
@@ -1421,7 +1421,7 @@ export default function CalibrationOverlay({ onComplete, onSkip, resumeMode = fa
     // ⚠ NOT ON "replaced" — a stance POST follows that one in the same tick,
     // unordered against this, and a DELETE landing after it would soft-delete
     // the answer the user just gave.
-    if (isLoggedIn && reason !== 'replaced') {
+    if (isLoggedIn && clearsServerCopy(reason)) {
       apiFetch(`/compass/answers/${topic.id}`, { method: 'DELETE' }).catch(() => {});
     }
 

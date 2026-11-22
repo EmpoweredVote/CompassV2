@@ -27,7 +27,7 @@ import { LOCAL_LENS as LOCAL_LENS_DEFAULT, JUDICIAL_LENS as JUDICIAL_LENS_DEFAUL
 import { tierFromDistrictType } from "../hooks/useFilteredPoliticians";
 import { ENTRY_REASONS } from "../lib/calibrationEvents";
 import { getQuestionText, parseTensionTitle } from "../util/topic";
-import { isWriteIn } from "../lib/writeIn";
+import { isWriteIn, clearsServerCopy } from "../lib/writeIn";
 import { TopicTierBadge } from "@empoweredvote/ev-ui";
 import {
   DndContext,
@@ -1089,7 +1089,7 @@ function CombinedPage() {
     // ⚠ NOT ON "replaced", for the reason the comment above gives in local
     // terms: the stance POST arriving right behind this one is unordered
     // against a DELETE, so sending one there can soft-delete the pick.
-    if (isLoggedIn && reason !== 'replaced') {
+    if (isLoggedIn && clearsServerCopy(reason)) {
       apiFetch(`/compass/answers/${topic.id}`, { method: 'DELETE' }).catch(() => {});
     }
     setAnswers(prev => {
