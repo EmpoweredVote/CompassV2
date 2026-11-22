@@ -80,6 +80,38 @@ const SURFACE_KEYS = [
   'border',
 ];
 
+// 🔴 THE SURFACES TEXT IS ACTUALLY PAINTED ON — a narrower list, on purpose.
+//
+// `border`, `divider`, `sidebarBdr` are 1px rules and `progressBg` is a
+// progress track. Nothing is painted ON any of them, so AA's 4.5:1 for text
+// has nothing to say about them. They are absent here because darkening them
+// to satisfy a text rule they take no part in would make every hairline and
+// the progress bar fainter for no legibility gain — so the dark theme leaves
+// them at #41454E while `card` and `cardElev` move down to meet the ink.
+//
+// writeOwnColor still measures the WIDE list above: it is drawn on a
+// transparent background at four call sites, so any opaque token really can
+// end up behind it. textMuted is always a `color` paired with a `background`
+// in the same style object, and those pairings are enumerable.
+const TEXT_SURFACE_KEYS = [
+  'bg',
+  'sidebar',
+  'card',
+  'cardElev',
+  'stanceBg',
+  'flipBtn',
+  'selBg',
+  'yellowBg',
+];
+
+const pickOpaque = (theme, keys) =>
+  keys.map((key) => [key, theme[key]]).filter(([, hex]) =>
+    /^#[0-9a-f]{6}$/i.test(String(hex))
+  );
+
+/** Surfaces text sits on, for an ink used as `color` beside a `background`. */
+const textSurfaces = (theme) => pickOpaque(theme, TEXT_SURFACE_KEYS);
+
 /** Opaque surfaces only — an rgba() can't be measured without a backdrop. */
 const opaqueSurfaces = (theme) =>
   SURFACE_KEYS.map((key) => [key, theme[key]]).filter(([, hex]) =>
@@ -130,8 +162,8 @@ describe('textMuted', () => {
     ['FULL_LIGHT_THEME', FULL_LIGHT_THEME],
     ['FULL_DARK_THEME', FULL_DARK_THEME],
   ]) {
-    it(`${themeName} clears the contrast floor on every opaque surface`, () => {
-      const failures = opaqueSurfaces(theme)
+    it(`${themeName} clears the contrast floor on every surface text sits on`, () => {
+      const failures = textSurfaces(theme)
         .map(([surface, hex]) => ({
           surface,
           hex,
@@ -143,25 +175,78 @@ describe('textMuted', () => {
     });
   }
 
-  it('🔴 every colour this replaced failed that floor', () => {
+  it('🔴 every colour this replaced failed that floor, on the surface of its day', () => {
     // Kept so the four assertions above are known to be capable of failing.
-    // The last of these is the one that mattered most: the dark theme's grey,
-    // used in a light theme, on white.
-    expect(contrastRatio('#9CA3AF', DARK_THEME.cardElev)).toBeLessThan(MIN_CONTRAST); // 3.78
-    expect(contrastRatio('#6d7a9a', LIGHT_THEME.progressBg)).toBeLessThan(MIN_CONTRAST); // 2.97
-    expect(contrastRatio('#9CA3AF', FULL_DARK_THEME.border)).toBeLessThan(MIN_CONTRAST); // 3.78
-    expect(contrastRatio('#9CA3AF', FULL_LIGHT_THEME.card)).toBeLessThan(MIN_CONTRAST); // 2.54
+    // ⚠ The surfaces are LITERALS, not `DARK_THEME.cardElev` and friends. Two
+    // of those tokens have since moved precisely so the ink could come back,
+    // so reading them live would measure #9CA3AF against #34383E, find 4.64:1,
+    // and quietly stop testing anything.
+    expect(contrastRatio('#9CA3AF', '#41454E')).toBeLessThan(MIN_CONTRAST); // 3.78, old cardElev
+    expect(contrastRatio('#6d7a9a', '#D3D7DE')).toBeLessThan(MIN_CONTRAST); // 2.97, light progressBg
+    expect(contrastRatio('#9CA3AF', '#FFFFFF')).toBeLessThan(MIN_CONTRAST); // 2.54, the worst one
   });
 
-  // The muted tier is now a hair from the body tier in light mode, and that is
-  // a deliberate, documented consequence rather than a slip — see the note on
-  // MUTED_LIGHT. Pinned so nobody "restores the hierarchy" by lightening the
-  // ink, which is precisely the failure that was just fixed. The way back is
-  // to darken the surfaces.
-  it('is barely distinguishable from textBody in light mode, on purpose', () => {
+  // 🔴 THE TIER THE DARK RE-RAMP EXISTS TO RESTORE. #B0B6C0 cleared the floor
+  // by brightening the ink until it sat 1.41:1 from body — the same colour, to
+  // the eye. Pinned so a future contrast fix cannot quietly pay for itself out
+  // of the hierarchy again; the surfaces are what move.
+  it('reads as a separate tier from textBody in dark mode', () => {
+    expect(contrastRatio(DARK_THEME.textMuted, DARK_THEME.textBody)).toBeGreaterThan(1.7);
+    expect(contrastRatio(FULL_DARK_THEME.textMuted, FULL_DARK_THEME.textBody))
+      .toBeGreaterThan(1.7);
+  });
+
+  // Light has NOT had that treatment, and the asymmetry is the honest state of
+  // things rather than an oversight: there the ink moved and the tier went
+  // with it. Pinned so nobody "restores the hierarchy" by lightening the ink,
+  // which is exactly the failure #146 fixed. The way back is the same re-ramp
+  // the dark theme just had — darken cardElev, flipBtn and progressBg.
+  it('is barely distinguishable from textBody in light mode, still', () => {
     expect(contrastRatio(LIGHT_THEME.textMuted, LIGHT_THEME.textBody)).toBeLessThan(1.5);
     expect(contrastRatio(FULL_LIGHT_THEME.textMuted, FULL_LIGHT_THEME.textBody))
       .toBeLessThan(1.5);
+  });
+
+  // The re-ramp's other half. Darkening only `cardElev` also clears the floor,
+  // at 4.64:1 — and collapses this step from 2.77 to 0.75, so a raised chip
+  // merges into the card behind it. `card` moved too, keeping a step of 1.52.
+  // In dark mode elevation reads as LIGHTER, so the order is the assertion.
+  it('keeps a raised surface visibly above the card it sits on', () => {
+    const luminance = (hex) => {
+      const channels = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+      const linear = (c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+      return 0.2126 * linear(channels[0]) + 0.7152 * linear(channels[1]) + 0.0722 * linear(channels[2]);
+    };
+    const step = (a, b) => (luminance(a) - luminance(b)) * 100;
+
+    expect(step(DARK_THEME.cardElev, DARK_THEME.card)).toBeGreaterThan(1);
+    expect(step(DARK_THEME.card, DARK_THEME.bg)).toBeGreaterThan(1);
+    expect(step(FULL_DARK_THEME.flipBtn, FULL_DARK_THEME.card)).toBeGreaterThan(1);
+  });
+
+  // 🔴 WHY THE RULES WERE LEFT BEHIND, STATED AS AN ASSERTION. The tempting
+  // tidy-up is to darken `border`, `divider` and `progressBg` along with the
+  // surfaces, for consistency. They carry no text, so no contrast rule asks
+  // for it — and doing it costs real visibility: at the new elevated value
+  // #34383E a rule drops to 1.21:1 against the card and the progress bar
+  // starts to disappear.
+  //
+  // ⚠ These are "do not go backwards" floors taken from the shipped values,
+  // not WCAG numbers. A rule is not a UI component under 1.4.11 and has no
+  // 3:1 obligation; this exists so the next contrast pass cannot quietly
+  // trade a visible hairline for a tidier palette.
+  it('keeps rules and tracks visible against the surface they are drawn on', () => {
+    for (const [theme, name] of [[DARK_THEME, 'DARK'], [LIGHT_THEME, 'LIGHT']]) {
+      for (const token of ['border', 'divider', 'progressBg', 'stanceBorder']) {
+        const against = token === 'stanceBorder' ? theme.stanceBg : theme.card;
+        expect(
+          { token: `${name}.${token}`, ratio: contrastRatio(theme[token], against) >= 1.4 }
+        ).toEqual({ token: `${name}.${token}`, ratio: true });
+      }
+    }
+    // Drawn on the sidebar, not on a card, and already the faintest of them.
+    expect(contrastRatio(FULL_DARK_THEME.sidebarBdr, FULL_DARK_THEME.sidebar))
+      .toBeGreaterThan(1.2);
   });
 
   it('is one shared value per theme, not a copy per palette', () => {

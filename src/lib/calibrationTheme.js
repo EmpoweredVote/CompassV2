@@ -13,23 +13,41 @@ import { contrastRatio } from './lensColors.js';
 // page's copy of this palette used the DARK grey in its LIGHT theme, where it
 // measured 1.76:1 — grey on a grey rule — and nothing pointed at it.
 //
-// These clear WCAG AA (4.5:1) against every opaque surface in BOTH palettes:
-// worst case 4.71:1 for dark (on cardElev/border) and 4.73:1 for light (on
-// progressBg/border). What they replaced did not: #9CA3AF managed 3.78:1 on
-// the dark cardElev, #6d7a9a managed 2.97:1 on the light progressBg, and
-// #9CA3AF in the light theme failed all nine surfaces.
+// Both clear WCAG AA (4.5:1) on every surface TEXT is painted on, in both
+// palettes. What they replaced did not: #9CA3AF managed 3.78:1 on the dark
+// cardElev, #6d7a9a managed 2.97:1 in light, and #9CA3AF in the light theme
+// failed every surface it touched, down to 2.54:1 on its own white card.
 //
-// ⚠ THEY ARE BARELY LIGHTER THAN `textBody`, AND THAT IS THE PRICE. On this
-// palette, a light-theme ink that clears 4.5:1 on a #D3D7DE rule has to be
-// about as dark as body text — #555B66 sits 1.20:1 from #535964, which is to
-// say it reads as the same colour. The muted TIER is therefore mostly gone in
-// light mode; what separates secondary text now is size and weight, not
-// colour. Getting the tier back is a change to the SURFACES (the rules and
-// tracks are too light), not to this value — lightening these again just
-// reinstates the failure.
+// ── Dark: the surfaces moved, not the ink ───────────────────────────────
+// #B0B6C0 cleared the floor by brightening the ink until it almost matched
+// `textBody`, leaving a muted tier 1.41:1 from body — the same colour, to the
+// eye. The ink is back to #9CA3AF (1.76:1 from body, the tier as designed) and
+// the two surfaces that carry muted text moved down to meet it instead:
+// `card` #2F3237 -> #282B30 and `cardElev` #41454E -> #34383E, giving 5.59:1
+// and 4.64:1.
+//
+// `card` had to move with `cardElev`. Darkening only the elevated surface
+// clears the floor at 4.64:1 too, but collapses the card -> chip step from
+// 2.77 to 0.75 and the raised chip merges into the card behind it. Moving both
+// keeps a step of 1.52, pinned below.
+//
+// ⚠ RULES AND TRACKS KEPT #41454E DELIBERATELY. `border`, `divider` and
+// `progressBg` carry no text, so the 4.5:1 floor for text has nothing to say
+// about them; darkening them to match would make every hairline and the
+// progress bar fainter for no legibility gain. That is why the textMuted test
+// measures TEXT_SURFACE_KEYS and not every opaque token — see the note there.
+//
+// ── Light: the ink moved, and the tier went with it ─────────────────────
+// ⚠ #555B66 IS BARELY LIGHTER THAN `textBody`, AND THAT IS STILL THE PRICE
+// HERE. A light-theme ink that clears 4.5:1 on a #D3D7DE rule has to be about
+// as dark as body text — it sits 1.03:1 from #535964. Light's muted tier is
+// therefore mostly gone; what separates secondary text there is size and
+// weight, not colour. The same re-ramp would fix it — darken `cardElev`,
+// `flipBtn` and `progressBg` — and has deliberately not been done yet.
+// Lightening this value instead just reinstates the failure.
 //
 // Pinned by calibrationTheme.test.js, against every palette in this file.
-const MUTED_DARK = '#B0B6C0';
+const MUTED_DARK = '#9CA3AF';
 const MUTED_LIGHT = '#555B66';
 
 // ────────────────────────────────────────────────
@@ -37,8 +55,13 @@ const MUTED_LIGHT = '#555B66';
 // ────────────────────────────────────────────────
 export const DARK_THEME = {
   bg:             '#131416',
-  card:           '#2F3237',
-  cardElev:       '#41454E',
+  // card and cardElev carry muted text; they sit where they do so #9CA3AF
+  // clears 4.5:1 on both. See MUTED_DARK — and keep cardElev lighter than
+  // card, which is what makes a raised chip read as raised.
+  card:           '#282B30',
+  cardElev:       '#34383E',
+  // A 1px rule, not a text background. Deliberately NOT darkened with the
+  // surfaces above: see MUTED_DARK.
   border:         '#41454E',
   borderAccent:   '#59B0C4',
   textHead:       '#EBEDEF',
@@ -53,14 +76,22 @@ export const DARK_THEME = {
   yellow:         '#FED12E',
   yellowDark:     '#D0A301',
   yellowBg:       'rgba(254,209,46,0.12)',
+  // A progress track and a hairline. Neither is a text background, so both
+  // keep #41454E while the surfaces above move — see MUTED_DARK.
   progressBg:     '#41454E',
   divider:        '#41454E',
   stickyBg:       'rgba(19,20,22,0.97)',
-  stanceBg:       '#2F3237',
+  // Tracks `card`: a stance button is a card-coloured surface carrying body
+  // text, and the two were one value before this.
+  stanceBg:       '#282B30',
   stanceText:     '#D3D7DE',
+  // The button's outline, not its fill. Left at #41454E, which now reads a
+  // little stronger against the darker stanceBg rather than weaker.
   stanceBorder:   '#41454E',
-  // Clears WCAG AA (4.5:1) on every opaque surface in this theme; the worst
-  // case is cardElev at 4.76:1. The old #6B7280 managed only 1.99:1 there.
+  // Clears WCAG AA (4.5:1) on every opaque surface in this theme — the broad
+  // invariant, because this one is drawn on a TRANSPARENT background and the
+  // chooser mounts on four different surfaces. Worst case is now the rule
+  // tokens at #41454E (4.76:1); the old #6B7280 managed only 1.99:1 there.
   // Pinned by calibrationTheme.test.js.
   writeOwnColor:  '#B0B7C3',
 };
@@ -111,8 +142,12 @@ export const LIGHT_THEME = {
 export const FULL_DARK_THEME = {
   bg:           '#131416',
   sidebar:      '#1A1C1F',
+  // A rule on the sidebar, not a text background. Unmoved — which does leave
+  // it a shade lighter than `card` now; that is fine, it is drawn on
+  // `sidebar`, never on a card.
   sidebarBdr:   '#2A2D33',
-  card:         '#2F3237',
+  // Tracks DARK_THEME.card, which it has always equalled. See MUTED_DARK.
+  card:         '#282B30',
   border:       '#41454E',
   textHead:     '#EBEDEF',
   textBody:     '#D3D7DE',
@@ -128,7 +163,10 @@ export const FULL_DARK_THEME = {
   // wrong.
   activeItem:   'rgba(89,176,196,0.09)',
   checkColor:   '#59B0C4',
-  flipBtn:      '#41454E',
+  // This one DOES carry muted text — `{ background: th.flipBtn, color:
+  // th.textMuted }` on the flip control — so it moves with cardElev, which is
+  // the role it plays here. 4.64:1.
+  flipBtn:      '#34383E',
 };
 
 export const FULL_LIGHT_THEME = {
