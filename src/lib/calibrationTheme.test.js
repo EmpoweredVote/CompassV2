@@ -196,15 +196,42 @@ describe('textMuted', () => {
       .toBeGreaterThan(1.7);
   });
 
-  // Light has NOT had that treatment, and the asymmetry is the honest state of
-  // things rather than an oversight: there the ink moved and the tier went
-  // with it. Pinned so nobody "restores the hierarchy" by lightening the ink,
-  // which is exactly the failure #146 fixed. The way back is the same re-ramp
-  // the dark theme just had — darken cardElev, flipBtn and progressBg.
-  it('is barely distinguishable from textBody in light mode, still', () => {
-    expect(contrastRatio(LIGHT_THEME.textMuted, LIGHT_THEME.textBody)).toBeLessThan(1.5);
+  it('reads as a separate tier from textBody in light mode too', () => {
+    // Light could not be fixed the way dark was. A lighter ink needs a LIGHTER
+    // surface and `card` is already #FFFFFF — a ceiling, not a preference. So
+    // the tier was widened from the other end, by darkening textBody.
+    expect(contrastRatio(LIGHT_THEME.textMuted, LIGHT_THEME.textBody)).toBeGreaterThan(1.5);
     expect(contrastRatio(FULL_LIGHT_THEME.textMuted, FULL_LIGHT_THEME.textBody))
-      .toBeLessThan(1.5);
+      .toBeGreaterThan(1.5);
+  });
+
+  // 🔴 THE POINT OF THE LIGHT CHANGE, AND THE ONLY TEST THAT STATES IT.
+  // The two themes used to spend their separation in opposite directions —
+  //
+  //          head/body   body/muted
+  //   dark     1.23         1.76      muted is clearly a tier, head barely is
+  //   light    1.83         1.03      the exact inverse
+  //
+  // so "muted" meant one thing to a dark-mode reader and another to a
+  // light-mode one. Neither column was wrong on its own, which is why four
+  // passes over these palettes never caught it: you only see it by putting the
+  // themes side by side, which is what this does.
+  it('spaces its three text tiers the same way in both themes', () => {
+    const tiers = (theme) => ({
+      headBody: contrastRatio(theme.textHead, theme.textBody),
+      bodyMuted: contrastRatio(theme.textBody, theme.textMuted),
+    });
+    const dark = tiers(DARK_THEME);
+    const light = tiers(LIGHT_THEME);
+
+    expect(Math.abs(dark.headBody - light.headBody)).toBeLessThan(0.25);
+    expect(Math.abs(dark.bodyMuted - light.bodyMuted)).toBeLessThan(0.25);
+    // Both gaps must be real, in both themes — matching at 1.0 each would
+    // satisfy the comparison above while meaning there are no tiers at all.
+    for (const t of [dark, light]) {
+      expect(t.headBody).toBeGreaterThan(1.15);
+      expect(t.bodyMuted).toBeGreaterThan(1.5);
+    }
   });
 
   // The re-ramp's other half. Darkening only `cardElev` also clears the floor,
