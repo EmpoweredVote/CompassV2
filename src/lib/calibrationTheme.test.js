@@ -224,6 +224,31 @@ describe('textMuted', () => {
     expect(step(FULL_DARK_THEME.flipBtn, FULL_DARK_THEME.card)).toBeGreaterThan(1);
   });
 
+  // 🔴 WHY THE RULES WERE LEFT BEHIND, STATED AS AN ASSERTION. The tempting
+  // tidy-up is to darken `border`, `divider` and `progressBg` along with the
+  // surfaces, for consistency. They carry no text, so no contrast rule asks
+  // for it — and doing it costs real visibility: at the new elevated value
+  // #34383E a rule drops to 1.21:1 against the card and the progress bar
+  // starts to disappear.
+  //
+  // ⚠ These are "do not go backwards" floors taken from the shipped values,
+  // not WCAG numbers. A rule is not a UI component under 1.4.11 and has no
+  // 3:1 obligation; this exists so the next contrast pass cannot quietly
+  // trade a visible hairline for a tidier palette.
+  it('keeps rules and tracks visible against the surface they are drawn on', () => {
+    for (const [theme, name] of [[DARK_THEME, 'DARK'], [LIGHT_THEME, 'LIGHT']]) {
+      for (const token of ['border', 'divider', 'progressBg', 'stanceBorder']) {
+        const against = token === 'stanceBorder' ? theme.stanceBg : theme.card;
+        expect(
+          { token: `${name}.${token}`, ratio: contrastRatio(theme[token], against) >= 1.4 }
+        ).toEqual({ token: `${name}.${token}`, ratio: true });
+      }
+    }
+    // Drawn on the sidebar, not on a card, and already the faintest of them.
+    expect(contrastRatio(FULL_DARK_THEME.sidebarBdr, FULL_DARK_THEME.sidebar))
+      .toBeGreaterThan(1.2);
+  });
+
   it('is one shared value per theme, not a copy per palette', () => {
     // The copy IS the bug: FULL_LIGHT_THEME drifted onto the dark grey.
     expect(FULL_DARK_THEME.textMuted).toBe(DARK_THEME.textMuted);
