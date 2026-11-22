@@ -235,3 +235,4 @@ by ten unit tests, and if only the smoke scenario is failing, read those first.
 `guest-onboarding` passes even with the bug reverted, and that is correct —
 during the overlay every answered topic *is* selected, so nothing gets capped.
 If it starts failing too, the suite has become non-specific.
+
