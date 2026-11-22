@@ -13,6 +13,13 @@ import { indexJournal, showsThread, markAffected } from '../lib/journal';
 import QuestionNotes from '../components/QuestionNotes';
 import StanceChooser from '../components/StanceChooser';
 import { isWriteIn } from '../lib/writeIn';
+// This page's chrome palette lives beside the stance list's, so one contrast
+// test measures both. It used to be a private copy in this file, and that copy
+// painted the dark theme's muted grey onto white.
+import {
+  FULL_DARK_THEME as DARK,
+  FULL_LIGHT_THEME as LIGHT,
+} from '../lib/calibrationTheme';
 import { eventForAnswer } from '../lib/calibrationEvents';
 import { useNavigate } from "react-router";
 import { track } from "@empoweredvote/analytics";
@@ -31,48 +38,6 @@ const CATEGORY_COLORS = [
 // translucent so it reads on both themes without a second pair of tokens.
 const RECALIBRATE_ACCENT = '#7C3AED';
 const RECALIBRATE_BG = 'rgba(124,58,237,0.12)';
-
-const DARK = {
-  bg:           '#131416',
-  sidebar:      '#1A1C1F',
-  sidebarBdr:   '#2A2D33',
-  card:         '#2F3237',
-  border:       '#41454E',
-  textHead:     '#EBEDEF',
-  textBody:     '#D3D7DE',
-  textMuted:    '#9CA3AF',
-  textAccent:   '#59B0C4',
-  selBg:        'rgba(89,176,196,0.12)',
-  selBorder:    '#59B0C4',
-  yellow:       '#FED12E',
-  progressBg:   '#41454E',
-  // No stance tokens here: the stance list is StanceChooser's, and it serves
-  // its own palette from calibrationTheme. Keeping a dead copy would point the
-  // next reader at the wrong file when a stance button looks wrong.
-  activeItem:   'rgba(89,176,196,0.09)',
-  checkColor:   '#59B0C4',
-  flipBtn:      '#41454E',
-};
-
-const LIGHT = {
-  bg:           '#F7F7F8',
-  sidebar:      '#FFFFFF',
-  sidebarBdr:   '#E5E7EB',
-  card:         '#FFFFFF',
-  border:       '#D3D7DE',
-  textHead:     '#2F3237',
-  textBody:     '#535964',
-  textMuted:    '#9CA3AF',
-  textAccent:   '#00657C',
-  selBg:        '#E4F3F6',
-  selBorder:    '#00657C',
-  yellow:       '#FED12E',
-  progressBg:   '#D3D7DE',
-  // See DARK: the stance tokens live in calibrationTheme, not here.
-  activeItem:   '#EAF5F8',
-  checkColor:   '#00657C',
-  flipBtn:      '#E5E7EB',
-};
 
 function CheckIcon({ color }) {
   return (
