@@ -10,9 +10,9 @@ CHROME_PATH=/path/to/chrome npm run smoke  # if Chrome is somewhere unusual
 SMOKE_CONCURRENCY=1 npm run smoke          # one scenario at a time (default 3)
 ```
 
-The three signed-in scenarios (`authed-*`, `guest-lenses-promote-on-sign-in`)
-need credentials (below) and **skip** rather than fail without them, so the
-suite still runs for anyone. Exits non-zero on failure. Runs on every PR via
+The signed-in scenarios — every one marked `sharedAccount: true`, which is not
+only the `authed-*` ones — need credentials (below) and **skip** rather than
+fail without them, so the suite still runs for anyone. Exits non-zero on failure. Runs on every PR via
 `.github/workflows/build-check.yml`.
 
 ## Why it exists
@@ -86,6 +86,23 @@ Two properties of that bug shaped this suite:
 | `authed-hydrates-server-answers` | A signed-in user with one stray local answer still loads their server answers, and does not lose the local one. Runs on `/calibrate` on purpose (see below). |
 | `authed-answer-reaches-server` | An answer given while signed in actually persists server-side. Those POSTs are fire-and-forget, so a failure is otherwise silent. |
 | `compare-links-reach-essentials` | "Compare on Essentials" points at Essentials, and a saved comparison's "View full profile on Essentials" link goes to `/politician/<id>#compass=…`. Comparing lives on Essentials now (#111), so these links are the whole compare feature from here. |
+| `write-in-survives-the-broker-echo` | A guest can answer in their own words on `/calibrate` — open the card, type, drag it into place — and both the text and its half-step value survive a page load and the broker round trip. |
+| `write-in-reaches-the-server` | A signed-in user's write-in reaches the server *with* `write_in_text`, at a non-integer value. The POST is debounced and fire-and-forget, so losing the text is otherwise silent. |
+
+This table has never listed every scenario; `run.mjs` is the complete list.
+
+### Driving the write-in card
+
+The two write-in scenarios are the only ones that drive a real drag, and the
+helpers in `run.mjs` carry the two details that make it work: the press must
+land on `write-in-grip` (the only element with dnd-kit's listeners, so the
+textarea stays typeable), and the travel is measured from the **card's** centre
+rather than the cursor's, because `closestCenter` compares the dragged node's
+rect against the droppables. Aiming the pointer at the target row moves the
+card by the wrong delta and it lands a slot or two off — intermittently.
+
+Text goes in via `Input.insertText`, never `el.value = …`: React owns that
+property, so an assignment updates the DOM and leaves component state behind.
 
 ### Authed scenarios
 
@@ -144,6 +161,19 @@ If either one fails at its *seeding* check instead, the scenario has stopped
 testing #65. Both seed from the topics JSON page, not an app page, so the app's
 first load already sees the built compass; seeding from an app page lets that
 load publish an empty compass that the buggy code then applies on reload.
+
+The write-in pair was checked the same way on 2026-11-21, one bug at a time:
+
+- Remove the `localStorage.setItem("writeIns", …)` effect in
+  `CompassContext.jsx` → `write-in-survives-the-broker-echo` FAILS with
+  `the typed stance was not saved for "<topic>": got undefined`.
+- Drop `write_in_text` from the POST body in `FullCalibration.jsx`'s
+  `persistWriteIn` → `write-in-reaches-the-server` FAILS with
+  `the server has 0 row(s) carrying that text out of 1`.
+
+If either one starts failing at `expected the write-in to answer exactly one
+topic, got []`, the drag stopped registering and the scenario is no longer
+testing persistence at all — fix the drag before trusting the result.
 
 `guest-onboarding` passes even with the bug reverted, and that is correct —
 during the overlay every answered topic *is* selected, so nothing gets capped.
