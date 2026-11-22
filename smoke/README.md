@@ -88,6 +88,7 @@ Two properties of that bug shaped this suite:
 | `compare-links-reach-essentials` | "Compare on Essentials" points at Essentials, and a saved comparison's "View full profile on Essentials" link goes to `/politician/<id>#compass=…`. Comparing lives on Essentials now (#111), so these links are the whole compare feature from here. |
 | `write-in-survives-the-broker-echo` | A guest can answer in their own words on `/calibrate` — open the card, type, drag it into place — and both the text and its half-step value survive a page load and the broker round trip. |
 | `write-in-reaches-the-server` | A signed-in user's write-in reaches the server *with* `write_in_text`, at a non-integer value. The POST is debounced and fire-and-forget, so losing the text is otherwise silent. |
+| `write-in-placed-by-keyboard` | The same placement with no pointer at all: Shift+Tab out of the editor must land on the handle, and the arrow keys must put the card where the equivalent drag would. Asserts the identical value to the drag scenario. |
 
 This table has never listed every scenario; `run.mjs` is the complete list.
 
@@ -103,6 +104,24 @@ card by the wrong delta and it lands a slot or two off — intermittently.
 
 Text goes in via `Input.insertText`, never `el.value = …`: React owns that
 property, so an assignment updates the DOM and leaves component state behind.
+
+### The keyboard route, and why it is here rather than in a unit test
+
+The card can also be placed with the arrow keys, and `placeWriteInByKeyboard`
+drives that. Nearly all of it is better covered by
+`src/components/StanceChooser.test.jsx` — an arrow press needs no geometry, so
+those are real unit tests rather than a mocked `DndContext`.
+
+One thing is not. The helper reaches the handle by pressing **Shift+Tab out of
+the editor** and asserting where focus landed, because focus order belongs to
+the browser and jsdom will not tell you the truth about it. The bug this covers
+was exactly that: the handle was a plain div carrying dnd-kit's listeners, so
+it was never in the tab order, while the card's own text told the user to move
+it. A helper that called `.focus()` on the handle would sail straight past it.
+
+Keys go through `Input.dispatchKeyEvent`, not `new KeyboardEvent(…)`: a
+synthetic event has no default action, so a synthetic Shift+Tab moves focus
+nowhere.
 
 ### Authed scenarios
 
@@ -174,6 +193,22 @@ The write-in pair was checked the same way on 2026-11-21, one bug at a time:
 If either one starts failing at `expected the write-in to answer exactly one
 topic, got []`, the drag stopped registering and the scenario is no longer
 testing persistence at all — fix the drag before trusting the result.
+
+`write-in-placed-by-keyboard` was checked the same way on 2026-11-21, by
+putting back the shape that shipped before it, one piece at a time, in
+`StanceChooser.jsx`:
+
+- Turn the handle back into `<div {...listeners}>` and move `{...attributes}`
+  back onto the card → FAILS with `Shift+Tab out of the editor reached
+  "write-in-card", not the write-in handle`. That message is the old bug
+  verbatim: focus went to the card, which carried dnd-kit's `tabIndex`, and
+  the handle itself was not reachable at all.
+- Pass `onMove={undefined}` to the card → FAILS with `expected the arrow keys
+  to answer exactly one topic, got []`. The handle takes focus but the keys
+  move nothing.
+
+The first of those is the one that needs a browser. The second is also caught
+by ten unit tests, and if only the smoke scenario is failing, read those first.
 
 `guest-onboarding` passes even with the bug reverted, and that is correct —
 during the overlay every answered topic *is* selected, so nothing gets capped.

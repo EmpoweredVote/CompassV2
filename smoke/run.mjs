@@ -272,6 +272,86 @@ const giveWriteInAnswer = async (b, text) => {
   return { topic: fresh[0], stanceCount, state };
 };
 
+/**
+ * Press one non-text key, through the browser's own input pipeline.
+ *
+ * Not `el.dispatchEvent(new KeyboardEvent(…))`: a synthetic event has no
+ * default action, so a synthetic Tab moves focus nowhere and a synthetic
+ * ArrowUp cannot be shown NOT to scroll. Both of those are the point here.
+ */
+const KEYS = {
+  Tab: { code: "Tab", vk: 9 },
+  ArrowUp: { code: "ArrowUp", vk: 38 },
+  ArrowDown: { code: "ArrowDown", vk: 40 },
+};
+const pressKey = async (b, key, { shift = false } = {}) => {
+  const { code, vk } = KEYS[key];
+  const base = {
+    key,
+    code,
+    windowsVirtualKeyCode: vk,
+    nativeVirtualKeyCode: vk,
+    modifiers: shift ? 8 : 0,
+  };
+  await b.send("Input.dispatchKeyEvent", { type: "rawKeyDown", ...base });
+  await b.send("Input.dispatchKeyEvent", { type: "keyUp", ...base });
+  await b.sleep(120);
+};
+
+/** Which test id (if any) the browser's focus is actually sitting on. */
+const focusedTestId = (b) =>
+  b.evaluate(`(document.activeElement && document.activeElement.dataset
+    ? document.activeElement.dataset.testid || null
+    : null)`);
+
+/**
+ * Place the open write-in card with the keyboard alone, the way a user with no
+ * pointer must: Shift+Tab out of the editor onto the handle, then arrow it up.
+ *
+ * It asserts the handle actually TOOK focus before pressing anything. That is
+ * the defect this covers — the handle used to be a plain div carrying the drag
+ * listeners, so it was never in the tab order and the arrow keys had nothing
+ * to arrive at, while the card's own text told the user to move it. A test
+ * that called `.focus()` on the handle would pass over exactly that bug.
+ *
+ * Returns how many stance rows were on screen.
+ */
+const placeWriteInByKeyboard = async (b, slotsUp, { settleMs = 1300 } = {}) => {
+  const rows = await b.evaluate(
+    `document.querySelectorAll('[data-testid="stance-row"]').length`
+  );
+  assert(rows > 0, "no stance rows to place the write-in among");
+
+  const inEditor = await b.evaluate(`(() => {
+    const el = document.querySelector('[data-testid="write-in-card"] textarea');
+    if (!el) return false;
+    el.focus();
+    return document.activeElement === el;
+  })()`);
+  assert(inEditor, "the write-in card has no focusable textarea");
+
+  await pressKey(b, "Tab", { shift: true });
+  const landed = await focusedTestId(b);
+  assert(
+    landed === "write-in-grip",
+    `Shift+Tab out of the editor reached ${JSON.stringify(landed)}, not the write-in ` +
+      `handle. The handle must be a real focusable control — a div with dnd-kit's ` +
+      `listeners on it is not in the tab order, which is the whole defect this covers.`
+  );
+
+  for (let i = 0; i < slotsUp; i++) await pressKey(b, "ArrowUp");
+  await b.sleep(settleMs);
+
+  // The handle keeps focus across the moves; losing it would strand the user
+  // after the first press.
+  const stillThere = await focusedTestId(b);
+  assert(
+    stillThere === "write-in-grip",
+    `focus left the handle during the arrow presses and is now on ${JSON.stringify(stillThere)}`
+  );
+
+  return rows;
+};
 const answeredCount = (b) =>
   b.evaluate(`Object.keys(JSON.parse(localStorage.getItem('answers') || '{}')).length`);
 
@@ -618,6 +698,88 @@ const scenarios = [
       );
 
       return `"${topic}" answered in the user's own words at ${expected}, intact after the echo`;
+    },
+  },
+
+  {
+    name: "write-in-placed-by-keyboard",
+    // The pointer half of this path is covered by the two scenarios around it.
+    // This is the half a keyboard-only user has: the card used to tell them to
+    // drag it somewhere while carrying no control they could reach, so they
+    // could open it, type into it, and then not answer the question.
+    //
+    // Worth a real browser rather than jsdom for the one thing jsdom cannot
+    // show — that Shift+Tab out of the editor genuinely lands on the handle.
+    // Focus order is the browser's, and a test that called `.focus()` on the
+    // handle would pass straight over the bug this exists for.
+    //
+    // The value assertion is deliberately the SAME one the drag scenario
+    // makes. Both put the card in the top slot; if the two gestures ever stop
+    // agreeing on what that is worth, one of these two fails.
+    async run(b, baseUrl) {
+      const TEXT = "Only if the counties are funded for it";
+      // One press per stance plus one reaches the top slot from where the card
+      // parks. Extra presses are safe — the move stops at the top rather than
+      // running off the list — so this does not have to be exact to be checkable.
+      const PRESSES = 8;
+
+      // Seeded from the topics JSON for the reason the #65 scenarios give: an
+      // app page's first load would publish an empty compass to the broker.
+      await b.navigate(`${baseUrl}${API}/topics`, { settleMs: 1000 });
+      const seeded = await seedBuiltCompass(b, 8);
+      assert(seeded === 8, `seeding failed, got ${seeded} answers`);
+
+      await b.navigate(`${baseUrl}/calibrate`, { settleMs: 8000 });
+      await b.waitFor(`${STANCE_BUTTONS}.length > 0`, { label: "stance buttons" });
+
+      const before = Object.keys((await writeInState(b)).answers);
+
+      await clickTestId(b, "write-own-option");
+      await b.waitFor(`!!document.querySelector('[data-testid="write-in-card"]')`, {
+        label: "write-in card",
+      });
+      await typeIntoWriteIn(b, TEXT);
+
+      const stanceCount = await placeWriteInByKeyboard(b, PRESSES);
+
+      const state = await writeInState(b);
+      const fresh = Object.keys(state.answers).filter((k) => !before.includes(k));
+      assert(
+        fresh.length === 1,
+        `expected the arrow keys to answer exactly one topic, got ${JSON.stringify(fresh)}. ` +
+          `Empty means the presses reached the handle but moved nothing: the handler hangs ` +
+          `off the handle's onKeyDown and commits through the same path as a drop.`
+      );
+      const topic = fresh[0];
+
+      // Exactly the drag scenario's expectation, read from this user's own
+      // inversion rather than hardcoded.
+      const flipped = !!state.inverted[topic];
+      const expected = flipped ? 0.5 : stanceCount + 0.5;
+      assert(
+        state.answers[topic] === expected,
+        `"${topic}" has ${stanceCount} stances and the card was arrowed to the top slot, ` +
+          `so the value should be ${expected} (spokes ${flipped ? "flipped" : "not flipped"} ` +
+          `for this user) — got ${JSON.stringify(state.answers[topic])}. A keyboard ` +
+          `placement must score identically to the equivalent drag.`
+      );
+      assert(
+        state.writeIns[topic] === TEXT,
+        `the typed stance was not saved for "${topic}": got ${JSON.stringify(state.writeIns[topic])}`
+      );
+
+      // A keyboard placement rides the 600 ms debounce rather than saving on
+      // every press, so the last thing to show is that what it finally wrote
+      // survives a load like any other answer.
+      await b.navigate(`${baseUrl}/calibrate`, { settleMs: 7000 });
+      const after = await writeInState(b);
+      assert(
+        after.answers[topic] === expected && after.writeIns[topic] === TEXT,
+        `the keyboard-placed write-in did not survive a reload: ` +
+          `${JSON.stringify(after.answers[topic])} / ${JSON.stringify(after.writeIns[topic])}`
+      );
+
+      return `"${topic}" placed with Shift+Tab and ${PRESSES} arrow presses, at ${expected}, intact after a reload`;
     },
   },
 
@@ -1237,7 +1399,17 @@ const scenarios = [
       })()`);
       await b.navigate(`${baseUrl}/results`, { settleMs: 8000 });
 
-      // The count badge rides on the chip even before the lens is opened.
+      // The count badge rides on the chip even before the lens is opened. It
+      // is something the suite can SEE, so it waits for it rather than
+      // trusting the fixed settle above — the README's own rule. One more
+      // scenario in the pool was enough to make 8000ms occasionally too
+      // short, and the failure then read as a missing badge rather than a
+      // slow one, which points at the app instead of at the clock.
+      await settleUntil(
+        b,
+        `!!document.querySelector('[data-testid="lens-flags-u_flag01"]')`,
+        6000
+      );
       const badge = await b.evaluate(
         `(document.querySelector('[data-testid="lens-flags-u_flag01"]') || {}).textContent || null`
       );

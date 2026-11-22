@@ -614,6 +614,41 @@ describe("placing a write-in from the keyboard", () => {
     expect(card().hasAttribute("tabindex")).toBe(false);
   });
 
+
+  it("consumes the arrow press rather than letting the page scroll under the card", () => {
+    render({});
+    click(writeOwn());
+
+    const event = new KeyboardEvent("keydown", {
+      key: "ArrowUp",
+      bubbles: true,
+      cancelable: true,
+    });
+    act(() => {
+      grip().dispatchEvent(event);
+    });
+
+    // Without this the browser scrolls instead, which is exactly what "the
+    // arrow keys do nothing" looked like from the outside.
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it("leaves keys it does not use to the browser", () => {
+    render({});
+    click(writeOwn());
+
+    const event = new KeyboardEvent("keydown", {
+      key: "Home",
+      bubbles: true,
+      cancelable: true,
+    });
+    act(() => {
+      grip().dispatchEvent(event);
+    });
+
+    expect(event.defaultPrevented).toBe(false);
+    expect(rowIndexOfCard()).toBe(5);
+  });
   it("names both routes in the hint, since one of them has no visible affordance", () => {
     render({});
     click(writeOwn());
