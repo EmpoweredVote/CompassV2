@@ -94,12 +94,48 @@ export async function getServerLenses(token) {
   return res.json();
 }
 
-/** Whole-set replace with the empty set — the throwaway account's reset. */
+/**
+ * The throwaway account's lens reset: delete every lens it holds, naming each.
+ *
+ * 🔴 THIS USED TO PUT `{ lenses: [] }` AND THAT NOW 409s. The server stopped
+ * reading a short payload as "delete the rest" (ev-accounts#1584), because one
+ * transient fetch failure could produce that payload with nobody having asked
+ * for a deletion — measured on prod 2026-11-22, three lenses in, one survivor.
+ * So an omission means "keep" and a deletion has to be NAMED in `delete_keys`.
+ *
+ * ⚠ ONE PER REQUEST, DELIBERATELY. A single PUT naming every key would work
+ * today and stop working the moment the one-deletion-per-request cap lands.
+ * Writing it as a loop now means this helper survives that change untouched —
+ * and it mirrors the product, where deleting a lens is always one at a time.
+ *
+ * No lenses means no request at all, which is why this is safe to call at the
+ * start of a scenario against an account that is already empty.
+ */
 export async function clearServerLenses(token) {
-  const res = await fetch(`${API}/compass/my-lenses`, {
-    method: "PUT",
-    headers: authed(token),
-    body: JSON.stringify({ lenses: [] }),
-  });
-  if (!res.ok) throw new Error(`PUT /compass/my-lenses failed (${res.status})`);
+  const existing = await getServerLenses(token);
+
+  // The wire shape differs by direction: camelCase out, snake_case in.
+  let remaining = existing.map((l) => ({
+    key: l.key,
+    name: l.name,
+    topic_ids: Array.isArray(l.topicIds) ? l.topicIds : [],
+    visibility: l.visibility ?? "private",
+  }));
+
+  while (remaining.length > 0) {
+    const doomed = remaining[0];
+    remaining = remaining.slice(1);
+
+    const res = await fetch(`${API}/compass/my-lenses`, {
+      method: "PUT",
+      headers: authed(token),
+      body: JSON.stringify({ lenses: remaining, delete_keys: [doomed.key] }),
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throw new Error(
+        `PUT /compass/my-lenses failed clearing ${doomed.key} (${res.status}) ${body.slice(0, 200)}`
+      );
+    }
+  }
 }
