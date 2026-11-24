@@ -4,7 +4,6 @@ import { buildSidebarGroups } from '../lib/calibrationSidebar';
 import { displayLenses, getLensColor, getLensInk } from '../lib/lenses';
 import { readableOn } from '../lib/lensColors';
 import { lensProgress } from '../lib/lensProgress';
-import { answerReveal, indexStats } from '../lib/topicStats';
 import LensIcon from '../components/LensIcon';
 import ProgressRing from '../components/ProgressRing';
 import ExplainerPopover from '../components/ExplainerPopover';
@@ -123,16 +122,27 @@ export default function FullCalibration() {
   // "Why do the options move around?" — the Flip control's own explainer.
   const [showFlipExplainer, setShowFlipExplainer] = useState(false);
 
-  // How the officials answered, keyed by topic. Public and identical for
-  // everyone, so it is fetched once and never refetched.
-  const [statsByTopic, setStatsByTopic] = useState(() => new Map());
-  // The line about the answer just given. It deliberately OUTLIVES the question
-  // that produced it: the gap between answering and the next question is 420ms,
-  // which is not long enough to read a sentence, and stretching it to be long
-  // enough would add a minute of waiting across a sixty-question run. So it
-  // names its own topic and sits above the NEXT question instead, where it can
-  // be read at whatever pace the reader likes and costs the run nothing.
-  const [reveal, setReveal] = useState(null);
+  // Flags the reader has finished with, for this page session only.
+  //
+  // 🔴 WHAT CLOSES A FLAG IS THE READER, NOT THE SERVER. /recalibration-flags
+  // is fetched once on mount and the answer that clears a flag is written long
+  // after — so without this set the violet mark outlives the very thing it was
+  // asking for and sits there, undimmable, until a full page reload. Answering
+  // a question adds it; so does closing its note, because having read what
+  // changed IS the other way of being done with it.
+  //
+  // Per session and deliberately NOT persisted, the same rule the compass
+  // screen keeps: a revised question is a standing fact, and a prompt somebody
+  // can silence forever is one that never gets acted on. A later visit asks the
+  // server again and the server answers honestly.
+  const [dismissedFlags, setDismissedFlags] = useState(() => new Set());
+  const dismissFlag = useCallback((topicId) => {
+    if (!topicId) return;
+    // Guarded rather than unconditional: applyWriteIn runs on EVERY keystroke,
+    // and an unguarded `new Set(prev)` there would re-render the page per
+    // character for a set that already contains the id.
+    setDismissedFlags(prev => (prev.has(topicId) ? prev : new Set(prev).add(topicId)));
+  }, []);
 
   const itemRefs = useRef({});
 
@@ -189,8 +199,12 @@ export default function FullCalibration() {
   // ever has, since their answers were never stamped against a revision.
   // mergeFlags owns the tie-break (a suppressed record wins).
   const flagsByTopic = useMemo(
-    () => mergeFlags({ compassFlags: flags, lensFlags: pinnedLens?.needsRecalibration }),
-    [flags, pinnedLens]
+    () => mergeFlags({
+      compassFlags: flags,
+      lensFlags: pinnedLens?.needsRecalibration,
+      dismissed: dismissedFlags,
+    }),
+    [flags, pinnedLens, dismissedFlags]
   );
 
   // The flag for the question on screen, if it has one. Drives the "What
@@ -218,10 +232,8 @@ export default function FullCalibration() {
     return () => { cancelled = true; };
   }, [isLoggedIn]);
 
-  // Public, identical for every caller, and cached server-side for an hour —
-  // so it is fetched once for everyone, signed in or not, and never refetched.
-  // Failing silently is correct: no stats means no line after an answer, which
-  // is exactly where this page was before.
+  // Which questions have something written about them. Public, tiny, and the
+  // same for everyone, so it is fetched once and never refetched.
   //
   // 🔴 publicFetch, NOT apiFetch, AND THE DIFFERENCE IS A LOGOUT. apiFetch
   // treats a 401 as an expired session: it tries a refresh and, when that comes
@@ -229,24 +241,9 @@ export default function FullCalibration() {
   // endpoint is optionalAuth and returns 200 to a guest — but it answered 401
   // for the minutes between this app deploying and the API deploying, and under
   // apiFetch that would have thrown guests off the calibration page mid-run,
-  // over a decorative line. A public read must never be able to end a session.
-  useEffect(() => {
-    let cancelled = false;
-    publicFetch('/compass/topic-stats')
-      .then(r => (r && r.ok ? r.json() : []))
-      .then(rows => { if (!cancelled) setStatsByTopic(indexStats(rows)); })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, []);
-
-  // Which questions have something written about them. Public, tiny, and the
-  // same for everyone, so it is fetched once alongside the stats.
+  // over a decorative mark. A public read must never be able to end a session.
   //
-  // 🔴 publicFetch, FOR THE REASON SPELLED OUT ABOVE. A public read must never
-  // be able to end a session, and this endpoint deployed after the client that
-  // calls it — exactly the window in which it answers 401 to everybody.
-  //
-  // Failing silently leaves no ⓘ, which is where this page was yesterday.
+  // Failing silently leaves no ⓘ, which is where this page was before it.
   useEffect(() => {
     let cancelled = false;
     publicFetch('/compass/journal/index')
@@ -434,17 +431,9 @@ export default function FullCalibration() {
 
     setSelectedValue(value);
     setAnswers(prev => ({ ...prev, [tp.short_title]: value }));
-
-    // 🔴 THE ONLY PLACE THIS IS BUILT, AND THAT IS THE SAFEGUARD. A crowd figure
-    // shown above five options nobody has chosen yet is an anchor on a product
-    // whose claim is that it does not push. Deriving the line here — inside the
-    // handler, from the value just picked — means there is no path that renders
-    // it before the choice, rather than a convention that it must not be.
-    setReveal(answerReveal({
-      stats: statsByTopic.get(tp.id),
-      value,
-      topicName: parseTensionTitle(tp).name,
-    }));
+    // Answered, so the question is no longer asking anything: the violet mark
+    // goes with the answer rather than outliving it.
+    dismissFlag(tp.id);
 
     if (isLoggedIn) {
       // A value-only POST is also what CLEARS any write_in_text the server
@@ -472,12 +461,8 @@ export default function FullCalibration() {
       // last topic — the compass was already complete, so there is nothing to
       // announce as finished.
     }, 420);
-    // ⚠ statsByTopic IS LOAD-BEARING HERE. It arrives from its own fetch, well
-    // after this callback is first memoised. Left out, the closure keeps the
-    // empty Map it was built with and every lookup misses — no reveal, ever,
-    // with nothing failing and nothing in the console to say why.
   }, [activeTopic, allTopics, answers, isLoggedIn, selectedValue, reviewMode,
-      statsByTopic, reportAnswer, dropFromReanswer, finishRun, setAnswers]);
+      reportAnswer, dropFromReanswer, dismissFlag, finishRun, setAnswers]);
 
   // ── Write-ins ───────────────────────────────────────────────────────────
   // Every keystroke and every drop, straight from StanceChooser. Local state
@@ -500,6 +485,9 @@ export default function FullCalibration() {
     setAnswers(prev => ({ ...prev, [topic.short_title]: value }));
     setWriteIns(prev => ({ ...prev, [topic.short_title]: text }));
     reportAnswer(topic, value, 'write_in', newAnsweredCount);
+    // Answering in your own words is answering. Guarded inside dismissFlag,
+    // because this runs on every keystroke.
+    dismissFlag(topic.id);
 
     // The run can still END on a write-in, and `calibration_completed` is what
     // App.jsx routes on — so a compass finished in someone's own words must not
@@ -508,8 +496,8 @@ export default function FullCalibration() {
     if (!reviewMode && !nextTopicFrom(allTopics, topic.id, updatedAnswers, reviewMode, stillOwed)) {
       finishRun(newAnsweredCount);
     }
-  }, [allTopics, answers, reviewMode, reportAnswer, dropFromReanswer, finishRun,
-      setAnswers, setWriteIns]);
+  }, [allTopics, answers, reviewMode, reportAnswer, dropFromReanswer, dismissFlag,
+      finishRun, setAnswers, setWriteIns]);
 
   // Debounced 600 ms inside StanceChooser, fired immediately on a drop, and
   // flushed when the question changes — so moving on does not eat the last
@@ -998,7 +986,15 @@ export default function FullCalibration() {
                 allTopics.find(tp => tp.id === openFlagTopicId) ?? {}
               ).name
             }
-            onClose={() => setOpenFlagTopicId(null)}
+            // Closing the note is the other way of being done with the flag:
+            // they came to find out what changed, and now they know. The mark
+            // goes; the question stays answerable from the sidebar like any
+            // other. NOT onRecalibrate — that one is on its way to answer it,
+            // and the mark should still be there if they change their mind.
+            onClose={() => {
+              dismissFlag(openFlagTopicId);
+              setOpenFlagTopicId(null);
+            }}
             onRecalibrate={() => {
               const tp = allTopics.find(t => t.id === openFlagTopicId);
               if (tp) {
@@ -1085,31 +1081,15 @@ export default function FullCalibration() {
                 </div>
               )}
 
-              {/* What the officials said about the question just answered.
-                  Never about the one on screen — see `reveal`. */}
-              {reveal && (
-                <div
-                  data-testid="answer-reveal"
-                  className="mb-5 rounded-xl px-4 py-2.5 flex items-start gap-2.5"
-                  style={{ background: th.selBg, border: `1px solid ${th.selBorder}` }}
-                >
-                  <svg width="15" height="15" viewBox="0 0 15 15" fill="none" className="flex-none mt-0.5">
-                    <circle cx="7.5" cy="7.5" r="6.5" stroke={th.textAccent} strokeWidth="1.3" />
-                    <path d="M7.5 6.8v4M7.5 4.4v.9" stroke={th.textAccent} strokeWidth="1.5" strokeLinecap="round" />
-                  </svg>
-                  <p className="text-xs leading-relaxed flex-1" style={{ color: th.textBody }}>
-                    {reveal.text}
-                  </p>
-                  <button
-                    onClick={() => setReveal(null)}
-                    aria-label="Dismiss"
-                    className="flex-none text-xs leading-none px-1 transition-opacity hover:opacity-60 cursor-pointer"
-                    style={{ color: th.textMuted }}
-                  >
-                    ✕
-                  </button>
-                </div>
-              )}
+              {/* 🔴 NO CROWD FIGURE HERE, AND THAT IS A PRODUCT RULE. This slot
+                  used to carry "You're with N of the M officials who answered",
+                  built after the click so it could never anchor the choice. The
+                  timing was the only thing wrong with it that the timing could
+                  fix: telling somebody how many officials agree with the answer
+                  they just gave rewards the answer for being popular, which is
+                  the bandwagon the compass exists to take apart. How a question
+                  has moved between seasons belongs in the focused community,
+                  where it can be discussed, not in a banner that scores you. */}
 
               {/* Category + flip row */}
               <div className="flex items-center justify-between mb-5">
