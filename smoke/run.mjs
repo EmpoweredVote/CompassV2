@@ -1860,6 +1860,253 @@ const scenarios = [
   },
 
   {
+    name: "the-mark-retires-with-the-answer",
+    // The violet "i" used to outlive the thing it was asking for. /calibrate
+    // fetches its flags once on mount, and the answer that clears one is
+    // written long afterwards, so the mark sat there — undimmable — until a
+    // full page reload. Answering quieted the row tint and swapped the circle
+    // for a tick, which is exactly why it was easy to miss: the page looked
+    // HALF resolved while the mark that says "this needs you" kept shouting.
+    //
+    // 🔴 THE ROW HIGHLIGHT AND THE MARK HAVE DIFFERENT SOURCES, which is how
+    // this got past review-routes-to-full-calibration-and-asks. That one
+    // asserts `recalibrate-pending-*`, which comes from `mustReanswer`; the
+    // mark comes from mergeFlags() over the PINNED LENS. Counting pendings
+    // cannot see this bug, so this scenario counts marks.
+    //
+    // Four retirement rules, all asserted here because each is a product
+    // decision somebody could reasonably reverse by accident:
+    //   answering    retires it — the mark goes with the answer
+    //   a write-in   retires it — answering in your own words is answering
+    //   "Later"      retires it — they came to read what changed, and now have
+    //   "Review"     does NOT — that click is on its way to answer, and the
+    //                mark must still be there if they change their mind
+    async run(b, baseUrl) {
+      const topics = await fetchTopics(baseUrl, 6);
+      const lensTopics = topics.slice(0, 5);
+      // answered / written in / note closed / reviewed but not answered
+      const [answerIt, writeIn, closeIt, reviewIt] = lensTopics.slice(1, 5);
+      const ids = lensTopics.map((t) => t.id);
+
+      await b.navigate(`${baseUrl}/results`, { settleMs: 4000 });
+      await b.evaluate(`(() => {
+        localStorage.clear();
+        sessionStorage.clear();
+        const answers = {};
+        ${JSON.stringify(lensTopics.map((t) => t.short_title))}
+          .forEach((s, i) => { answers[s] = (i % 5) + 1; });
+        localStorage.setItem('answers', JSON.stringify(answers));
+        localStorage.setItem('selectedTopics', ${JSON.stringify(JSON.stringify(ids))});
+        localStorage.setItem('calibration_completed', 'true');
+        localStorage.setItem('customLenses', JSON.stringify([{
+          key: 'u_mark01', name: 'Mark Lens', visibility: 'private',
+          topicIds: JSON.parse(${JSON.stringify(JSON.stringify(ids))}),
+          needsRecalibration: ${JSON.stringify(
+            [answerIt, writeIn, closeIt, reviewIt].map((t) => ({
+              topicId: t.id,
+              reason: "question_revised",
+              disposition: "reworded",
+              currentValue: 3,
+              publicNote: "Wording updated for the new season.",
+              answeredVersion: 1,
+              effectiveVersion: 2,
+            }))
+          )},
+        }]));
+      })()`);
+
+      await b.navigate(`${baseUrl}/calibrate`, { settleMs: 9000 });
+      const picked = await b.evaluate(`(() => {
+        const el = document.querySelector('[data-testid="calibration-lens-u_mark01"]');
+        if (!el) return 'NOT_FOUND';
+        el.click();
+        return 'OK';
+      })()`);
+      assert(picked === "OK", "the saved custom lens is missing from the picker");
+      await b.waitFor(
+        `document.querySelectorAll('[data-testid^="change-note-"]').length > 0`,
+        { label: "change-note marks" }
+      );
+
+      // 🔴 THE SOLID VIOLET ONES ONLY. A question with a design-diary entry
+      // behind it renders the SAME testid wearing the row's muted ink — an
+      // invitation to read, not a request for an answer. Matching on the
+      // testid alone would count those too, and this scenario would then pass
+      // on a page where every flag mark had vanished.
+      //
+      // DISTINCT, because a pinned lens's questions are listed TWICE: once in
+      // the pinned group and again in the library below it, which stays there
+      // deliberately. Both rows carry the same testid.
+      const marks = `(() => [...new Set(
+        [...document.querySelectorAll('[data-testid^="change-note-"]')]
+          .filter(el => getComputedStyle(el).backgroundColor === 'rgb(124, 58, 237)')
+          .map(el => el.getAttribute('data-testid').replace('change-note-', ''))
+      )])()`;
+
+      const before = await b.evaluate(marks);
+      assert(
+        before.length === 4,
+        `expected 4 violet marks for 4 flagged questions, got ${before.length}: ` +
+          JSON.stringify(before)
+      );
+
+      // Open a flagged question from the sidebar. NOT by `recalibrate-pending-`
+      // — that testid hangs off `mustReanswer`, which the Review handoff fills
+      // and pinning a lens does not, so it is absent on this path. The row
+      // button is the mark's own sibling, which needs no second source.
+      const openRow = (id) => `(() => {
+        const mark = document.querySelector('[data-testid="change-note-${id}"]');
+        if (!mark) return 'NO_MARK';
+        const row = mark.parentElement.querySelector('button');
+        if (!row) return 'NO_ROW';
+        row.click();
+        return 'OK';
+      })()`;
+
+      // ...and WAIT for the panel to actually be showing it, with `waitFor`
+      // rather than `settleUntil`: settleUntil returns SILENTLY on timeout, so
+      // a missed switch sails on and answers whichever question was open
+      // before — which surfaces three steps later as "the write-in landed on
+      // the wrong topic" and sends you hunting in the wrong place.
+      //
+      // The active row is the only one with a filled background, since nothing
+      // on this path owes a re-answer.
+      const rowIsActive = (id) => `(() => {
+        const mark = document.querySelector('[data-testid="change-note-${id}"]');
+        if (!mark) return false;
+        return getComputedStyle(mark.parentElement).backgroundColor !== 'rgba(0, 0, 0, 0)';
+      })()`;
+
+      // 🔴 AND AFTER EVERY ANSWER, WAIT FOR THE PAGE TO STOP MOVING. Answering
+      // starts a settle timer and then AUTO-ADVANCES to the next unanswered
+      // question — out of this lens entirely, since the library is full of
+      // them. Clicking the next row before that lands gets overridden by it.
+      // `write-own-option` is disabled for exactly as long as a pick is
+      // settling (`disabled={selectedValue !== null}`), so its enabled state is
+      // the honest "the page is done moving" signal.
+      const SETTLED = `(() => {
+        const el = document.querySelector('[data-testid="write-own-option"]');
+        return !!el && !el.disabled;
+      })()`;
+
+      // "Review" is on its way to ANSWER the question. Leaving the mark up is
+      // deliberate: nothing has been answered yet and the reader may back out.
+      await clickTestId(b, `change-note-${reviewIt.id}`);
+      await b.waitFor(`!!document.querySelector('[data-testid="recalibration-popover"]')`, {
+        label: "the change note",
+      });
+      await clickTestId(b, "recalibrate-confirm", { settleMs: 1600 });
+      const afterReview = await b.evaluate(marks);
+      assert(
+        afterReview.includes(reviewIt.id),
+        `taking "Review" must NOT retire the mark — it is on its way to answer ` +
+          `and the reader can still change their mind. Marks: ${JSON.stringify(afterReview)}`
+      );
+
+      // Answering retires it, with no reload.
+      assert(
+        (await b.evaluate(openRow(answerIt.id))) === "OK",
+        `could not open ${answerIt.short_title} from the sidebar`
+      );
+      await b.waitFor(`${STANCE_BUTTONS}.length > 0`, { label: "stance options" });
+      await b.waitFor(rowIsActive(answerIt.id), {
+        label: `${answerIt.short_title} to be the question on screen`,
+      });
+      await b.evaluate(`${STANCE_BUTTONS}[0].click()`);
+      await settleUntil(b, `!${marks}.includes(${JSON.stringify(answerIt.id)})`, 6000);
+      const afterAnswer = await b.evaluate(marks);
+      assert(
+        !afterAnswer.includes(answerIt.id),
+        `the answered question kept its mark: ${JSON.stringify(afterAnswer)}`
+      );
+
+      // Answering in the reader's own words is answering. A separate code path:
+      // a write-in commits through applyWriteIn, not the stance handler.
+      await b.waitFor(SETTLED, { label: "the previous answer to finish settling" });
+      assert(
+        (await b.evaluate(openRow(writeIn.id))) === "OK",
+        `could not open ${writeIn.short_title} from the sidebar`
+      );
+      await b.waitFor(`${STANCE_BUTTONS}.length > 0`, { label: "stance options" });
+      await b.waitFor(rowIsActive(writeIn.id), {
+        label: `${writeIn.short_title} to be the question on screen`,
+      });
+      // 🔴 AND THEN LET THE CHOOSER SETTLE. StanceChooser re-derives its card
+      // from the newly active topic in an effect, and that effect CLOSES an
+      // open write-in (StanceChooser.jsx:470) — so a card opened in the gap
+      // between the row lighting up and the effect running is torn down again,
+      // and the scenario fails later as "no write-in card".
+      await b.sleep(1500);
+      // Not giveWriteInAnswer(): that helper identifies the topic it answered by
+      // looking for a NEW key in `answers`, and every question here is already
+      // answered — which is the whole premise of a recalibration flag. So the
+      // same three steps, checked against the stored write-in instead.
+      const WRITE_IN_TEXT = "Mark retirement, in my own words";
+      await clickTestId(b, "write-own-option");
+      await b.waitFor(`!!document.querySelector('[data-testid="write-in-card"]')`, {
+        label: "write-in card",
+      });
+      await typeIntoWriteIn(b, WRITE_IN_TEXT);
+      await placeWriteIn(b, 0, { overshootPx: -24 });
+
+      const written = await writeInState(b);
+      assert(
+        written.writeIns[writeIn.short_title] === WRITE_IN_TEXT,
+        `the write-in did not land on ${writeIn.short_title}. Stored write-ins: ` +
+          JSON.stringify(written.writeIns)
+      );
+      assert(
+        !Number.isInteger(written.answers[writeIn.short_title]),
+        `a write-in answer must be a half-step between rungs, got ` +
+          `${JSON.stringify(written.answers[writeIn.short_title])}`
+      );
+      await settleUntil(b, `!${marks}.includes(${JSON.stringify(writeIn.id)})`, 6000);
+      const afterWriteIn = await b.evaluate(marks);
+      assert(
+        !afterWriteIn.includes(writeIn.id),
+        `a write-in did not retire the mark: ${JSON.stringify(afterWriteIn)}`
+      );
+
+      // Closing the note is the other way of being done with it.
+      await clickTestId(b, `change-note-${closeIt.id}`);
+      await b.waitFor(`!!document.querySelector('[data-testid="recalibration-popover"]')`, {
+        label: "the change note",
+      });
+      await clickTestId(b, "recalibrate-later", { settleMs: 1600 });
+      const afterClose = await b.evaluate(marks);
+      assert(
+        !afterClose.includes(closeIt.id),
+        `closing the note did not retire the mark: ${JSON.stringify(afterClose)}`
+      );
+
+      // Exactly the one that was only reviewed is left.
+      assert(
+        afterClose.length === 1 && afterClose[0] === reviewIt.id,
+        `expected only the reviewed-not-answered mark to survive, got ` +
+          JSON.stringify(afterClose)
+      );
+
+      // 🔴 AND NO CROWD FIGURE, EVER. "You're with N of the M officials who
+      // answered" was removed because telling somebody how many officials
+      // agree with the answer they just gave rewards the answer for being
+      // popular. Building it after the click stopped it anchoring the choice;
+      // it never stopped it being a reward. Asserted here because this is the
+      // scenario that clicks a stance and then reads the page.
+      const text = await b.evaluate(`document.body.innerText || ''`);
+      assert(
+        !/officials who answered/i.test(text) && !/you're with \d/i.test(text),
+        `a crowd-agreement line is back on the page after answering`
+      );
+      assert(
+        !(await b.evaluate(`!!document.querySelector('[data-testid="answer-reveal"]')`)),
+        "the answer-reveal slot is back in the DOM"
+      );
+
+      return `4 marks -> 1: answer, write-in and "Later" each retired one, "Review" kept its own`;
+    },
+  },
+
+  {
     name: "the-question-explains-itself",
     // Three things the question panel gained, all of which fail SILENTLY —
     // a missing line looks like a design choice, not a bug — so each is
