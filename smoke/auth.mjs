@@ -94,48 +94,43 @@ export async function getServerLenses(token) {
   return res.json();
 }
 
-/**
- * The throwaway account's lens reset: delete every lens it holds, naming each.
+/*
+ * 🔴🔴 THERE IS NO `clearServerLenses` HERE ANY MORE, AND IT MUST NOT COME BACK.
+ * REMOVED 2026-11-25. It deleted every lens the shared test account held, one
+ * named `delete_keys` PUT each, so that a scenario could start from a known
+ * empty account.
  *
- * 🔴 THIS USED TO PUT `{ lenses: [] }` AND THAT NOW 409s. The server stopped
- * reading a short payload as "delete the rest" (ev-accounts#1584), because one
- * transient fetch failure could produce that payload with nobody having asked
- * for a deletion — measured on prod 2026-11-22, three lenses in, one survivor.
- * So an omission means "keep" and a deletion has to be NAMED in `delete_keys`.
+ * WHY IT WENT. ev-accounts runs a nightly `lens durability` check. It reads
+ * every soft delete in `inform.compass_user_lens_history` over a 7-day window
+ * and fails when ONE owner lost more than one lens, because that is the shape of
+ * a member losing work (the 2026-11-22 incident it was built for). Nothing in
+ * the data marks this account as a test account, so every reset this helper did
+ * read as a person losing lenses. Measured 2026-11-25: 9 removal events in the
+ * window, all of them ours, the gate red, and its own self-test blocked — it
+ * refuses to run against a red baseline. The cost is not the red. The cost is
+ * that a check which is red every morning gets acknowledged without being read,
+ * and then it is not watching anything.
  *
- * ⚠ ONE PER REQUEST, DELIBERATELY. A single PUT naming every key would work
- * today and stop working the moment the one-deletion-per-request cap lands.
- * Writing it as a loop now means this helper survives that change untouched —
- * and it mirrors the product, where deleting a lens is always one at a time.
+ * ⚠ DELETE-THEN-RESTORE IS NOT A WAY ROUND IT. The check counts removal EVENTS,
+ * not the lens set as it stands, so an undone deletion still counts. The suite
+ * already restored and was still red.
  *
- * No lenses means no request at all, which is why this is safe to call at the
- * start of a scenario against an account that is already empty.
+ * ▶ WHAT TO DO INSTEAD: reuse a fixed key and overwrite it, and put a per-run
+ * nonce somewhere the assertion reads, so that "it is still there" cannot pass
+ * on the last run's leftovers. `guest-lenses-promote-on-sign-in` in run.mjs is
+ * the worked example.
+ *
+ * WHAT THIS GIVES UP, STATED PLAINLY: nothing in smoke now exercises
+ * `delete_keys` against production. That contract is covered by unit tests in
+ * ev-accounts (`backend/src/routes/compass.lensCap.test.ts`, including a key
+ * named twice counting as one deletion), and the delete *interface* is still
+ * covered here by `guest-can-edit-and-delete-a-lens`, which is guest-only and
+ * never reaches the server.
+ *
+ * The knowledge the helper carried, kept because it is still true of the API:
+ * `{ lenses: [] }` no longer means "delete the rest" — it 409s (ev-accounts#1584,
+ * after one transient fetch failure produced that payload with nobody asking for
+ * a deletion: prod 2026-11-22, three lenses in, one survivor). An omission means
+ * KEEP, a deletion must be NAMED in `delete_keys`, and one PUT may name at most
+ * one deletion.
  */
-export async function clearServerLenses(token) {
-  const existing = await getServerLenses(token);
-
-  // The wire shape differs by direction: camelCase out, snake_case in.
-  let remaining = existing.map((l) => ({
-    key: l.key,
-    name: l.name,
-    topic_ids: Array.isArray(l.topicIds) ? l.topicIds : [],
-    visibility: l.visibility ?? "private",
-  }));
-
-  while (remaining.length > 0) {
-    const doomed = remaining[0];
-    remaining = remaining.slice(1);
-
-    const res = await fetch(`${API}/compass/my-lenses`, {
-      method: "PUT",
-      headers: authed(token),
-      body: JSON.stringify({ lenses: remaining, delete_keys: [doomed.key] }),
-    });
-    if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      throw new Error(
-        `PUT /compass/my-lenses failed clearing ${doomed.key} (${res.status}) ${body.slice(0, 200)}`
-      );
-    }
-  }
-}

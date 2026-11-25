@@ -14,7 +14,7 @@ import { startDevServer } from "./server.mjs";
 import {
   loadCredentials, login, resetServerAnswers, putServerAnswer,
   getServerAnswers, setServerSelectedTopics,
-  getServerLenses, clearServerLenses,
+  getServerLenses,
 } from "./auth.mjs";
 
 /** Thrown by a scenario that cannot run here; reported as SKIP, not failure. */
@@ -1300,15 +1300,50 @@ const scenarios = [
     // signing in. Promotion is one whole-set PUT, and local storage is cleared
     // only after the server confirms — clearing state that was not confirmed
     // written is how you lose a user's work to one bad response.
+    //
+    // 🔴 THIS SCENARIO DELETES NOTHING ON THE SERVER, AND THAT IS LOAD-BEARING.
+    // It used to call clearServerLenses before and after, purely so that
+    // "Promoted lens is on the server" could not pass on last run's leftovers.
+    // Each of those clears issued one soft delete per lens the account held, and
+    // ev-accounts' nightly `lens durability` check reads EVERY soft delete in a
+    // 7-day window and fails when one owner lost more than one lens — it cannot
+    // tell this account from a member, because nothing in the data says which is
+    // which. Measured 2026-11-25: 9 removal events in the window, every one of
+    // them this suite, condition 1 red, and the gate's own self-test blocked
+    // because it refuses to run against a red baseline. A tripwire that is red
+    // every morning is a tripwire nobody reads.
+    //
+    // ⚠ RESTORING AFTERWARDS DOES NOT FIX IT. The check counts removal EVENTS in
+    // `inform.compass_user_lens_history`, not the lens set as it stands now, so a
+    // delete that is immediately undone still counts. The only version of this
+    // scenario that does not trip the gate is one that never deletes.
+    //
+    // ▶ SO THE FIXTURE IS NOW PERMANENT AND THE ASSERTION CARRIES THE PROOF.
+    // `u_smoke1` is created once and overwritten by every later run. What makes
+    // the assertion mean something is the per-run nonce in its NAME: a promotion
+    // that silently does not write leaves the PREVIOUS run's name sitting there,
+    // and this fails. Asserting on the topic ids could not do that job —
+    // `topics.slice(0, 8)` is deterministic, so two runs choose the same eight
+    // and a no-op promotion would read as a pass.
     async run(b, baseUrl) {
       const creds = loadCredentials();
       if (!creds) throw new Skip("no SMOKE_EMAIL / SMOKE_PASSWORD available");
       const token = await login(creds);
       await requireMyLensesApi(token);
-      await clearServerLenses(token);
 
       const topics = await fetchTopics(baseUrl, 8);
       const chosen = topics.slice(0, 8).map((t) => t.id);
+
+      // The nonce. Seconds alone are not enough: two runs in the same second
+      // would collide and the no-op case would pass, which is the one case this
+      // name exists to catch.
+      const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const promotedName = `Promoted lens ${stamp}`;
+
+      // What the account held BEFORE this run, so the failure message can say
+      // whether we are looking at a stale lens or at nothing at all.
+      const before = await getServerLenses(token);
+      const staleName = before.find((l) => l.key === "u_smoke1")?.name ?? null;
 
       await b.navigate(`${baseUrl}/results`, { settleMs: 4000 });
       await b.evaluate(`(() => {
@@ -1317,7 +1352,7 @@ const scenarios = [
         localStorage.setItem('selectedTopics', ${JSON.stringify(JSON.stringify(chosen))});
         localStorage.setItem('calibration_completed', 'true');
         localStorage.setItem('customLenses', JSON.stringify([{
-          key: 'u_smoke1', name: 'Promoted lens',
+          key: 'u_smoke1', name: ${JSON.stringify(promotedName)},
           topicIds: ${JSON.stringify(JSON.stringify(chosen))} && JSON.parse(${JSON.stringify(JSON.stringify(chosen))}),
           visibility: 'private',
         }]));
@@ -1328,16 +1363,26 @@ const scenarios = [
       await b.navigate(`${baseUrl}/results`, { settleMs: 14000 });
 
       const server = await getServerLenses(token);
+      const promoted = server.find((l) => l.key === "u_smoke1");
       assert(
-        server.some((l) => l.name === "Promoted lens"),
-        `promoted lens missing from the server; got ${JSON.stringify(server.map((l) => l.name))}`
+        promoted?.name === promotedName,
+        promoted
+          ? `u_smoke1 on the server is named ${JSON.stringify(promoted.name)}, not this run's ` +
+            `${JSON.stringify(promotedName)}. ` +
+            (promoted.name === staleName
+              ? `That is EXACTLY the name it carried before this run, so the promotion PUT never ` +
+                `reached the server — the guest's lens was dropped on sign-in.`
+              : `Another run may have written in between; CI serialises smoke jobs, a local ` +
+                `\`npm run smoke\` is outside that lock.`)
+          : `u_smoke1 is missing from the server entirely; got ` +
+            `${JSON.stringify(server.map((l) => l.key))}`
       );
 
       const local = await b.evaluate(`localStorage.getItem('customLenses')`);
       assert(local === null, `guest lenses were not cleared after promotion (still ${local})`);
 
-      await clearServerLenses(token);
-      return `promoted 1 lens for ${creds.email}`;
+      // Deliberately no cleanup. See the note above the scenario.
+      return `promoted u_smoke1 as ${JSON.stringify(promotedName)} for ${creds.email}`;
     },
   },
 
