@@ -57,11 +57,22 @@ Two properties of that bug shaped this suite:
   finishing order, not file order. Set `SMOKE_CONCURRENCY=1` to get the old
   one-at-a-time run when a failure looks like it might be timing.
 - **Signed-in scenarios never overlap each other.** Scenarios marked
-  `sharedAccount: true` all sign in to the one test account and delete and
-  rewrite its answers and lenses. They run one after another in a single lane,
+  `sharedAccount: true` all sign in to the one test account and rewrite its
+  answers and lenses. They run one after another in a single lane,
   which takes one worker slot beside the guest scenarios. **Mark any new
   scenario that signs in `sharedAccount: true`**, or it will race the others
   for the account.
+- 🔴 **NEVER DELETE A LENS ON THE SERVER FROM HERE.** Answers are reset freely;
+  lenses are not, and the difference is not a style choice. ev-accounts runs a
+  nightly `lens durability` check that reads every soft delete over seven days
+  and fails when one owner lost more than one lens — the shape of a member
+  losing work. Nothing marks this account as a test account, so every lens we
+  delete reads as exactly that, and a tripwire that is red every morning is one
+  nobody reads. ⚠ Restoring afterwards does **not** help: the check counts
+  removal *events*, not the lens set as it stands. Reuse a fixed key, overwrite
+  it, and put a per-run nonce where the assertion reads it — see
+  `guest-lenses-promote-on-sign-in`, and the note where `clearServerLenses`
+  used to live in `auth.mjs`.
 - **…and no two RUNS overlap either, which is a separate problem.** That lane
   is per-run. Nothing stopped two CI runs holding the same account at once, and
   two PRs pushed two minutes apart duly wiped each other's seeded answers:
